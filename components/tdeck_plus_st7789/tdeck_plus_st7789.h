@@ -3,7 +3,6 @@
 #include "esphome/core/component.h"
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/spi/spi.h"
-#include "esphome/core/gpio.h"
 
 namespace esphome {
 namespace tdeck_plus_st7789 {
@@ -38,10 +37,6 @@ class TDeckPlusST7789 : public PollingComponent,
   uint8_t backlight_pin_;
   bool reset_pin_set_{false};
   bool backlight_pin_set_{false};
-  
-  GPIOPin *dc_gpio_{nullptr};
-  GPIOPin *reset_gpio_{nullptr};
-  GPIOPin *backlight_gpio_{nullptr};
 };
 
 }  // namespace tdeck_plus_st7789
