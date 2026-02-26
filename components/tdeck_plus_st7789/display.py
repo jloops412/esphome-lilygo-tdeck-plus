@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import display, spi
+from esphome import pins
 from esphome.const import (
     CONF_DC_PIN,
     CONF_ID,
@@ -16,15 +17,13 @@ TDeckPlusST7789 = tdeck_plus_st7789_ns.class_(
     "TDeckPlusST7789", cg.PollingComponent, display.DisplayBuffer, spi.SPIDevice
 )
 
-InternalGPIOPin = cg.global_ns.class_("InternalGPIOPin", cg.GPIOPin)
-
 CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TDeckPlusST7789),
-            cv.Required(CONF_DC_PIN): cv.int_,
-            cv.Optional(CONF_RESET_PIN): cv.int_,
-            cv.Optional(CONF_BACKLIGHT_PIN): cv.int_,
+            cv.Required(CONF_DC_PIN): pins.internal_gpio_output_pin_schema,
+            cv.Optional(CONF_RESET_PIN): pins.internal_gpio_output_pin_schema,
+            cv.Optional(CONF_BACKLIGHT_PIN): pins.internal_gpio_output_pin_schema,
         }
     )
     .extend(cv.polling_component_schema("1s"))
@@ -37,14 +36,13 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
     await display.register_display(var, config)
 
-    # Create InternalGPIOPin - mode 0x01 is OUTPUT, inverted=false
-    dc_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_DC_PIN], cg.RawExpression("0x01"), False)
-    cg.add(var.set_dc_pin(dc_pin))
+    dc = await cg.gpio_pin_expression(config[CONF_DC_PIN])
+    cg.add(var.set_dc_pin(dc))
 
     if CONF_RESET_PIN in config:
-        reset_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_RESET_PIN], cg.RawExpression("0x01"), False)
-        cg.add(var.set_reset_pin(reset_pin))
+        reset = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
+        cg.add(var.set_reset_pin(reset))
 
     if CONF_BACKLIGHT_PIN in config:
-        backlight_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_BACKLIGHT_PIN], cg.RawExpression("0x01"), False)
-        cg.add(var.set_backlight_pin(backlight_pin))
+        backlight = await cg.gpio_pin_expression(config[CONF_BACKLIGHT_PIN])
+        cg.add(var.set_backlight_pin(backlight))
