@@ -1,11 +1,9 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import display, spi
-from esphome import pins
 from esphome.const import (
     CONF_DC_PIN,
     CONF_ID,
-    CONF_LAMBDA,
     CONF_RESET_PIN,
 )
 
@@ -17,6 +15,8 @@ tdeck_plus_st7789_ns = cg.esphome_ns.namespace("tdeck_plus_st7789")
 TDeckPlusST7789 = tdeck_plus_st7789_ns.class_(
     "TDeckPlusST7789", cg.PollingComponent, display.DisplayBuffer, spi.SPIDevice
 )
+
+InternalGPIOPin = cg.global_ns.class_("InternalGPIOPin", cg.GPIOPin)
 
 CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
@@ -34,17 +34,17 @@ CONFIG_SCHEMA = (
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
-    # Don't call register_component here - display.register_display does it
     await spi.register_spi_device(var, config)
     await display.register_display(var, config)
 
-    dc = cg.new_Pvariable(cg.GPIOPin, config[CONF_DC_PIN])
-    cg.add(var.set_dc_pin(dc))
+    # Create InternalGPIOPin for DC pin
+    dc_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_DC_PIN], cg.OUTPUT, False)
+    cg.add(var.set_dc_pin(dc_pin))
 
     if CONF_RESET_PIN in config:
-        reset = cg.new_Pvariable(cg.GPIOPin, config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(reset))
+        reset_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_RESET_PIN], cg.OUTPUT, False)
+        cg.add(var.set_reset_pin(reset_pin))
 
     if CONF_BACKLIGHT_PIN in config:
-        backlight = cg.new_Pvariable(cg.GPIOPin, config[CONF_BACKLIGHT_PIN])
-        cg.add(var.set_backlight_pin(backlight))
+        backlight_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_BACKLIGHT_PIN], cg.OUTPUT, False)
+        cg.add(var.set_backlight_pin(backlight_pin))
