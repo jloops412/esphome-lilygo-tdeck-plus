@@ -3,6 +3,7 @@
 #include "esphome/core/component.h"
 #include "esphome/components/display/display_buffer.h"
 #include "esphome/components/spi/spi.h"
+#include "esphome/core/gpio.h"
 
 namespace esphome {
 namespace tdeck_plus_st7789 {
@@ -16,9 +17,9 @@ class TDeckPlusST7789 : public PollingComponent,
   void dump_config() override;
   void update() override;
   
-  void set_dc_pin(GPIOPin *dc_pin) { dc_pin_ = dc_pin; }
-  void set_reset_pin(GPIOPin *reset_pin) { reset_pin_ = reset_pin; }
-  void set_backlight_pin(GPIOPin *backlight_pin) { backlight_pin_ = backlight_pin; }
+  void set_dc_pin(uint8_t pin) { dc_pin_ = pin; }
+  void set_reset_pin(uint8_t pin) { reset_pin_ = pin; reset_pin_set_ = true; }
+  void set_backlight_pin(uint8_t pin) { backlight_pin_ = pin; backlight_pin_set_ = true; }
 
   display::DisplayType get_display_type() override { return display::DisplayType::DISPLAY_TYPE_COLOR; }
 
@@ -32,9 +33,15 @@ class TDeckPlusST7789 : public PollingComponent,
   int get_height_internal() override { return 240; }
   int get_width_internal() override { return 320; }
 
-  GPIOPin *dc_pin_{nullptr};
-  GPIOPin *reset_pin_{nullptr};
-  GPIOPin *backlight_pin_{nullptr};
+  uint8_t dc_pin_;
+  uint8_t reset_pin_;
+  uint8_t backlight_pin_;
+  bool reset_pin_set_{false};
+  bool backlight_pin_set_{false};
+  
+  GPIOPin *dc_gpio_{nullptr};
+  GPIOPin *reset_gpio_{nullptr};
+  GPIOPin *backlight_gpio_{nullptr};
 };
 
 }  // namespace tdeck_plus_st7789
