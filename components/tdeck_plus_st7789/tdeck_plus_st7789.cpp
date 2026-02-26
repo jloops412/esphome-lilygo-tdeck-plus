@@ -1,10 +1,14 @@
 #include "tdeck_plus_st7789.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
-#include "esphome/core/hal.h"
 
-#ifdef USE_ESP32
+#ifdef USE_ESP_IDF
 #include "driver/gpio.h"
+#define OUTPUT GPIO_MODE_OUTPUT
+#define HIGH 1
+#define LOW 0
+#define pinMode(pin, mode) gpio_set_direction((gpio_num_t)pin, mode)
+#define digitalWrite(pin, val) gpio_set_level((gpio_num_t)pin, val)
 #endif
 
 namespace esphome {
@@ -17,22 +21,24 @@ void TDeckPlusST7789::setup() {
   
   this->spi_setup();
   
-  // Setup GPIO pins directly using ESP32 HAL
+  // Setup DC pin
   pinMode(this->dc_pin_, OUTPUT);
   digitalWrite(this->dc_pin_, LOW);
   
+  // Setup reset pin if provided
   if (this->reset_pin_set_) {
     pinMode(this->reset_pin_, OUTPUT);
   }
   
+  // Setup and turn on backlight
   if (this->backlight_pin_set_) {
     pinMode(this->backlight_pin_, OUTPUT);
-    digitalWrite(this->backlight_pin_, HIGH);  // Turn on backlight
+    digitalWrite(this->backlight_pin_, HIGH);
   }
   
   this->init_reset_();
   
-  // ST7789V init sequence for T-Deck Plus
+  // ST7789V init sequence
   this->write_command_(0x11);  // Sleep out
   delay(120);
   
@@ -107,22 +113,17 @@ void TDeckPlusST7789::setup() {
   this->write_data_(0x23);
   
   this->write_command_(0x21);  // Display Inversion On
-  
   this->write_command_(0x29);  // Display on
   delay(120);
   
-  ESP_LOGCONFIG(TAG, "T-Deck Plus ST7789 initialization complete");
+  ESP_LOGCONFIG(TAG, "T-Deck Plus ST7789 ready");
 }
 
 void TDeckPlusST7789::dump_config() {
   ESP_LOGCONFIG(TAG, "T-Deck Plus ST7789:");
-  ESP_LOGCONFIG(TAG, "  DC Pin: GPIO%u", this->dc_pin_);
-  if (this->reset_pin_set_) {
-    ESP_LOGCONFIG(TAG, "  Reset Pin: GPIO%u", this->reset_pin_);
-  }
-  if (this->backlight_pin_set_) {
-    ESP_LOGCONFIG(TAG, "  Backlight Pin: GPIO%u", this->backlight_pin_);
-  }
+  ESP_LOGCONFIG(TAG, "  DC Pin: %u", this->dc_pin_);
+  if (this->reset_pin_set_) ESP_LOGCONFIG(TAG, "  Reset Pin: %u", this->reset_pin_);
+  if (this->backlight_pin_set_) ESP_LOGCONFIG(TAG, "  Backlight Pin: %u", this->backlight_pin_);
 }
 
 void TDeckPlusST7789::update() {
@@ -155,19 +156,19 @@ void TDeckPlusST7789::write_data_(uint8_t data) {
 }
 
 void TDeckPlusST7789::set_addr_window_(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2) {
-  this->write_command_(0x2A);  // Column Address Set
+  this->write_command_(0x2A);
   this->write_data_(x1 >> 8);
   this->write_data_(x1 & 0xFF);
   this->write_data_(x2 >> 8);
   this->write_data_(x2 & 0xFF);
   
-  this->write_command_(0x2B);  // Row Address Set
+  this->write_command_(0x2B);
   this->write_data_(y1 >> 8);
   this->write_data_(y1 & 0xFF);
   this->write_data_(y2 >> 8);
   this->write_data_(y2 & 0xFF);
   
-  this->write_command_(0x2C);  // Memory Write
+  this->write_command_(0x2C);
 }
 
 void TDeckPlusST7789::draw_absolute_pixel_internal(int x, int y, Color color) {
