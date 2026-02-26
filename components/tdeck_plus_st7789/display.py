@@ -1,7 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import display, spi
-from esphome import pins
 from esphome.const import (
     CONF_DC_PIN,
     CONF_ID,
@@ -21,9 +20,9 @@ CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TDeckPlusST7789),
-            cv.Required(CONF_DC_PIN): pins.internal_gpio_output_pin_schema,
-            cv.Optional(CONF_RESET_PIN): pins.internal_gpio_output_pin_schema,
-            cv.Optional(CONF_BACKLIGHT_PIN): pins.internal_gpio_output_pin_schema,
+            cv.Required(CONF_DC_PIN): cv.int_,
+            cv.Optional(CONF_RESET_PIN): cv.int_,
+            cv.Optional(CONF_BACKLIGHT_PIN): cv.int_,
         }
     )
     .extend(cv.polling_component_schema("1s"))
@@ -36,13 +35,10 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
     await display.register_display(var, config)
 
-    dc = await cg.gpio_pin_expression(config[CONF_DC_PIN])
-    cg.add(var.set_dc_pin(dc))
+    cg.add(var.set_dc_pin(config[CONF_DC_PIN]))
 
     if CONF_RESET_PIN in config:
-        reset = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
-        cg.add(var.set_reset_pin(reset))
+        cg.add(var.set_reset_pin(config[CONF_RESET_PIN]))
 
     if CONF_BACKLIGHT_PIN in config:
-        backlight = await cg.gpio_pin_expression(config[CONF_BACKLIGHT_PIN])
-        cg.add(var.set_backlight_pin(backlight))
+        cg.add(var.set_backlight_pin(config[CONF_BACKLIGHT_PIN]))
