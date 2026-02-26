@@ -3,6 +3,10 @@
 #include "esphome/core/helpers.h"
 #include "esphome/core/hal.h"
 
+#ifdef USE_ESP32
+#include "driver/gpio.h"
+#endif
+
 namespace esphome {
 namespace tdeck_plus_st7789 {
 
@@ -13,20 +17,17 @@ void TDeckPlusST7789::setup() {
   
   this->spi_setup();
   
-  // Create GPIO pins from pin numbers
-  this->dc_gpio_ = new InternalGPIOPin(this->dc_pin_, gpio::FLAG_OUTPUT, false);
-  this->dc_gpio_->setup();
-  this->dc_gpio_->digital_write(false);
+  // Setup GPIO pins directly using ESP32 HAL
+  pinMode(this->dc_pin_, OUTPUT);
+  digitalWrite(this->dc_pin_, LOW);
   
   if (this->reset_pin_set_) {
-    this->reset_gpio_ = new InternalGPIOPin(this->reset_pin_, gpio::FLAG_OUTPUT, false);
-    this->reset_gpio_->setup();
+    pinMode(this->reset_pin_, OUTPUT);
   }
   
   if (this->backlight_pin_set_) {
-    this->backlight_gpio_ = new InternalGPIOPin(this->backlight_pin_, gpio::FLAG_OUTPUT, false);
-    this->backlight_gpio_->setup();
-    this->backlight_gpio_->digital_write(true);  // Turn on backlight
+    pinMode(this->backlight_pin_, OUTPUT);
+    digitalWrite(this->backlight_pin_, HIGH);  // Turn on backlight
   }
   
   this->init_reset_();
@@ -129,25 +130,25 @@ void TDeckPlusST7789::update() {
 }
 
 void TDeckPlusST7789::init_reset_() {
-  if (this->reset_gpio_ != nullptr) {
-    this->reset_gpio_->digital_write(true);
+  if (this->reset_pin_set_) {
+    digitalWrite(this->reset_pin_, HIGH);
     delay(1);
-    this->reset_gpio_->digital_write(false);
+    digitalWrite(this->reset_pin_, LOW);
     delay(10);
-    this->reset_gpio_->digital_write(true);
+    digitalWrite(this->reset_pin_, HIGH);
     delay(10);
   }
 }
 
 void TDeckPlusST7789::write_command_(uint8_t cmd) {
-  this->dc_gpio_->digital_write(false);
+  digitalWrite(this->dc_pin_, LOW);
   this->enable();
   this->write_byte(cmd);
   this->disable();
 }
 
 void TDeckPlusST7789::write_data_(uint8_t data) {
-  this->dc_gpio_->digital_write(true);
+  digitalWrite(this->dc_pin_, HIGH);
   this->enable();
   this->write_byte(data);
   this->disable();
@@ -177,7 +178,7 @@ void TDeckPlusST7789::draw_absolute_pixel_internal(int x, int y, Color color) {
   
   uint16_t color565 = display::ColorUtil::color_to_565(color);
   
-  this->dc_gpio_->digital_write(true);
+  digitalWrite(this->dc_pin_, HIGH);
   this->enable();
   this->write_byte(color565 >> 8);
   this->write_byte(color565 & 0xFF);
