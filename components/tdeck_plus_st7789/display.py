@@ -13,7 +13,7 @@ DEPENDENCIES = ["spi"]
 
 tdeck_plus_st7789_ns = cg.esphome_ns.namespace("tdeck_plus_st7789")
 TDeckPlusST7789 = tdeck_plus_st7789_ns.class_(
-    "TDeckPlusST7789", cg.PollingComponent, display.DisplayBuffer, spi.SPIDevice
+    "TDeckPlusST7789", display.DisplayBuffer, spi.SPIDevice
 )
 
 CONFIG_SCHEMA = (
@@ -25,7 +25,6 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_BACKLIGHT_PIN): cv.int_,
         }
     )
-    .extend(cv.polling_component_schema("1s"))
     .extend(spi.spi_device_schema(cs_pin_required=True))
 )
 
