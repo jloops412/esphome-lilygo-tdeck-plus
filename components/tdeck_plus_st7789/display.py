@@ -22,9 +22,9 @@ CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TDeckPlusST7789),
-            cv.Required(CONF_DC_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
-            cv.Optional(CONF_BACKLIGHT_PIN): pins.gpio_output_pin_schema,
+            cv.Required(CONF_DC_PIN): cv.int_,
+            cv.Optional(CONF_RESET_PIN): cv.int_,
+            cv.Optional(CONF_BACKLIGHT_PIN): cv.int_,
         }
     )
     .extend(cv.polling_component_schema("1s"))
@@ -38,13 +38,13 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
     await display.register_display(var, config)
 
-    dc = await cg.gpio_pin_expression(config[CONF_DC_PIN])
+    dc = cg.new_Pvariable(cg.GPIOPin, config[CONF_DC_PIN])
     cg.add(var.set_dc_pin(dc))
 
     if CONF_RESET_PIN in config:
-        reset = await cg.gpio_pin_expression(config[CONF_RESET_PIN])
+        reset = cg.new_Pvariable(cg.GPIOPin, config[CONF_RESET_PIN])
         cg.add(var.set_reset_pin(reset))
 
     if CONF_BACKLIGHT_PIN in config:
-        backlight = await cg.gpio_pin_expression(config[CONF_BACKLIGHT_PIN])
+        backlight = cg.new_Pvariable(cg.GPIOPin, config[CONF_BACKLIGHT_PIN])
         cg.add(var.set_backlight_pin(backlight))
