@@ -7,8 +7,7 @@
 namespace esphome {
 namespace tdeck_plus_st7789 {
 
-class TDeckPlusST7789 : public PollingComponent,
-                         public display::DisplayBuffer,
+class TDeckPlusST7789 : public display::DisplayBuffer,
                          public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                                                spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_20MHZ> {
  public:
