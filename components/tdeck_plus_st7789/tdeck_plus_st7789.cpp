@@ -1,6 +1,7 @@
 #include "tdeck_plus_st7789.h"
 #include "esphome/core/log.h"
 #include "esphome/core/helpers.h"
+#include "esphome/core/hal.h"
 
 namespace esphome {
 namespace tdeck_plus_st7789 {
@@ -12,14 +13,20 @@ void TDeckPlusST7789::setup() {
   
   this->spi_setup();
   
-  if (this->dc_pin_ != nullptr) {
-    this->dc_pin_->setup();
-    this->dc_pin_->digital_write(false);
+  // Create GPIO pins from pin numbers
+  this->dc_gpio_ = new InternalGPIOPin(this->dc_pin_, gpio::FLAG_OUTPUT, false);
+  this->dc_gpio_->setup();
+  this->dc_gpio_->digital_write(false);
+  
+  if (this->reset_pin_set_) {
+    this->reset_gpio_ = new InternalGPIOPin(this->reset_pin_, gpio::FLAG_OUTPUT, false);
+    this->reset_gpio_->setup();
   }
   
-  if (this->backlight_pin_ != nullptr) {
-    this->backlight_pin_->setup();
-    this->backlight_pin_->digital_write(true);  // Turn on backlight
+  if (this->backlight_pin_set_) {
+    this->backlight_gpio_ = new InternalGPIOPin(this->backlight_pin_, gpio::FLAG_OUTPUT, false);
+    this->backlight_gpio_->setup();
+    this->backlight_gpio_->digital_write(true);  // Turn on backlight
   }
   
   this->init_reset_();
@@ -108,9 +115,13 @@ void TDeckPlusST7789::setup() {
 
 void TDeckPlusST7789::dump_config() {
   ESP_LOGCONFIG(TAG, "T-Deck Plus ST7789:");
-  LOG_PIN("  DC Pin: ", this->dc_pin_);
-  LOG_PIN("  Reset Pin: ", this->reset_pin_);
-  LOG_PIN("  Backlight Pin: ", this->backlight_pin_);
+  ESP_LOGCONFIG(TAG, "  DC Pin: GPIO%u", this->dc_pin_);
+  if (this->reset_pin_set_) {
+    ESP_LOGCONFIG(TAG, "  Reset Pin: GPIO%u", this->reset_pin_);
+  }
+  if (this->backlight_pin_set_) {
+    ESP_LOGCONFIG(TAG, "  Backlight Pin: GPIO%u", this->backlight_pin_);
+  }
 }
 
 void TDeckPlusST7789::update() {
@@ -118,26 +129,25 @@ void TDeckPlusST7789::update() {
 }
 
 void TDeckPlusST7789::init_reset_() {
-  if (this->reset_pin_ != nullptr) {
-    this->reset_pin_->setup();
-    this->reset_pin_->digital_write(true);
+  if (this->reset_gpio_ != nullptr) {
+    this->reset_gpio_->digital_write(true);
     delay(1);
-    this->reset_pin_->digital_write(false);
+    this->reset_gpio_->digital_write(false);
     delay(10);
-    this->reset_pin_->digital_write(true);
+    this->reset_gpio_->digital_write(true);
     delay(10);
   }
 }
 
 void TDeckPlusST7789::write_command_(uint8_t cmd) {
-  this->dc_pin_->digital_write(false);
+  this->dc_gpio_->digital_write(false);
   this->enable();
   this->write_byte(cmd);
   this->disable();
 }
 
 void TDeckPlusST7789::write_data_(uint8_t data) {
-  this->dc_pin_->digital_write(true);
+  this->dc_gpio_->digital_write(true);
   this->enable();
   this->write_byte(data);
   this->disable();
@@ -167,7 +177,7 @@ void TDeckPlusST7789::draw_absolute_pixel_internal(int x, int y, Color color) {
   
   uint16_t color565 = display::ColorUtil::color_to_565(color);
   
-  this->dc_pin_->digital_write(true);
+  this->dc_gpio_->digital_write(true);
   this->enable();
   this->write_byte(color565 >> 8);
   this->write_byte(color565 & 0xFF);
