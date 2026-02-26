@@ -37,14 +37,14 @@ async def to_code(config):
     await spi.register_spi_device(var, config)
     await display.register_display(var, config)
 
-    # Create InternalGPIOPin for DC pin
-    dc_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_DC_PIN], cg.OUTPUT, False)
+    # Create InternalGPIOPin - mode 0x01 is OUTPUT, inverted=false
+    dc_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_DC_PIN], cg.RawExpression("0x01"), False)
     cg.add(var.set_dc_pin(dc_pin))
 
     if CONF_RESET_PIN in config:
-        reset_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_RESET_PIN], cg.OUTPUT, False)
+        reset_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_RESET_PIN], cg.RawExpression("0x01"), False)
         cg.add(var.set_reset_pin(reset_pin))
 
     if CONF_BACKLIGHT_PIN in config:
-        backlight_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_BACKLIGHT_PIN], cg.OUTPUT, False)
+        backlight_pin = cg.new_Pvariable(InternalGPIOPin, config[CONF_BACKLIGHT_PIN], cg.RawExpression("0x01"), False)
         cg.add(var.set_backlight_pin(backlight_pin))
