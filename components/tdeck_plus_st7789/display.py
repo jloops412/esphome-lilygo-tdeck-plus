@@ -1,6 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import display, spi
+from esphome import pins
 from esphome.const import (
     CONF_DC_PIN,
     CONF_ID,
@@ -21,9 +22,9 @@ CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TDeckPlusST7789),
-            cv.Required(CONF_DC_PIN): cv.output_pin,
-            cv.Optional(CONF_RESET_PIN): cv.output_pin,
-            cv.Optional(CONF_BACKLIGHT_PIN): cv.output_pin,
+            cv.Required(CONF_DC_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_RESET_PIN): pins.gpio_output_pin_schema,
+            cv.Optional(CONF_BACKLIGHT_PIN): pins.gpio_output_pin_schema,
         }
     )
     .extend(cv.polling_component_schema("1s"))
