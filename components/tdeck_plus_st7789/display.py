@@ -5,7 +5,6 @@ from esphome.const import (
     CONF_DC_PIN,
     CONF_ID,
     CONF_LAMBDA,
-    CONF_PAGES,
     CONF_RESET_PIN,
 )
 
@@ -22,7 +21,7 @@ CONFIG_SCHEMA = (
     display.FULL_DISPLAY_SCHEMA.extend(
         {
             cv.GenerateID(): cv.declare_id(TDeckPlusST7789),
-            cv.Required(CONF_DC_PIN): cv.All(cv.requires_framework_version(esp_idf=cv.Version(4, 0, 0)), cv.output_pin),
+            cv.Required(CONF_DC_PIN): cv.output_pin,
             cv.Optional(CONF_RESET_PIN): cv.output_pin,
             cv.Optional(CONF_BACKLIGHT_PIN): cv.output_pin,
         }
