@@ -35,6 +35,7 @@ preferences:
 
 logger:
   level: INFO
+  hardware_uart: UART0
   baud_rate: 0
 
 api:
