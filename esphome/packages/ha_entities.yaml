@@ -15,12 +15,12 @@ text_sensor:
     id: current_page_name
     name: "${friendly_name} Current Page"
     lambda: |-
-      if (id(page_index) == 0) return {"Lights"};
-      if (id(page_index) == 1) return {"LightCtl"};
-      if (id(page_index) == 2) return {"Presets"};
-      if (id(page_index) == 3) return {"Weather"};
-      if (id(page_index) == 4) return {"Feeds"};
-      return {"Settings"};
+      if (id(page_index) == 0) return {"Home"};
+      if (id(page_index) == 1) return {"Lights"};
+      if (id(page_index) == 2) return {"Weather"};
+      if (id(page_index) == 3) return {"Reader"};
+      if (id(page_index) == 4) return {"Settings"};
+      return {"Theme"};
     update_interval: 1s
 
   - platform: homeassistant

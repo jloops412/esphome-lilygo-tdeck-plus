@@ -20,7 +20,10 @@
 11. Settings page now includes wake-on-trackball toggle directly in UI.
 12. Weather value formatting now handles invalid values more gracefully.
 13. Unused gust/dew weather imports were removed to reduce `unknown` parse warnings.
-14. Keyboard shortcuts now include direct tab jumps (`1`..`6`) and controller actions (`[`, `]`, `-`, `+`, `T`).
+14. Keyboard shortcuts now include direct page jumps (`1`..`6`) and controller actions (`[`, `]`, `-`, `+`, `T`).
+15. Ground-up UI pass replaces always-visible tabs with a cleaner Home launcher and subpages.
+16. New Theme page supports multi-palette switching (`Graphite`, `Ocean`, `Amber`) on-device.
+17. Lights page is now a dedicated control surface with preset cycling in-page.
 
 ## Migration steps for existing HA node
 

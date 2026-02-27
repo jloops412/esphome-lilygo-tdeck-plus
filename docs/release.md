@@ -7,15 +7,16 @@
 - `v0.3.0-ui-pass1`: first UI redesign milestone.
 - `v0.3.1-ui-pass1-hotfix`: ESP32-S3 logger linker fix.
 - `v0.4.0-ui-pass2`: controller-first UX pass + keyboard shortcuts + weather robustness.
+- `v0.5.0-ui-groundup`: home-menu navigation + theme system + full layout refactor.
 
-`v0.4.0-ui-pass2` highlights:
+`v0.5.0-ui-groundup` highlights:
 
-1. Light control flow now centers around `CTRL` page with `Prev/Toggle/Next` plus `Dim/Bright`.
-2. Presets page changed from raw colors to practical scenes: `Warm/Cool/Relax/Focus/Party`.
-3. Keyboard shortcuts added for page jumps and light control: `1`..`6`, `[`, `]`, `-`, `+`, `T`.
-4. Weather formatting now handles invalid/missing values without rendering junk.
-5. Settings page includes wake-on-trackball toggle and touch calibration access.
-6. Removed unused gust/dew numeric imports that could spam `unknown -> number` warnings.
+1. Removed always-visible tab bar and replaced with a clean `Home` launcher + subpages.
+2. Light controls are now consolidated into one dedicated controller surface.
+3. Added on-device multi-theme switching (`Graphite`, `Ocean`, `Amber`).
+4. Added dedicated theme/control page for display tuning and debug toggles.
+5. Touch behavior updated with a consistent header `HOME` action on subpages.
+6. Existing stable display/touch/trackball/keyboard architecture preserved.
 
 ## Checklist per release
 

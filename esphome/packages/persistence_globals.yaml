@@ -14,6 +14,16 @@ globals:
     restore_value: yes
     initial_value: "0"
 
+  - id: theme_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: light_preset_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
   - id: kb_last_raw
     type: uint8_t
     restore_value: no

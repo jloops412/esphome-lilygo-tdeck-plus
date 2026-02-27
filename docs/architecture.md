@@ -13,10 +13,10 @@
 
 ## Immediate improvements in scope
 
-1. Improve single-flow light controller UX.
-2. Improve weather dashboard readability and robustness.
-3. Improve feed landing and reader ergonomics.
-4. Continue GPS reliability verification and diagnostics.
+1. Keep top-level navigation clean with home-menu + subpages.
+2. Keep light control controller-first and fast (no page hopping).
+3. Support theme variants and on-device theme switching.
+4. Continue weather/feed readability and GPS diagnostics.
 
 ## Non-goals right now
 

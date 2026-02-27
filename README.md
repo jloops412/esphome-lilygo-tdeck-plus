@@ -20,21 +20,22 @@ It pulls modular files from this repo by release tag.
 
 ## Current UI flow
 
-1. `LST`: Light list page.
-2. `CTRL`: Single-flow light controller (prev/toggle/next + dim/bright + presets).
-3. `PSET`: Light presets page (warm/cool/relax/focus/party).
-4. `WX`: Weather dashboard.
-5. `READ`: Feed/reader launcher with compact previews.
-6. `SET`: Device settings and calibration.
+1. `Home`: clean launcher page (`Lights`, `Weather`, `Reader`, `Settings`, `Themes`, `Sleep`).
+2. `Lights`: controller-only page (prev/next light, toggle, dim, brighten, preset-cycle).
+3. `Weather`: dashboard page with resilient value formatting for missing data.
+4. `Reader`: feed/source launcher into full detail reader.
+5. `Settings`: wake and timeout controls plus keyboard-backlight toggle.
+6. `Theme`: on-device theme presets and display brightness tuning.
 
 ## Quick keyboard shortcuts
 
-1. `1`..`6`: jump directly to tabs `LST/CTRL/PSET/WX/READ/SET`.
+1. `1`..`6`: jump directly to pages `Home/Lights/Weather/Reader/Settings/Theme`.
 2. `[` / `]`: previous/next selected light.
 3. `-` / `+`: dim/brighten selected light.
 4. `T`: toggle selected light.
 5. `B`: keyboard backlight toggle.
 6. `N` / `M`: keyboard backlight down/up.
-7. `K`: start touch calibration.
+7. `H`: jump to Home page.
+8. `K`: start touch calibration.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), and [`docs/release.md`](docs/release.md) for conventions and release details.

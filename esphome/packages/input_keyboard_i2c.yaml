@@ -86,6 +86,11 @@ interval:
                   - script.execute: page_next
             - if:
                 condition:
+                  lambda: "return id(kb_last_raw) == 'h' || id(kb_last_raw) == 'H';"
+                then:
+                  - script.execute: go_home
+            - if:
+                condition:
                   lambda: "return id(kb_last_raw) >= '1' && id(kb_last_raw) <= '6';"
                 then:
                   - lambda: |-

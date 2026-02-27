@@ -115,34 +115,25 @@ touchscreen:
             id(touch_active) = true;
 
             struct Rect { int x; int y; int w; int h; };
-            Rect tabs[6] = {
-              {4, 8, 48, 26},
-              {56, 8, 48, 26},
-              {108, 8, 48, 26},
-              {160, 8, 48, 26},
-              {212, 8, 48, 26},
-              {264, 8, 48, 26}
-            };
+            Rect home_button = {6, 6, 50, 22};
 
-            for (int i = 0; i < 6; i++) {
-              auto r = tabs[i];
-              if (adj_x >= r.x && adj_x < r.x + r.w &&
-                  adj_y >= r.y && adj_y < r.y + r.h) {
+            if (id(page_index) != 0 &&
+                adj_x >= home_button.x && adj_x < home_button.x + home_button.w &&
+                adj_y >= home_button.y && adj_y < home_button.y + home_button.h) {
                 id(detail_mode) = false;
-                id(page_index) = i;
+                id(page_index) = 0;
                 id(focus_index) = 0;
                 id(touch_valid) = false;
                 return;
-              }
             }
 
             Rect rects[6] = {
-              {12, 46, 92, 72},
-              {114, 46, 92, 72},
-              {216, 46, 92, 72},
-              {12, 130, 92, 72},
-              {114, 130, 92, 72},
-              {216, 130, 92, 72}
+              {12, 42, 92, 72},
+              {114, 42, 92, 72},
+              {216, 42, 92, 72},
+              {12, 126, 92, 72},
+              {114, 126, 92, 72},
+              {216, 126, 92, 72}
             };
 
             for (int i = 0; i < 6; i++) {
