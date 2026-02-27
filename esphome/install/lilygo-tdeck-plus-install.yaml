@@ -1,0 +1,31 @@
+substitutions:
+  name: lilygo-tdeck-plus
+  friendly_name: "LilyGO T-Deck Plus"
+  gps_rx_pin: "44"
+  gps_tx_pin: "43"
+
+packages:
+  board_base:
+    url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
+    ref: v0.2.0-gps-kb
+    files:
+      - esphome/packages/board_base.yaml
+      - esphome/packages/persistence_globals.yaml
+      - esphome/packages/ha_entities.yaml
+      - esphome/packages/gps_uart.yaml
+      - esphome/packages/ui_render_core.yaml
+      - esphome/packages/display_mipi_custom.yaml
+      - esphome/packages/input_touch_gt911.yaml
+      - esphome/packages/input_trackball.yaml
+      - esphome/packages/input_keyboard_i2c.yaml
+      - esphome/packages/ui_pages_lights.yaml
+      - esphome/packages/ui_pages_weather.yaml
+      - esphome/packages/ui_pages_feeds.yaml
+      - esphome/packages/ui_pages_settings.yaml
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: "esphome1234"

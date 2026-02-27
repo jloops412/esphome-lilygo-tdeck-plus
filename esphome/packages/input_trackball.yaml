@@ -1,0 +1,112 @@
+binary_sensor:
+  - platform: gpio
+    id: tb_right
+    pin:
+      number: 2
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_trackball);"
+            then:
+              - script.execute: note_activity
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode);"
+            then:
+              - script.execute: focus_right
+
+  - platform: gpio
+    id: tb_up
+    pin:
+      number: 3
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+      ignore_strapping_warning: true
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_trackball);"
+            then:
+              - script.execute: note_activity
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode);"
+            then:
+              - script.execute: focus_up
+
+  - platform: gpio
+    id: tb_left
+    pin:
+      number: 1
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_trackball);"
+            then:
+              - script.execute: note_activity
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode);"
+            then:
+              - script.execute: focus_left
+
+  - platform: gpio
+    id: tb_down
+    pin:
+      number: 15
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_trackball);"
+            then:
+              - script.execute: note_activity
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode);"
+            then:
+              - script.execute: focus_down
+
+  - platform: gpio
+    id: tb_click
+    pin:
+      number: 0
+      mode:
+        input: true
+        pullup: true
+      inverted: true
+      ignore_strapping_warning: true
+    on_press:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_trackball);"
+            then:
+              - script.execute: note_activity
+        - if:
+            condition:
+              lambda: "return id(detail_mode);"
+            then:
+              - script.execute: close_detail
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode);"
+            then:
+              - script.execute: activate_focused

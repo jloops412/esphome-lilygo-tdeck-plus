@@ -1,0 +1,158 @@
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          uint32_t now = esphome::millis();
+          uint32_t idle_ms = now - id(last_activity_ms);
+
+          if (id(screensaver_enabled) && !id(screensaver_active)) {
+            if (idle_ms >= (uint32_t) id(screensaver_timeout_s) * 1000UL) {
+              id(sleep_display).execute();
+            }
+          }
+
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            lambda: "return id(kb_backlight_percent) > 0;"
+          then:
+            - script.execute: kb_backlight_apply
+
+  - interval: 35ms
+    then:
+      - lambda: |-
+          uint8_t key = 0;
+          auto err = id(bus_a).read(0x55, &key, 1);
+          if (err != esphome::i2c::ERROR_OK || key == 0x00) {
+            return;
+          }
+
+          if (id(wake_on_keyboard)) {
+            id(last_activity_ms) = esphome::millis();
+            if (id(screensaver_active)) {
+              id(screensaver_active) = false;
+              auto call = id(tft_backlight).turn_on();
+              call.set_brightness(id(backlight_percent) / 100.0f);
+              call.perform();
+              id(kb_backlight_apply).execute();
+            }
+          }
+
+          id(kb_last_raw) = key;
+          id(kb_last_code).publish_state(key);
+
+          if (key == 0x0D) {
+            id(kb_last_text).publish_state("ENTER");
+            id(kb_last_text_buf) = "ENTER";
+          } else if (key == 0x08) {
+            id(kb_last_text).publish_state("BACKSPACE");
+            id(kb_last_text_buf) = "BKSP";
+          } else if (key == 0x09) {
+            id(kb_last_text).publish_state("TAB");
+            id(kb_last_text_buf) = "TAB";
+          } else if (key == 0x1B) {
+            id(kb_last_text).publish_state("ESC");
+            id(kb_last_text_buf) = "ESC";
+          } else if (key == 0x20) {
+            id(kb_last_text).publish_state("SPACE");
+            id(kb_last_text_buf) = "SPACE";
+          } else if (key >= 32 && key <= 126) {
+            char s[2];
+            s[0] = static_cast<char>(key);
+            s[1] = '\0';
+            id(kb_last_text).publish_state(s);
+            id(kb_last_text_buf) = std::string(s);
+          } else {
+            char buf[8];
+            snprintf(buf, sizeof(buf), "0x%02X", key);
+            id(kb_last_text).publish_state(buf);
+            id(kb_last_text_buf) = std::string(buf);
+          }
+
+      - if:
+          condition:
+            lambda: "return id(kb_last_raw) != 0;"
+          then:
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q';"
+                then:
+                  - script.execute: page_prev
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'e' || id(kb_last_raw) == 'E';"
+                then:
+                  - script.execute: page_next
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K';"
+                then:
+                  - script.execute: start_touch_calibration
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'r' || id(kb_last_raw) == 'R';"
+                then:
+                  - script.execute: reset_touch_calibration
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'c' || id(kb_last_raw) == 'C';"
+                then:
+                  - script.execute: toggle_touch_debug
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B';"
+                then:
+                  - script.execute: kb_backlight_toggle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N';"
+                then:
+                  - script.execute: kb_backlight_down
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M';"
+                then:
+                  - script.execute: kb_backlight_up
+            - if:
+                condition:
+                  lambda: "return id(detail_mode);"
+                then:
+                  - script.execute: close_detail
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && (id(kb_last_raw) == 0x0D || id(kb_last_raw) == 0x20);"
+                then:
+                  - script.execute: activate_focused
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(kb_last_raw) == 0x09;"
+                then:
+                  - script.execute: focus_right
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(kb_last_raw) == 0x1B;"
+                then:
+                  - script.execute: focus_left
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && (id(kb_last_raw) == 'w' || id(kb_last_raw) == 'W');"
+                then:
+                  - script.execute: focus_up
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && (id(kb_last_raw) == 's' || id(kb_last_raw) == 'S');"
+                then:
+                  - script.execute: focus_down
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && (id(kb_last_raw) == 'a' || id(kb_last_raw) == 'A');"
+                then:
+                  - script.execute: focus_left
+            - if:
+                condition:
+                  lambda: "return !id(detail_mode) && !id(touch_cal_mode) && (id(kb_last_raw) == 'd' || id(kb_last_raw) == 'D');"
+                then:
+                  - script.execute: focus_right
+            - lambda: |-
+                id(kb_last_raw) = 0;

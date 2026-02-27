@@ -1,0 +1,201 @@
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+  platformio_options:
+    board_build.arduino.memory_type: qio_opi
+  on_boot:
+    - priority: 1000
+      then:
+        - switch.turn_on: peripheral_power
+        - switch.turn_on: radio_cs_inactive
+        - switch.turn_on: sd_cs_inactive
+        - delay: 200ms
+        - light.turn_on:
+            id: tft_backlight
+            brightness: !lambda "return id(backlight_percent) / 100.0f;"
+        - delay: 100ms
+        - lambda: |-
+            id(last_activity_ms) = esphome::millis();
+        - script.execute: kb_backlight_apply
+        - component.update: tft
+
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG: "n"
+      CONFIG_ESP_CONSOLE_UART_DEFAULT: "y"
+
+psram:
+  mode: octal
+
+preferences:
+  flash_write_interval: 0s
+
+logger:
+  level: INFO
+  hardware_uart: UART0
+
+api:
+
+ota:
+  - platform: esphome
+
+captive_portal:
+
+switch:
+  - platform: gpio
+    pin: 10
+    id: peripheral_power
+    internal: true
+    restore_mode: ALWAYS_ON
+
+  - platform: gpio
+    pin: 9
+    id: radio_cs_inactive
+    internal: true
+    restore_mode: ALWAYS_ON
+
+  - platform: gpio
+    pin: 39
+    id: sd_cs_inactive
+    internal: true
+    restore_mode: ALWAYS_ON
+
+i2c:
+  id: bus_a
+  sda: 18
+  scl: 8
+  scan: true
+  frequency: 100kHz
+
+spi:
+  clk_pin: 40
+  mosi_pin: 41
+
+output:
+  - platform: ledc
+    pin: 42
+    id: tft_backlight_pwm
+    frequency: 1000 Hz
+
+light:
+  - platform: monochromatic
+    output: tft_backlight_pwm
+    id: tft_backlight
+    name: "${friendly_name} TFT Backlight"
+    restore_mode: ALWAYS_ON
+    default_transition_length: 0s
+
+font:
+  - file: "gfonts://Roboto"
+    id: font_title
+    size: 18
+  - file: "gfonts://Roboto"
+    id: font_tab
+    size: 10
+  - file: "gfonts://Roboto"
+    id: font_tile
+    size: 15
+  - file: "gfonts://Roboto"
+    id: font_small
+    size: 11
+  - file: "gfonts://Roboto"
+    id: font_micro
+    size: 9
+
+color:
+  - id: col_bg
+    red: 0%
+    green: 0%
+    blue: 0%
+  - id: col_panel
+    red: 8%
+    green: 8%
+    blue: 8%
+  - id: col_panel_sel
+    red: 16%
+    green: 16%
+    blue: 20%
+  - id: col_border
+    red: 24%
+    green: 24%
+    blue: 24%
+  - id: col_text
+    red: 95%
+    green: 95%
+    blue: 95%
+  - id: col_text_dim
+    red: 58%
+    green: 58%
+    blue: 58%
+  - id: col_good
+    red: 22%
+    green: 70%
+    blue: 35%
+  - id: col_warn
+    red: 85%
+    green: 45%
+    blue: 15%
+
+number:
+  - platform: template
+    id: device_brightness
+    name: "${friendly_name} Device Brightness"
+    min_value: 10
+    max_value: 100
+    step: 5
+    lambda: |-
+      return id(backlight_percent);
+    set_action:
+      - lambda: |-
+          int v = (int) x;
+          if (v < 10) v = 10;
+          if (v > 100) v = 100;
+          id(backlight_percent) = v;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - component.update: tft
+
+  - platform: template
+    id: screensaver_timeout_number
+    name: "${friendly_name} Screensaver Timeout"
+    min_value: 10
+    max_value: 300
+    step: 5
+    lambda: |-
+      return id(screensaver_timeout_s);
+    set_action:
+      - lambda: |-
+          id(screensaver_timeout_s) = (int) x;
+
+button:
+  - platform: template
+    name: "${friendly_name} Start Touch Calibration"
+    id: start_touch_calibration_button
+    on_press:
+      - script.execute: start_touch_calibration
+
+  - platform: template
+    name: "${friendly_name} Reset Touch Calibration"
+    id: reset_touch_calibration_button
+    on_press:
+      - script.execute: reset_touch_calibration
+
+  - platform: template
+    name: "${friendly_name} Next Page"
+    id: next_page_button
+    on_press:
+      - script.execute: page_next
+
+  - platform: template
+    name: "${friendly_name} Previous Page"
+    id: prev_page_button
+    on_press:
+      - script.execute: page_prev
+
+  - platform: restart
+    id: restart_device_button
+    name: "${friendly_name} Restart"

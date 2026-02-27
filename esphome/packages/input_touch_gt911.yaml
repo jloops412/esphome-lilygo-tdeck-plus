@@ -1,0 +1,217 @@
+touchscreen:
+  - platform: gt911
+    id: tdeck_touch
+    display: tft
+    address: 0x5D
+    update_interval: 30ms
+    touch_timeout: 50ms
+    calibration:
+      x_min: 0
+      x_max: 238
+      y_min: 16
+      y_max: 260
+    transform:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+
+    on_touch:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_touch);"
+            then:
+              - script.execute: note_activity
+
+        - lambda: |-
+            id(touch_raw_x_last) = touch.x_raw;
+            id(touch_raw_y_last) = touch.y_raw;
+
+            if (id(touch_cal_mode)) {
+              id(touch_x_last) = touch.x;
+              id(touch_y_last) = touch.y;
+              id(touch_active) = true;
+              return;
+            }
+
+            if (id(detail_mode)) {
+              id(touch_active) = true;
+              return;
+            }
+
+            const int gx[3] = {48, 160, 272};
+            const int gy[3] = {44, 120, 196};
+
+            int x = touch.x;
+            int y = touch.y;
+
+            auto lerp_int = [](int a, int b, float t) -> int {
+              return (int)((1.0f - t) * a + t * b);
+            };
+
+            int col = 0;
+            int row = 0;
+            float tx = 0.0f;
+            float ty = 0.0f;
+
+            if (x <= gx[1]) {
+              col = 0;
+              tx = (float)(x - gx[0]) / (float)(gx[1] - gx[0]);
+            } else {
+              col = 1;
+              tx = (float)(x - gx[1]) / (float)(gx[2] - gx[1]);
+            }
+
+            if (y <= gy[1]) {
+              row = 0;
+              ty = (float)(y - gy[0]) / (float)(gy[1] - gy[0]);
+            } else {
+              row = 1;
+              ty = (float)(y - gy[1]) / (float)(gy[2] - gy[1]);
+            }
+
+            if (tx < 0.0f) tx = 0.0f;
+            if (tx > 1.0f) tx = 1.0f;
+            if (ty < 0.0f) ty = 0.0f;
+            if (ty > 1.0f) ty = 1.0f;
+
+            int dx00 = 0, dx10 = 0, dx01 = 0, dx11 = 0;
+            int dy00 = 0, dy10 = 0, dy01 = 0, dy11 = 0;
+
+            if (row == 0 && col == 0) {
+              dx00 = id(cal_dx_tl); dx10 = id(cal_dx_tc); dx01 = id(cal_dx_ml); dx11 = id(cal_dx_mc);
+              dy00 = id(cal_dy_tl); dy10 = id(cal_dy_tc); dy01 = id(cal_dy_ml); dy11 = id(cal_dy_mc);
+            } else if (row == 0 && col == 1) {
+              dx00 = id(cal_dx_tc); dx10 = id(cal_dx_tr); dx01 = id(cal_dx_mc); dx11 = id(cal_dx_mr);
+              dy00 = id(cal_dy_tc); dy10 = id(cal_dy_tr); dy01 = id(cal_dy_mc); dy11 = id(cal_dy_mr);
+            } else if (row == 1 && col == 0) {
+              dx00 = id(cal_dx_ml); dx10 = id(cal_dx_mc); dx01 = id(cal_dx_bl); dx11 = id(cal_dx_bc);
+              dy00 = id(cal_dy_ml); dy10 = id(cal_dy_mc); dy01 = id(cal_dy_bl); dy11 = id(cal_dy_bc);
+            } else {
+              dx00 = id(cal_dx_mc); dx10 = id(cal_dx_mr); dx01 = id(cal_dx_bc); dx11 = id(cal_dx_br);
+              dy00 = id(cal_dy_mc); dy10 = id(cal_dy_mr); dy01 = id(cal_dy_bc); dy11 = id(cal_dy_br);
+            }
+
+            int dx_top = lerp_int(dx00, dx10, tx);
+            int dx_bot = lerp_int(dx01, dx11, tx);
+            int dy_top = lerp_int(dy00, dy10, tx);
+            int dy_bot = lerp_int(dy01, dy11, tx);
+
+            int dx = lerp_int(dx_top, dx_bot, ty);
+            int dy = lerp_int(dy_top, dy_bot, ty);
+
+            int adj_x = x + dx;
+            int adj_y = y + dy;
+
+            if (adj_x < 0) adj_x = 0;
+            if (adj_x > 319) adj_x = 319;
+            if (adj_y < 0) adj_y = 0;
+            if (adj_y > 239) adj_y = 239;
+
+            id(touch_x_last) = adj_x;
+            id(touch_y_last) = adj_y;
+            id(touch_valid) = false;
+            id(touch_down_index) = -1;
+            id(touch_active) = true;
+
+            struct Rect { int x; int y; int w; int h; };
+            Rect tabs[6] = {
+              {4, 8, 48, 26},
+              {56, 8, 48, 26},
+              {108, 8, 48, 26},
+              {160, 8, 48, 26},
+              {212, 8, 48, 26},
+              {264, 8, 48, 26}
+            };
+
+            for (int i = 0; i < 6; i++) {
+              auto r = tabs[i];
+              if (adj_x >= r.x && adj_x < r.x + r.w &&
+                  adj_y >= r.y && adj_y < r.y + r.h) {
+                id(detail_mode) = false;
+                id(page_index) = i;
+                id(focus_index) = 0;
+                id(touch_valid) = false;
+                return;
+              }
+            }
+
+            Rect rects[6] = {
+              {12, 46, 92, 72},
+              {114, 46, 92, 72},
+              {216, 46, 92, 72},
+              {12, 130, 92, 72},
+              {114, 130, 92, 72},
+              {216, 130, 92, 72}
+            };
+
+            for (int i = 0; i < 6; i++) {
+              auto r = rects[i];
+              if (adj_x >= r.x && adj_x < r.x + r.w &&
+                  adj_y >= r.y && adj_y < r.y + r.h) {
+                id(focus_index) = i;
+                id(touch_down_index) = i;
+                id(touch_valid) = true;
+                break;
+              }
+            }
+        - script.execute: redraw
+
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: "return id(detail_mode);"
+            then:
+              - script.execute: close_detail
+
+        - if:
+            condition:
+              lambda: "return id(touch_cal_mode);"
+            then:
+              - lambda: |-
+                  const int gx[3] = {48, 160, 272};
+                  const int gy[3] = {44, 120, 196};
+
+                  int idx = id(touch_cal_step);
+                  int col = idx % 3;
+                  int row = idx / 3;
+
+                  int dx = gx[col] - id(touch_x_last);
+                  int dy = gy[row] - id(touch_y_last);
+
+                  switch (idx) {
+                    case 0: id(cal_dx_tl) = dx; id(cal_dy_tl) = dy; break;
+                    case 1: id(cal_dx_tc) = dx; id(cal_dy_tc) = dy; break;
+                    case 2: id(cal_dx_tr) = dx; id(cal_dy_tr) = dy; break;
+                    case 3: id(cal_dx_ml) = dx; id(cal_dy_ml) = dy; break;
+                    case 4: id(cal_dx_mc) = dx; id(cal_dy_mc) = dy; break;
+                    case 5: id(cal_dx_mr) = dx; id(cal_dy_mr) = dy; break;
+                    case 6: id(cal_dx_bl) = dx; id(cal_dy_bl) = dy; break;
+                    case 7: id(cal_dx_bc) = dx; id(cal_dy_bc) = dy; break;
+                    case 8: id(cal_dx_br) = dx; id(cal_dy_br) = dy; break;
+                  }
+
+                  if (id(touch_cal_step) >= 8) {
+                    id(touch_cal_mode) = false;
+                    id(touch_cal_step) = 0;
+                  } else {
+                    id(touch_cal_step) += 1;
+                  }
+              - lambda: |-
+                  id(touch_active) = false;
+              - script.execute: redraw
+
+        - if:
+            condition:
+              lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(touch_valid) && id(touch_down_index) >= 0;"
+            then:
+              - lambda: |-
+                  id(focus_index) = id(touch_down_index);
+              - script.execute: activate_focused
+
+        - lambda: |-
+            id(touch_valid) = false;
+            id(touch_down_index) = -1;
+            id(touch_active) = false;
+        - script.execute: redraw

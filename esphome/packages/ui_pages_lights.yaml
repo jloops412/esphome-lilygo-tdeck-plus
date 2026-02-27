@@ -1,0 +1,2 @@
+.ui_pages_lights:
+  note: "Lights page logic currently lives in ui_render_core + display_mipi_custom."

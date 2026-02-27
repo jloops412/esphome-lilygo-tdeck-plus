@@ -1,0 +1,216 @@
+globals:
+  - id: page_index
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: focus_index
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: selected_light
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: kb_last_raw
+    type: uint8_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: kb_last_text_buf
+    type: std::string
+    restore_value: no
+    initial_value: '"-"'
+
+  - id: backlight_percent
+    type: int
+    restore_value: yes
+    initial_value: "80"
+
+  - id: kb_backlight_percent
+    type: int
+    restore_value: yes
+    initial_value: "70"
+
+  - id: kb_backlight_last_nonzero
+    type: int
+    restore_value: yes
+    initial_value: "70"
+
+  - id: touch_x_last
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_y_last
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_raw_x_last
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_raw_y_last
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_valid
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: touch_down_index
+    type: int
+    restore_value: no
+    initial_value: "-1"
+
+  - id: touch_debug
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+
+  - id: touch_active
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: touch_cal_mode
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: touch_cal_step
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: screensaver_enabled
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: screensaver_timeout_s
+    type: int
+    restore_value: yes
+    initial_value: "45"
+
+  - id: wake_on_touch
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: wake_on_keyboard
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: wake_on_trackball
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+
+  - id: screensaver_active
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: last_activity_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: detail_mode
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: detail_source
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: cal_dx_tl
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_tl
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_tc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_tc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_tr
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_tr
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_ml
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_ml
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_mc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_mc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_mr
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_mr
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_bl
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_bl
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_bc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_bc
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: cal_dx_br
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: cal_dy_br
+    type: int
+    restore_value: yes
+    initial_value: "0"

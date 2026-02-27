@@ -1,0 +1,326 @@
+display:
+  - platform: mipi_spi
+    id: tft
+    model: CUSTOM
+    bus_mode: single
+    cs_pin: 12
+    dc_pin: 11
+    dimensions:
+      width: 320
+      height: 240
+      offset_width: 0
+      offset_height: 0
+    transform:
+      swap_xy: true
+      mirror_x: true
+      mirror_y: false
+    color_order: rgb
+    invert_colors: false
+    spi_mode: MODE0
+    data_rate: 16MHz
+    byte_order: big_endian
+    draw_rounding: 2
+    update_interval: 120ms
+    init_sequence:
+      - [0x13]
+      - delay 120ms
+      - delay 10ms
+      - [0xB2, 0x0C, 0x0C, 0x00, 0x33, 0x33]
+      - [0xB7, 0x75]
+      - [0xBB, 0x1A]
+      - [0xC0, 0x2C]
+      - [0xC2, 0x01]
+      - [0xC3, 0x13]
+      - [0xC4, 0x20]
+      - [0xC6, 0x0F]
+      - [0xD0, 0xA4, 0xA1]
+      - [0xE0, 0xD0, 0x0D, 0x14, 0x0D, 0x0D, 0x09, 0x38, 0x44, 0x4E, 0x3A, 0x17, 0x18, 0x2F, 0x30]
+      - [0xE1, 0xD0, 0x09, 0x0F, 0x08, 0x07, 0x14, 0x37, 0x44, 0x4D, 0x38, 0x15, 0x16, 0x2C, 0x3E]
+      - [0x2A, 0x00, 0x00, 0x00, 0xEF]
+      - [0x2B, 0x00, 0x00, 0x01, 0x3F]
+    lambda: |-
+      auto light_name = [&](int idx) -> const char * {
+        switch (idx) {
+          case 0: return "Foyer";
+          case 1: return "Vanity";
+          case 2: return "Bedroom";
+          case 3: return "Hall";
+          case 4: return "Office";
+          default: return "Upstairs";
+        }
+      };
+
+      auto light_state_text = [&](int idx) -> const char * {
+        switch (idx) {
+          case 0: return id(foyer_state).has_state() ? id(foyer_state).state.c_str() : "-";
+          case 1: return id(vanity_state).has_state() ? id(vanity_state).state.c_str() : "-";
+          case 2: return id(bedroom_state).has_state() ? id(bedroom_state).state.c_str() : "-";
+          case 3: return id(hall_state).has_state() ? id(hall_state).state.c_str() : "-";
+          case 4: return id(office_state).has_state() ? id(office_state).state.c_str() : "-";
+          default: return id(upstairs_state).has_state() ? id(upstairs_state).state.c_str() : "-";
+        }
+      };
+
+      auto draw_tab = [&](int x, int y, int w, int h, const char *label, bool active) {
+        it.filled_rectangle(x, y, w, h, active ? id(col_panel_sel) : id(col_panel));
+        it.rectangle(x, y, w, h, active ? id(col_good) : id(col_border));
+        it.printf(x + w / 2, y + 8, id(font_tab), id(col_text), TextAlign::TOP_CENTER, "%s", label);
+      };
+
+      auto draw_tile = [&](int x, int y, int w, int h, const char *label, bool selected, const char *sub) {
+        it.filled_rectangle(x, y, w, h, selected ? id(col_panel_sel) : id(col_panel));
+        it.rectangle(x, y, w, h, selected ? id(col_good) : id(col_border));
+        it.printf(x + w / 2, y + 12, id(font_tile), id(col_text), TextAlign::TOP_CENTER, "%s", label);
+        if (sub != nullptr) {
+          it.printf(x + w / 2, y + 38, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER, "%s", sub);
+        }
+      };
+
+      auto draw_crosshair = [&](int x, int y, Color c) {
+        it.circle(x, y, 14, c);
+        it.circle(x, y, 7, c);
+        it.line(x - 18, y, x - 4, y, c);
+        it.line(x + 4, y, x + 18, y, c);
+        it.line(x, y - 18, x, y - 4, c);
+        it.line(x, y + 4, x, y + 18, c);
+        it.filled_circle(x, y, 2, c);
+      };
+
+      auto get_detail_title = [&]() -> std::string {
+        switch (id(detail_source)) {
+          case 0: return "BBC";
+          case 1: return "DC";
+          case 2: return "Loudoun";
+          case 3: return "Word of the Day";
+          case 4: return "Quote of the Hour";
+          default: return "Detail";
+        }
+      };
+
+      auto get_detail_body = [&]() -> std::string {
+        if (id(detail_source) == 0) {
+          if (id(feed_bbc_title).has_state() && !id(feed_bbc_title).state.empty()) return id(feed_bbc_title).state;
+          if (id(feed_bbc_message).has_state() && !id(feed_bbc_message).state.empty()) return id(feed_bbc_message).state;
+          if (id(feed_bbc_event_type).has_state() && !id(feed_bbc_event_type).state.empty()) return id(feed_bbc_event_type).state;
+          if (id(feed_bbc_state).has_state()) return id(feed_bbc_state).state;
+        } else if (id(detail_source) == 1) {
+          if (id(feed_dc_title).has_state() && !id(feed_dc_title).state.empty()) return id(feed_dc_title).state;
+          if (id(feed_dc_message).has_state() && !id(feed_dc_message).state.empty()) return id(feed_dc_message).state;
+          if (id(feed_dc_event_type).has_state() && !id(feed_dc_event_type).state.empty()) return id(feed_dc_event_type).state;
+          if (id(feed_dc_state).has_state()) return id(feed_dc_state).state;
+        } else if (id(detail_source) == 2) {
+          if (id(feed_loudoun_title).has_state() && !id(feed_loudoun_title).state.empty()) return id(feed_loudoun_title).state;
+          if (id(feed_loudoun_message).has_state() && !id(feed_loudoun_message).state.empty()) return id(feed_loudoun_message).state;
+          if (id(feed_loudoun_event_type).has_state() && !id(feed_loudoun_event_type).state.empty()) return id(feed_loudoun_event_type).state;
+          if (id(feed_loudoun_state).has_state()) return id(feed_loudoun_state).state;
+        } else if (id(detail_source) == 3) {
+          if (id(word_of_day).has_state()) return id(word_of_day).state;
+        } else if (id(detail_source) == 4) {
+          if (id(quote_of_hour).has_state()) return id(quote_of_hour).state;
+        }
+        return std::string("No readable content available.");
+      };
+
+      auto draw_wrapped = [&](const std::string &text, int x, int y, int max_chars, int max_lines) {
+        std::string line;
+        std::string word;
+        int line_no = 0;
+
+        auto flush_line = [&](bool force) {
+          if (!line.empty() && line_no < max_lines) {
+            it.printf(x, y + (line_no * 16), id(font_small), id(col_text), TextAlign::TOP_LEFT, "%s", line.c_str());
+            line.clear();
+            line_no++;
+          } else if (force && line_no < max_lines) {
+            it.printf(x, y + (line_no * 16), id(font_small), id(col_text), TextAlign::TOP_LEFT, " ");
+            line_no++;
+          }
+        };
+
+        auto push_word = [&]() {
+          if (word.empty()) return;
+          if (line.empty()) {
+            line = word;
+          } else if ((int)(line.size() + 1 + word.size()) <= max_chars) {
+            line += " " + word;
+          } else {
+            flush_line(false);
+            line = word;
+          }
+          word.clear();
+        };
+
+        for (size_t i = 0; i < text.size() && line_no < max_lines; i++) {
+          char ch = text[i];
+          if (ch == '\n' || ch == '\r') {
+            push_word();
+            flush_line(false);
+          } else if (ch == ' ') {
+            push_word();
+          } else {
+            word.push_back(ch);
+            if ((int)word.size() > max_chars) {
+              if (line.empty()) {
+                line = word.substr(0, max_chars);
+                word.erase(0, max_chars);
+                flush_line(false);
+              }
+            }
+          }
+        }
+        push_word();
+        if (!line.empty() && line_no < max_lines) {
+          it.printf(x, y + (line_no * 16), id(font_small), id(col_text), TextAlign::TOP_LEFT, "%s", line.c_str());
+        }
+      };
+
+      if (id(screensaver_active) && !id(touch_cal_mode)) {
+        it.fill(id(col_bg));
+        it.printf(160, 88, id(font_title), id(col_text), TextAlign::TOP_CENTER, "Sleeping");
+        it.printf(160, 114, id(font_small), id(col_text_dim), TextAlign::TOP_CENTER, "Touch / key / trackball to wake");
+        it.printf(160, 145, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER,
+                  "Batt %.2fV  %d%%",
+                  id(battery_voltage_raw).state,
+                  (int) id(battery_percent).state);
+        return;
+      }
+
+      if (id(touch_cal_mode)) {
+        const int gx[3] = {48, 160, 272};
+        const int gy[3] = {44, 120, 196};
+
+        int idx = id(touch_cal_step);
+        int col = idx % 3;
+        int row = idx / 3;
+
+        const char *labels[9] = {
+          "TOP LEFT", "TOP CENTER", "TOP RIGHT",
+          "MID LEFT", "CENTER", "MID RIGHT",
+          "BOT LEFT", "BOT CENTER", "BOT RIGHT"
+        };
+
+        it.fill(id(col_bg));
+        it.printf(160, 8, id(font_title), id(col_text), TextAlign::TOP_CENTER, "TOUCH CAL 9-POINT");
+        it.rectangle(12, 34, 296, 1, id(col_border));
+        it.printf(160, 40, id(font_small), id(col_text_dim), TextAlign::TOP_CENTER, "Tap each target center");
+
+        for (int r = 0; r < 3; r++) {
+          for (int c = 0; c < 3; c++) {
+            draw_crosshair(gx[c], gy[r], id(col_border));
+          }
+        }
+
+        draw_crosshair(gx[col], gy[row], id(col_good));
+        it.printf(160, 218, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER, "%s", labels[idx]);
+        return;
+      }
+
+      if (id(detail_mode)) {
+        it.fill(id(col_bg));
+        it.printf(160, 10, id(font_title), id(col_text), TextAlign::TOP_CENTER, "%s", get_detail_title().c_str());
+        it.rectangle(12, 36, 296, 1, id(col_border));
+        draw_wrapped(get_detail_body(), 14, 46, 38, 10);
+        it.rectangle(12, 224, 296, 1, id(col_border));
+        it.printf(160, 228, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER, "Click / Enter / touch to close");
+        return;
+      }
+
+      it.fill(id(col_bg));
+
+      draw_tab(4,   8, 48, 26, "LGT",  id(page_index) == 0);
+      draw_tab(56,  8, 48, 26, "CTL",  id(page_index) == 1);
+      draw_tab(108, 8, 48, 26, "CLR",  id(page_index) == 2);
+      draw_tab(160, 8, 48, 26, "WX",   id(page_index) == 3);
+      draw_tab(212, 8, 48, 26, "FEED", id(page_index) == 4);
+      draw_tab(264, 8, 48, 26, "SET",  id(page_index) == 5);
+
+      const int w = 92;
+      const int h = 72;
+      const int x1 = 12;
+      const int x2 = 114;
+      const int x3 = 216;
+      const int y1 = 46;
+      const int y2 = 130;
+
+      if (id(page_index) == 0) {
+        draw_tile(x1, y1, w, h, "Foyer",    id(focus_index) == 0, light_state_text(0));
+        draw_tile(x2, y1, w, h, "Vanity",   id(focus_index) == 1, light_state_text(1));
+        draw_tile(x3, y1, w, h, "Bedroom",  id(focus_index) == 2, light_state_text(2));
+        draw_tile(x1, y2, w, h, "Hall",     id(focus_index) == 3, light_state_text(3));
+        draw_tile(x2, y2, w, h, "Office",   id(focus_index) == 4, light_state_text(4));
+        draw_tile(x3, y2, w, h, "Upstairs", id(focus_index) == 5, light_state_text(5));
+      } else if (id(page_index) == 1) {
+        draw_tile(x1, y1, w, h, "Toggle",   id(focus_index) == 0, light_name(id(selected_light)));
+        draw_tile(x2, y1, w, h, "Bright+",  id(focus_index) == 1, light_name(id(selected_light)));
+        draw_tile(x3, y1, w, h, "Bright-",  id(focus_index) == 2, light_name(id(selected_light)));
+        draw_tile(x1, y2, w, h, "Warm",     id(focus_index) == 3, light_name(id(selected_light)));
+        draw_tile(x2, y2, w, h, "Cool",     id(focus_index) == 4, light_name(id(selected_light)));
+        draw_tile(x3, y2, w, h, "Colors",   id(focus_index) == 5, light_name(id(selected_light)));
+      } else if (id(page_index) == 2) {
+        draw_tile(x1, y1, w, h, "Red",    id(focus_index) == 0, light_name(id(selected_light)));
+        draw_tile(x2, y1, w, h, "Amber",  id(focus_index) == 1, light_name(id(selected_light)));
+        draw_tile(x3, y1, w, h, "Yellow", id(focus_index) == 2, light_name(id(selected_light)));
+        draw_tile(x1, y2, w, h, "Green",  id(focus_index) == 3, light_name(id(selected_light)));
+        draw_tile(x2, y2, w, h, "Blue",   id(focus_index) == 4, light_name(id(selected_light)));
+        draw_tile(x3, y2, w, h, "Purple", id(focus_index) == 5, light_name(id(selected_light)));
+      } else if (id(page_index) == 3) {
+        char temp_buf[16];
+        char feels_buf[16];
+        char hum_buf[16];
+        char wind_buf[16];
+        char uv_buf[16];
+        snprintf(temp_buf, sizeof(temp_buf), "%.1f", id(wx_temp).state);
+        snprintf(feels_buf, sizeof(feels_buf), "Feels %.1f", id(wx_feels).state);
+        snprintf(hum_buf, sizeof(hum_buf), "Hum %.0f%%", id(wx_humidity).state);
+        snprintf(wind_buf, sizeof(wind_buf), "Wind %.0f", id(wx_wind_speed).state);
+        snprintf(uv_buf, sizeof(uv_buf), "UV %.1f", id(wx_uv).state);
+
+        const char *cond = id(wx_weather).has_state() ? id(wx_weather).state.c_str() :
+                           (id(wx_condition).has_state() ? id(wx_condition).state.c_str() : "-");
+
+        it.filled_rectangle(12, 46, 296, 66, id(col_panel));
+        it.rectangle(12, 46, 296, 66, id(col_border));
+        it.printf(28, 56, id(font_title), id(col_text), TextAlign::TOP_LEFT, "%s", temp_buf);
+        it.printf(28, 80, id(font_small), id(col_text_dim), TextAlign::TOP_LEFT, "%s", cond);
+
+        draw_tile(12, 122, 142, 40, "Feels", false, feels_buf);
+        draw_tile(166, 122, 142, 40, "Humidity", false, hum_buf);
+        draw_tile(12, 172, 142, 40, "Wind", false, wind_buf);
+        draw_tile(166, 172, 142, 40, "Cloud/UV", false, uv_buf);
+      } else if (id(page_index) == 4) {
+        draw_tile(x1, y1, w, h, "BBC",     id(focus_index) == 0, "open");
+        draw_tile(x2, y1, w, h, "DC",      id(focus_index) == 1, "open");
+        draw_tile(x3, y1, w, h, "Loudoun", id(focus_index) == 2, "open");
+        draw_tile(x1, y2, w, h, "Word",    id(focus_index) == 3, "open");
+        draw_tile(x2, y2, w, h, "Quote",   id(focus_index) == 4, "open");
+        draw_tile(x3, y2, w, h, "Quote+",  id(focus_index) == 5, "open");
+      } else {
+        char saver_buf[20];
+        char kb_buf[20];
+        snprintf(saver_buf, sizeof(saver_buf), "%ds", id(screensaver_timeout_s));
+        snprintf(kb_buf, sizeof(kb_buf), "%d%%", id(kb_backlight_percent));
+
+        draw_tile(x1, y1, w, h, "Saver-",    id(focus_index) == 0, saver_buf);
+        draw_tile(x2, y1, w, h, "Saver+",    id(focus_index) == 1, saver_buf);
+        draw_tile(x3, y1, w, h, "WakeTouch", id(focus_index) == 2, id(wake_on_touch) ? "ON" : "OFF");
+        draw_tile(x1, y2, w, h, "WakeKeys",  id(focus_index) == 3, id(wake_on_keyboard) ? "ON" : "OFF");
+        draw_tile(x2, y2, w, h, "TouchCal",  id(focus_index) == 4, "start");
+        draw_tile(x3, y2, w, h, "KB Light",  id(focus_index) == 5, kb_buf);
+
+        it.printf(160, 208, id(font_small), id(col_text_dim), TextAlign::TOP_CENTER,
+                  "Batt %.2fV %d%% | R reset cal | C debug",
+                  id(battery_voltage_raw).state,
+                  (int) id(battery_percent).state);
+      }
+
+      it.rectangle(12, 224, 296, 1, id(col_border));
+      it.printf(12, 228, id(font_micro), id(col_text_dim), TextAlign::TOP_LEFT,
+                "Pg:%d", id(page_index) + 1);
+      it.printf(160, 228, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER,
+                "Sel:%s", light_name(id(selected_light)));
+      it.printf(308, 228, id(font_micro), id(col_text_dim), TextAlign::TOP_RIGHT,
+                "BL:%d%%", id(backlight_percent));
+
+      if (id(touch_debug) && id(touch_active)) {
+        it.filled_circle(id(touch_x_last), id(touch_y_last), 5, id(col_good));
+      }

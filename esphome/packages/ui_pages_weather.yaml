@@ -1,0 +1,2 @@
+.ui_pages_weather:
+  note: "Weather page logic currently lives in ui_render_core + display_mipi_custom."

@@ -1,0 +1,22 @@
+uart:
+  id: gps_uart
+  rx_pin: ${gps_rx_pin}
+  tx_pin: ${gps_tx_pin}
+  baud_rate: 9600
+
+gps:
+  latitude:
+    name: "${friendly_name} GPS Latitude"
+  longitude:
+    name: "${friendly_name} GPS Longitude"
+  altitude:
+    name: "${friendly_name} GPS Altitude"
+  speed:
+    name: "${friendly_name} GPS Speed"
+  course:
+    name: "${friendly_name} GPS Course"
+  satellites:
+    name: "${friendly_name} GPS Satellites"
+  hdop:
+    name: "${friendly_name} GPS HDOP"
+  update_interval: 5s

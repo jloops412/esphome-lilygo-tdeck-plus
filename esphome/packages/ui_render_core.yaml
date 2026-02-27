@@ -1,0 +1,731 @@
+script:
+  - id: redraw
+    then:
+      - component.update: tft
+
+  - id: note_activity
+    then:
+      - lambda: |-
+          id(last_activity_ms) = esphome::millis();
+      - if:
+          condition:
+            lambda: "return id(screensaver_active);"
+          then:
+            - script.execute: wake_display
+
+  - id: wake_display
+    then:
+      - lambda: |-
+          id(screensaver_active) = false;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - script.execute: kb_backlight_apply
+      - script.execute: redraw
+
+  - id: sleep_display
+    then:
+      - lambda: |-
+          id(screensaver_active) = true;
+      - light.turn_off: tft_backlight
+      - script.execute: redraw
+
+  - id: kb_backlight_apply
+    then:
+      - lambda: |-
+          int pct = id(kb_backlight_percent);
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+
+          int live = (pct * 255) / 100;
+          int defv = live;
+          if (pct > 0 && defv < 30) defv = 30;
+
+          uint8_t cmd_default[2] = {0x02, (uint8_t)(pct > 0 ? defv : 30)};
+          uint8_t cmd_live[2] = {0x01, (uint8_t)live};
+
+          id(bus_a).write(0x55, cmd_default, 2);
+          delay(5);
+          id(bus_a).write(0x55, cmd_live, 2);
+
+  - id: kb_backlight_toggle
+    then:
+      - lambda: |-
+          if (id(kb_backlight_percent) > 0) {
+            id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+            id(kb_backlight_percent) = 0;
+          } else {
+            if (id(kb_backlight_last_nonzero) <= 0) id(kb_backlight_last_nonzero) = 70;
+            id(kb_backlight_percent) = id(kb_backlight_last_nonzero);
+          }
+      - script.execute: kb_backlight_apply
+      - script.execute: redraw
+
+  - id: kb_backlight_down
+    then:
+      - lambda: |-
+          id(kb_backlight_percent) -= 20;
+          if (id(kb_backlight_percent) < 0) id(kb_backlight_percent) = 0;
+          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+      - script.execute: kb_backlight_apply
+      - script.execute: redraw
+
+  - id: kb_backlight_up
+    then:
+      - lambda: |-
+          id(kb_backlight_percent) += 20;
+          if (id(kb_backlight_percent) > 100) id(kb_backlight_percent) = 100;
+          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+      - script.execute: kb_backlight_apply
+      - script.execute: redraw
+
+  - id: open_detail_bbc
+    then:
+      - lambda: |-
+          id(detail_source) = 0;
+          id(detail_mode) = true;
+      - script.execute: redraw
+
+  - id: open_detail_dc
+    then:
+      - lambda: |-
+          id(detail_source) = 1;
+          id(detail_mode) = true;
+      - script.execute: redraw
+
+  - id: open_detail_loudoun
+    then:
+      - lambda: |-
+          id(detail_source) = 2;
+          id(detail_mode) = true;
+      - script.execute: redraw
+
+  - id: open_detail_word
+    then:
+      - lambda: |-
+          id(detail_source) = 3;
+          id(detail_mode) = true;
+      - script.execute: redraw
+
+  - id: open_detail_quote
+    then:
+      - lambda: |-
+          id(detail_source) = 4;
+          id(detail_mode) = true;
+      - script.execute: redraw
+
+  - id: close_detail
+    then:
+      - lambda: |-
+          id(detail_mode) = false;
+      - script.execute: redraw
+
+  - id: page_next
+    then:
+      - lambda: |-
+          id(detail_mode) = false;
+          id(page_index) = (id(page_index) + 1) % 6;
+          id(focus_index) = 0;
+      - script.execute: redraw
+
+  - id: page_prev
+    then:
+      - lambda: |-
+          id(detail_mode) = false;
+          id(page_index) = (id(page_index) + 5) % 6;
+          id(focus_index) = 0;
+      - script.execute: redraw
+
+  - id: focus_left
+    then:
+      - lambda: |-
+          int row = id(focus_index) / 3;
+          int col = id(focus_index) % 3;
+          col = (col + 2) % 3;
+          id(focus_index) = row * 3 + col;
+      - script.execute: redraw
+
+  - id: focus_right
+    then:
+      - lambda: |-
+          int row = id(focus_index) / 3;
+          int col = id(focus_index) % 3;
+          col = (col + 1) % 3;
+          id(focus_index) = row * 3 + col;
+      - script.execute: redraw
+
+  - id: focus_up
+    then:
+      - lambda: |-
+          id(focus_index) = (id(focus_index) + 3) % 6;
+      - script.execute: redraw
+
+  - id: focus_down
+    then:
+      - lambda: |-
+          id(focus_index) = (id(focus_index) + 3) % 6;
+      - script.execute: redraw
+
+  - id: saver_timeout_down
+    then:
+      - lambda: |-
+          id(screensaver_timeout_s) -= 5;
+          if (id(screensaver_timeout_s) < 10) id(screensaver_timeout_s) = 10;
+      - script.execute: redraw
+
+  - id: saver_timeout_up
+    then:
+      - lambda: |-
+          id(screensaver_timeout_s) += 5;
+          if (id(screensaver_timeout_s) > 300) id(screensaver_timeout_s) = 300;
+      - script.execute: redraw
+
+  - id: toggle_touch_debug
+    then:
+      - lambda: |-
+          id(touch_debug) = !id(touch_debug);
+      - script.execute: redraw
+
+  - id: toggle_screensaver_enabled
+    then:
+      - lambda: |-
+          id(screensaver_enabled) = !id(screensaver_enabled);
+      - script.execute: redraw
+
+  - id: toggle_wake_touch
+    then:
+      - lambda: |-
+          id(wake_on_touch) = !id(wake_on_touch);
+      - script.execute: redraw
+
+  - id: toggle_wake_keyboard
+    then:
+      - lambda: |-
+          id(wake_on_keyboard) = !id(wake_on_keyboard);
+      - script.execute: redraw
+
+  - id: toggle_wake_trackball
+    then:
+      - lambda: |-
+          id(wake_on_trackball) = !id(wake_on_trackball);
+      - script.execute: redraw
+
+  - id: start_touch_calibration
+    then:
+      - lambda: |-
+          id(detail_mode) = false;
+          id(touch_cal_mode) = true;
+          id(touch_cal_step) = 0;
+          id(touch_active) = false;
+          id(touch_valid) = false;
+          id(touch_down_index) = -1;
+      - script.execute: redraw
+
+  - id: reset_touch_calibration
+    then:
+      - lambda: |-
+          id(cal_dx_tl) = 0; id(cal_dy_tl) = 0;
+          id(cal_dx_tc) = 0; id(cal_dy_tc) = 0;
+          id(cal_dx_tr) = 0; id(cal_dy_tr) = 0;
+          id(cal_dx_ml) = 0; id(cal_dy_ml) = 0;
+          id(cal_dx_mc) = 0; id(cal_dy_mc) = 0;
+          id(cal_dx_mr) = 0; id(cal_dy_mr) = 0;
+          id(cal_dx_bl) = 0; id(cal_dy_bl) = 0;
+          id(cal_dx_bc) = 0; id(cal_dy_bc) = 0;
+          id(cal_dx_br) = 0; id(cal_dy_br) = 0;
+      - script.execute: redraw
+
+  - id: selected_light_toggle
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.foyer_lights
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.main_vanity_lights
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.bedroom_lamp
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.hall_lights
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.office_lamps
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.toggle
+                data:
+                  entity_id: light.upstairs_lights
+
+  - id: selected_light_brighter
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.foyer_lights
+                  brightness_step_pct: "20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.main_vanity_lights
+                  brightness_step_pct: "20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.bedroom_lamp
+                  brightness_step_pct: "20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.hall_lights
+                  brightness_step_pct: "20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.office_lamps
+                  brightness_step_pct: "20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.upstairs_lights
+                  brightness_step_pct: "20"
+
+  - id: selected_light_dimmer
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.foyer_lights
+                  brightness_step_pct: "-20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.main_vanity_lights
+                  brightness_step_pct: "-20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.bedroom_lamp
+                  brightness_step_pct: "-20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.hall_lights
+                  brightness_step_pct: "-20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.office_lamps
+                  brightness_step_pct: "-20"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.upstairs_lights
+                  brightness_step_pct: "-20"
+
+  - id: selected_light_warm
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.foyer_lights
+                  color_temp_kelvin: "2700"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.main_vanity_lights
+                  color_temp_kelvin: "2700"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.bedroom_lamp
+                  color_temp_kelvin: "2700"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.hall_lights
+                  color_temp_kelvin: "2700"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.office_lamps
+                  color_temp_kelvin: "2700"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.upstairs_lights
+                  color_temp_kelvin: "2700"
+
+  - id: selected_light_cool
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.foyer_lights
+                  color_temp_kelvin: "6500"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.main_vanity_lights
+                  color_temp_kelvin: "6500"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.bedroom_lamp
+                  color_temp_kelvin: "6500"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.hall_lights
+                  color_temp_kelvin: "6500"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.office_lamps
+                  color_temp_kelvin: "6500"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.upstairs_lights
+                  color_temp_kelvin: "6500"
+
+  - id: selected_light_color
+    parameters:
+      cname: string
+    then:
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 0;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.foyer_lights
+                  color_name: !lambda "return cname;"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.main_vanity_lights
+                  color_name: !lambda "return cname;"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.bedroom_lamp
+                  color_name: !lambda "return cname;"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.hall_lights
+                  color_name: !lambda "return cname;"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.office_lamps
+                  color_name: !lambda "return cname;"
+      - if:
+          condition:
+            lambda: "return id(selected_light) == 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_on
+                data:
+                  entity_id: light.upstairs_lights
+                  color_name: !lambda "return cname;"
+
+  - id: activate_focused
+    then:
+      - if:
+          condition:
+            lambda: "return id(detail_mode);"
+          then:
+            - script.execute: close_detail
+
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 0 && id(focus_index) >= 0 && id(focus_index) <= 5;"
+          then:
+            - lambda: |-
+                id(selected_light) = id(focus_index);
+            - script.execute: selected_light_toggle
+
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 0;"
+          then:
+            - script.execute: selected_light_toggle
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 1;"
+          then:
+            - script.execute: selected_light_brighter
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 2;"
+          then:
+            - script.execute: selected_light_dimmer
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 3;"
+          then:
+            - script.execute: selected_light_warm
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 4;"
+          then:
+            - script.execute: selected_light_cool
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 5;"
+          then:
+            - lambda: |-
+                id(page_index) = 2;
+                id(focus_index) = 0;
+            - script.execute: redraw
+
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 0;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "red"
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 1;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "orange"
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 2;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "yellow"
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 3;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "green"
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 4;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "blue"
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 5;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "purple"
+
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 0;"
+          then:
+            - script.execute: open_detail_bbc
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 1;"
+          then:
+            - script.execute: open_detail_dc
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 2;"
+          then:
+            - script.execute: open_detail_loudoun
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 3;"
+          then:
+            - script.execute: open_detail_word
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 4;"
+          then:
+            - script.execute: open_detail_quote
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 5;"
+          then:
+            - script.execute: open_detail_quote
+
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 0;"
+          then:
+            - script.execute: saver_timeout_down
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 1;"
+          then:
+            - script.execute: saver_timeout_up
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 2;"
+          then:
+            - script.execute: toggle_wake_touch
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 3;"
+          then:
+            - script.execute: toggle_wake_keyboard
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 4;"
+          then:
+            - script.execute: start_touch_calibration
+      - if:
+          condition:
+            lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 5;"
+          then:
+            - script.execute: kb_backlight_toggle
+
+      - script.execute: redraw

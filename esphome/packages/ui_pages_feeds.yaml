@@ -1,0 +1,2 @@
+.ui_pages_feeds:
+  note: "Feeds page logic currently lives in ui_render_core + display_mipi_custom."
