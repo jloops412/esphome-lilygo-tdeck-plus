@@ -17,7 +17,7 @@ text_sensor:
     lambda: |-
       if (id(page_index) == 0) return {"Lights"};
       if (id(page_index) == 1) return {"LightCtl"};
-      if (id(page_index) == 2) return {"Colors"};
+      if (id(page_index) == 2) return {"Presets"};
       if (id(page_index) == 3) return {"Weather"};
       if (id(page_index) == 4) return {"Feeds"};
       return {"Settings"};
@@ -221,12 +221,4 @@ sensor:
   - platform: homeassistant
     id: wx_wind_speed
     entity_id: sensor.openweathermap_wind_speed
-    internal: true
-  - platform: homeassistant
-    id: wx_wind_gust
-    entity_id: sensor.openweathermap_wind_gust_speed
-    internal: true
-  - platform: homeassistant
-    id: wx_dew
-    entity_id: sensor.openweathermap_dew_point_temperature
     internal: true

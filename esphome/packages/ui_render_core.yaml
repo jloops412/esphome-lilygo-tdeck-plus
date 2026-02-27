@@ -573,6 +573,18 @@ script:
                   entity_id: light.upstairs_lights
                   color_name: !lambda "return cname;"
 
+  - id: selected_light_prev
+    then:
+      - lambda: |-
+          id(selected_light) = (id(selected_light) + 5) % 6;
+      - script.execute: redraw
+
+  - id: selected_light_next
+    then:
+      - lambda: |-
+          id(selected_light) = (id(selected_light) + 1) % 6;
+      - script.execute: redraw
+
   - id: activate_focused
     then:
       - if:
@@ -595,27 +607,27 @@ script:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 0;"
           then:
-            - script.execute: selected_light_toggle
+            - script.execute: selected_light_prev
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 1;"
           then:
-            - script.execute: selected_light_brighter
+            - script.execute: selected_light_toggle
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 2;"
           then:
-            - script.execute: selected_light_dimmer
+            - script.execute: selected_light_next
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 3;"
           then:
-            - script.execute: selected_light_warm
+            - script.execute: selected_light_dimmer
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 4;"
           then:
-            - script.execute: selected_light_cool
+            - script.execute: selected_light_brighter
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 1 && id(focus_index) == 5;"
@@ -629,44 +641,41 @@ script:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 0;"
           then:
-            - script.execute:
-                id: selected_light_color
-                cname: "red"
+            - script.execute: selected_light_warm
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 1;"
           then:
-            - script.execute:
-                id: selected_light_color
-                cname: "orange"
+            - script.execute: selected_light_cool
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 2;"
           then:
             - script.execute:
                 id: selected_light_color
-                cname: "yellow"
+                cname: "orange"
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 3;"
           then:
             - script.execute:
                 id: selected_light_color
-                cname: "green"
+                cname: "white"
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 4;"
           then:
             - script.execute:
                 id: selected_light_color
-                cname: "blue"
+                cname: "purple"
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 2 && id(focus_index) == 5;"
           then:
-            - script.execute:
-                id: selected_light_color
-                cname: "purple"
+            - lambda: |-
+                id(page_index) = 1;
+                id(focus_index) = 0;
+            - script.execute: redraw
 
       - if:
           condition:
@@ -723,11 +732,11 @@ script:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 4;"
           then:
-            - script.execute: start_touch_calibration
+            - script.execute: toggle_wake_trackball
       - if:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 5 && id(focus_index) == 5;"
           then:
-            - script.execute: kb_backlight_toggle
+            - script.execute: start_touch_calibration
 
       - script.execute: redraw

@@ -5,14 +5,17 @@
 - `v0.1.0-stable`: parity baseline milestone.
 - `v0.2.0-gps-kb`: GPS + keyboard wake improvements.
 - `v0.3.0-ui-pass1`: first UI redesign milestone.
+- `v0.3.1-ui-pass1-hotfix`: ESP32-S3 logger linker fix.
+- `v0.4.0-ui-pass2`: controller-first UX pass + keyboard shortcuts + weather robustness.
 
-`v0.3.0-ui-pass1` highlights:
+`v0.4.0-ui-pass2` highlights:
 
-1. Dark-theme and tab polish pass.
-2. Lights flow updated so light selection opens controller page.
-3. Weather page redesigned to dashboard metric cards.
-4. Feed page now shows compact live previews per source.
-5. Logger serial disabled (`baud_rate: 0`) to avoid UART contention with GPS.
+1. Light control flow now centers around `CTRL` page with `Prev/Toggle/Next` plus `Dim/Bright`.
+2. Presets page changed from raw colors to practical scenes: `Warm/Cool/Relax/Focus/Party`.
+3. Keyboard shortcuts added for page jumps and light control: `1`..`6`, `[`, `]`, `-`, `+`, `T`.
+4. Weather formatting now handles invalid/missing values without rendering junk.
+5. Settings page includes wake-on-trackball toggle and touch calibration access.
+6. Removed unused gust/dew numeric imports that could spam `unknown -> number` warnings.
 
 ## Checklist per release
 

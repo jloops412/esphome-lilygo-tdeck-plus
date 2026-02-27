@@ -2,7 +2,8 @@
 
 ## Stable install path
 
-- Keep one monolithic install YAML as the runtime source of truth for Home Assistant installs.
+- Keep one drop-in install YAML as the runtime source of truth for Home Assistant installs.
+- The install YAML should pull modular package files from this repo by tag.
 - Do not regress the manual display lambda architecture unless a replacement is proven stable.
 
 ## Development path
@@ -12,9 +13,10 @@
 
 ## Immediate improvements in scope
 
-1. Wake flow should apply keyboard backlight policy when waking the display.
-2. Feed page should no longer surface a settings shortcut tile.
-3. Add GPS entities for HA visibility.
+1. Improve single-flow light controller UX.
+2. Improve weather dashboard readability and robustness.
+3. Improve feed landing and reader ergonomics.
+4. Continue GPS reliability verification and diagnostics.
 
 ## Non-goals right now
 

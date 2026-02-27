@@ -15,6 +15,12 @@
 6. Feed page no longer routes to settings from the 6th feed tile.
 7. UI pass 1 adds a redesigned weather dashboard and compact feed previews.
 8. Logger UART output disabled (`baud_rate: 0`) to reduce GPS UART conflicts.
+9. UI pass 2 adds controller-first light interactions (prev/toggle/next + dim/bright).
+10. Presets page now focuses on practical light scenes (warm/cool/relax/focus/party).
+11. Settings page now includes wake-on-trackball toggle directly in UI.
+12. Weather value formatting now handles invalid values more gracefully.
+13. Unused gust/dew weather imports were removed to reduce `unknown` parse warnings.
+14. Keyboard shortcuts now include direct tab jumps (`1`..`6`) and controller actions (`[`, `]`, `-`, `+`, `T`).
 
 ## Migration steps for existing HA node
 

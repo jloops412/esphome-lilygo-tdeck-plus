@@ -148,6 +148,14 @@ display:
         return std::string("-");
       };
 
+      auto fmt_num = [&](float v, const char *fmt, char *out, int out_len) {
+        if (v != v) {
+          snprintf(out, out_len, "--");
+        } else {
+          snprintf(out, out_len, fmt, v);
+        }
+      };
+
       auto draw_wrapped = [&](const std::string &text, int x, int y, int max_chars, int max_lines) {
         std::string line;
         std::string word;
@@ -256,7 +264,7 @@ display:
 
       draw_tab(4,   8, 48, 26, "LST",  id(page_index) == 0);
       draw_tab(56,  8, 48, 26, "CTRL", id(page_index) == 1);
-      draw_tab(108, 8, 48, 26, "COL",  id(page_index) == 2);
+      draw_tab(108, 8, 48, 26, "PSET", id(page_index) == 2);
       draw_tab(160, 8, 48, 26, "WX",   id(page_index) == 3);
       draw_tab(212, 8, 48, 26, "READ", id(page_index) == 4);
       draw_tab(264, 8, 48, 26, "SET",  id(page_index) == 5);
@@ -281,19 +289,19 @@ display:
       } else if (id(page_index) == 1) {
         it.printf(160, 38, id(font_small), id(col_text_dim), TextAlign::TOP_CENTER,
                   "Selected: %s (%s)", light_name(id(selected_light)), light_state_text(id(selected_light)));
-        draw_tile(x1, y1, w, h, "Toggle",   id(focus_index) == 0, light_name(id(selected_light)));
-        draw_tile(x2, y1, w, h, "Bright+",  id(focus_index) == 1, light_name(id(selected_light)));
-        draw_tile(x3, y1, w, h, "Bright-",  id(focus_index) == 2, light_name(id(selected_light)));
-        draw_tile(x1, y2, w, h, "Warm",     id(focus_index) == 3, light_name(id(selected_light)));
-        draw_tile(x2, y2, w, h, "Cool",     id(focus_index) == 4, light_name(id(selected_light)));
-        draw_tile(x3, y2, w, h, "Colors",   id(focus_index) == 5, light_name(id(selected_light)));
+        draw_tile(x1, y1, w, h, "Prev",     id(focus_index) == 0, "Light");
+        draw_tile(x2, y1, w, h, "Toggle",   id(focus_index) == 1, light_name(id(selected_light)));
+        draw_tile(x3, y1, w, h, "Next",     id(focus_index) == 2, "Light");
+        draw_tile(x1, y2, w, h, "Dim",      id(focus_index) == 3, "-20%");
+        draw_tile(x2, y2, w, h, "Bright",   id(focus_index) == 4, "+20%");
+        draw_tile(x3, y2, w, h, "Presets",  id(focus_index) == 5, "open");
       } else if (id(page_index) == 2) {
-        draw_tile(x1, y1, w, h, "Red",    id(focus_index) == 0, light_name(id(selected_light)));
-        draw_tile(x2, y1, w, h, "Amber",  id(focus_index) == 1, light_name(id(selected_light)));
-        draw_tile(x3, y1, w, h, "Yellow", id(focus_index) == 2, light_name(id(selected_light)));
-        draw_tile(x1, y2, w, h, "Green",  id(focus_index) == 3, light_name(id(selected_light)));
-        draw_tile(x2, y2, w, h, "Blue",   id(focus_index) == 4, light_name(id(selected_light)));
-        draw_tile(x3, y2, w, h, "Purple", id(focus_index) == 5, light_name(id(selected_light)));
+        draw_tile(x1, y1, w, h, "Warm",     id(focus_index) == 0, "2700K");
+        draw_tile(x2, y1, w, h, "Cool",     id(focus_index) == 1, "6500K");
+        draw_tile(x3, y1, w, h, "Relax",    id(focus_index) == 2, "Orange");
+        draw_tile(x1, y2, w, h, "Focus",    id(focus_index) == 3, "White");
+        draw_tile(x2, y2, w, h, "Party",    id(focus_index) == 4, "Purple");
+        draw_tile(x3, y2, w, h, "Back",     id(focus_index) == 5, "CTRL");
       } else if (id(page_index) == 3) {
         char temp_buf[16];
         char feels_buf[16];
@@ -303,14 +311,20 @@ display:
         char cloud_buf[20];
         char press_buf[20];
         char vis_buf[20];
-        snprintf(temp_buf, sizeof(temp_buf), "%.1f", id(wx_temp).state);
-        snprintf(feels_buf, sizeof(feels_buf), "Feels %.1f", id(wx_feels).state);
-        snprintf(hum_buf, sizeof(hum_buf), "%.0f%%", id(wx_humidity).state);
-        snprintf(wind_buf, sizeof(wind_buf), "%.0f", id(wx_wind_speed).state);
-        snprintf(uv_buf, sizeof(uv_buf), "%.1f", id(wx_uv).state);
-        snprintf(cloud_buf, sizeof(cloud_buf), "%.0f%%", id(wx_clouds).state);
-        snprintf(press_buf, sizeof(press_buf), "%.0f", id(wx_pressure).state);
-        snprintf(vis_buf, sizeof(vis_buf), "%.0f", id(wx_visibility).state);
+        fmt_num(id(wx_temp).state, "%.1f", temp_buf, sizeof(temp_buf));
+        if (id(wx_feels).state != id(wx_feels).state) {
+          snprintf(feels_buf, sizeof(feels_buf), "Feels --");
+        } else {
+          snprintf(feels_buf, sizeof(feels_buf), "Feels %.1f", id(wx_feels).state);
+        }
+        if (id(wx_humidity).state != id(wx_humidity).state) snprintf(hum_buf, sizeof(hum_buf), "--");
+        else snprintf(hum_buf, sizeof(hum_buf), "%.0f%%", id(wx_humidity).state);
+        fmt_num(id(wx_wind_speed).state, "%.0f", wind_buf, sizeof(wind_buf));
+        fmt_num(id(wx_uv).state, "%.1f", uv_buf, sizeof(uv_buf));
+        if (id(wx_clouds).state != id(wx_clouds).state) snprintf(cloud_buf, sizeof(cloud_buf), "--");
+        else snprintf(cloud_buf, sizeof(cloud_buf), "%.0f%%", id(wx_clouds).state);
+        fmt_num(id(wx_pressure).state, "%.0f", press_buf, sizeof(press_buf));
+        fmt_num(id(wx_visibility).state, "%.0f", vis_buf, sizeof(vis_buf));
 
         const char *cond = id(wx_weather).has_state() ? id(wx_weather).state.c_str() :
                            (id(wx_condition).has_state() ? id(wx_condition).state.c_str() : "-");
@@ -368,13 +382,14 @@ display:
         draw_tile(x2, y1, w, h, "Saver+",    id(focus_index) == 1, saver_buf);
         draw_tile(x3, y1, w, h, "WakeTouch", id(focus_index) == 2, id(wake_on_touch) ? "ON" : "OFF");
         draw_tile(x1, y2, w, h, "WakeKeys",  id(focus_index) == 3, id(wake_on_keyboard) ? "ON" : "OFF");
-        draw_tile(x2, y2, w, h, "TouchCal",  id(focus_index) == 4, "start");
-        draw_tile(x3, y2, w, h, "KB Light",  id(focus_index) == 5, kb_buf);
+        draw_tile(x2, y2, w, h, "WakeBall",  id(focus_index) == 4, id(wake_on_trackball) ? "ON" : "OFF");
+        draw_tile(x3, y2, w, h, "TouchCal",  id(focus_index) == 5, "start");
 
         it.printf(160, 208, id(font_small), id(col_text_dim), TextAlign::TOP_CENTER,
-                  "Batt %.2fV %d%% | R reset cal | C debug",
+                  "Batt %.2fV %d%% | KB Light %s",
                   id(battery_voltage_raw).state,
-                  (int) id(battery_percent).state);
+                  (int) id(battery_percent).state,
+                  kb_buf);
         it.printf(160, 219, id(font_micro), id(col_text_dim), TextAlign::TOP_CENTER, "%s", gps_buf);
       }
 

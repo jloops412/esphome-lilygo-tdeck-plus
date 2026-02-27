@@ -86,6 +86,15 @@ interval:
                   - script.execute: page_next
             - if:
                 condition:
+                  lambda: "return id(kb_last_raw) >= '1' && id(kb_last_raw) <= '6';"
+                then:
+                  - lambda: |-
+                      id(detail_mode) = false;
+                      id(page_index) = (int) (id(kb_last_raw) - '1');
+                      id(focus_index) = 0;
+                  - script.execute: redraw
+            - if:
+                condition:
                   lambda: "return id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K';"
                 then:
                   - script.execute: start_touch_calibration
@@ -114,6 +123,31 @@ interval:
                   lambda: "return id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M';"
                 then:
                   - script.execute: kb_backlight_up
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '[';"
+                then:
+                  - script.execute: selected_light_prev
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == ']';"
+                then:
+                  - script.execute: selected_light_next
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '-' || id(kb_last_raw) == '_';"
+                then:
+                  - script.execute: selected_light_dimmer
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '+' || id(kb_last_raw) == '=';"
+                then:
+                  - script.execute: selected_light_brighter
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 't' || id(kb_last_raw) == 'T';"
+                then:
+                  - script.execute: selected_light_toggle
             - if:
                 condition:
                   lambda: "return id(detail_mode);"
