@@ -7,7 +7,7 @@ substitutions:
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.2.0-gps-kb
+    ref: v0.3.0-ui-pass1
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

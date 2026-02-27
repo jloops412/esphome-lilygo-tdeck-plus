@@ -35,7 +35,7 @@ preferences:
 
 logger:
   level: INFO
-  hardware_uart: UART0
+  baud_rate: 0
 
 api:
 
@@ -111,17 +111,17 @@ color:
     green: 0%
     blue: 0%
   - id: col_panel
-    red: 8%
-    green: 8%
-    blue: 8%
+    red: 6%
+    green: 6%
+    blue: 7%
   - id: col_panel_sel
-    red: 16%
-    green: 16%
-    blue: 20%
+    red: 12%
+    green: 14%
+    blue: 18%
   - id: col_border
-    red: 24%
-    green: 24%
-    blue: 24%
+    red: 18%
+    green: 20%
+    blue: 22%
   - id: col_text
     red: 95%
     green: 95%
@@ -131,9 +131,9 @@ color:
     green: 58%
     blue: 58%
   - id: col_good
-    red: 22%
-    green: 70%
-    blue: 35%
+    red: 18%
+    green: 72%
+    blue: 62%
   - id: col_warn
     red: 85%
     green: 45%

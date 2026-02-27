@@ -6,6 +6,14 @@
 - `v0.2.0-gps-kb`: GPS + keyboard wake improvements.
 - `v0.3.0-ui-pass1`: first UI redesign milestone.
 
+`v0.3.0-ui-pass1` highlights:
+
+1. Dark-theme and tab polish pass.
+2. Lights flow updated so light selection opens controller page.
+3. Weather page redesigned to dashboard metric cards.
+4. Feed page now shows compact live previews per source.
+5. Logger serial disabled (`baud_rate: 0`) to avoid UART contention with GPS.
+
 ## Checklist per release
 
 1. `esphome config` passes for `esphome/profiles/stable_snapshot.yaml`.

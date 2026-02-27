@@ -587,7 +587,9 @@ script:
           then:
             - lambda: |-
                 id(selected_light) = id(focus_index);
-            - script.execute: selected_light_toggle
+                id(page_index) = 1;
+                id(focus_index) = 0;
+            - script.execute: redraw
 
       - if:
           condition:

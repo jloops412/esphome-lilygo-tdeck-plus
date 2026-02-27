@@ -13,6 +13,8 @@
 4. Keyboard wake flow now re-applies keyboard backlight script.
 5. `millis()` ambiguity fixed by using `esphome::millis()` in lambdas.
 6. Feed page no longer routes to settings from the 6th feed tile.
+7. UI pass 1 adds a redesigned weather dashboard and compact feed previews.
+8. Logger UART output disabled (`baud_rate: 0`) to reduce GPS UART conflicts.
 
 ## Migration steps for existing HA node
 

@@ -7,16 +7,23 @@ uart:
 gps:
   latitude:
     name: "${friendly_name} GPS Latitude"
+    id: gps_latitude
   longitude:
     name: "${friendly_name} GPS Longitude"
+    id: gps_longitude
   altitude:
     name: "${friendly_name} GPS Altitude"
+    id: gps_altitude
   speed:
     name: "${friendly_name} GPS Speed"
+    id: gps_speed
   course:
     name: "${friendly_name} GPS Course"
+    id: gps_course
   satellites:
     name: "${friendly_name} GPS Satellites"
+    id: gps_satellites
   hdop:
     name: "${friendly_name} GPS HDOP"
+    id: gps_hdop
   update_interval: 5s
