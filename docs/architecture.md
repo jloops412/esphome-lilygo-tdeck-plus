@@ -4,12 +4,15 @@
 
 - Keep one drop-in install YAML as the runtime source of truth for Home Assistant installs.
 - The install YAML should pull modular package files from this repo by tag.
-- Do not regress the manual display lambda architecture unless a replacement is proven stable.
+- Keep a parallel LVGL install track during migration to avoid destabilizing stable users.
 
 ## Development path
 
 - Keep organization and documentation in repo for collaboration.
 - Move functionality in phases to logical packages only after parity checks.
+- Maintain two install targets during LVGL migration:
+  - Stable manual-rendered UI.
+  - LVGL beta UI.
 
 ## Immediate improvements in scope
 
@@ -20,6 +23,5 @@
 
 ## Non-goals right now
 
-- LVGL/card-grid redesign.
 - Audio/mic/voice features.
 - Major display stack rewrites.

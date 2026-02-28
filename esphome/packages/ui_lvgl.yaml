@@ -1,0 +1,1163 @@
+
+script:
+  - id: note_activity
+    then:
+      - lambda: |-
+          id(last_activity_ms) = esphome::millis();
+      - if:
+          condition:
+            lambda: "return id(screensaver_active);"
+          then:
+            - script.execute: wake_display
+
+  - id: wake_display
+    then:
+      - lambda: |-
+          id(screensaver_active) = false;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - script.execute: kb_backlight_apply
+      - lvgl.resume:
+      - script.execute: lvgl_update_dynamic
+
+  - id: sleep_display
+    then:
+      - lambda: |-
+          id(screensaver_active) = true;
+      - lvgl.pause:
+          show_snow: false
+      - light.turn_off: tft_backlight
+
+  - id: kb_backlight_apply
+    then:
+      - lambda: |-
+          int pct = id(kb_backlight_percent);
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+
+          int live = (pct * 255) / 100;
+          int defv = live;
+          if (pct > 0 && defv < 30) defv = 30;
+
+          uint8_t cmd_default[2] = {0x02, (uint8_t)(pct > 0 ? defv : 30)};
+          uint8_t cmd_live[2] = {0x01, (uint8_t)live};
+
+          id(bus_a).write(0x55, cmd_default, 2);
+          delay(5);
+          id(bus_a).write(0x55, cmd_live, 2);
+
+  - id: kb_backlight_toggle
+    then:
+      - lambda: |-
+          if (id(kb_backlight_percent) > 0) {
+            id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+            id(kb_backlight_percent) = 0;
+          } else {
+            if (id(kb_backlight_last_nonzero) <= 0) id(kb_backlight_last_nonzero) = 70;
+            id(kb_backlight_percent) = id(kb_backlight_last_nonzero);
+          }
+      - script.execute: kb_backlight_apply
+      - script.execute: lvgl_update_dynamic
+
+  - id: kb_backlight_down
+    then:
+      - lambda: |-
+          id(kb_backlight_percent) -= 20;
+          if (id(kb_backlight_percent) < 0) id(kb_backlight_percent) = 0;
+          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+      - script.execute: kb_backlight_apply
+      - script.execute: lvgl_update_dynamic
+
+  - id: kb_backlight_up
+    then:
+      - lambda: |-
+          id(kb_backlight_percent) += 20;
+          if (id(kb_backlight_percent) > 100) id(kb_backlight_percent) = 100;
+          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
+      - script.execute: kb_backlight_apply
+      - script.execute: lvgl_update_dynamic
+
+  - id: saver_timeout_down
+    then:
+      - lambda: |-
+          id(screensaver_timeout_s) -= 5;
+          if (id(screensaver_timeout_s) < 10) id(screensaver_timeout_s) = 10;
+      - script.execute: lvgl_update_dynamic
+
+  - id: saver_timeout_up
+    then:
+      - lambda: |-
+          id(screensaver_timeout_s) += 5;
+          if (id(screensaver_timeout_s) > 300) id(screensaver_timeout_s) = 300;
+      - script.execute: lvgl_update_dynamic
+
+  - id: toggle_wake_touch
+    then:
+      - lambda: |-
+          id(wake_on_touch) = !id(wake_on_touch);
+      - script.execute: lvgl_update_dynamic
+
+  - id: toggle_wake_keyboard
+    then:
+      - lambda: |-
+          id(wake_on_keyboard) = !id(wake_on_keyboard);
+      - script.execute: lvgl_update_dynamic
+
+  - id: toggle_wake_trackball
+    then:
+      - lambda: |-
+          id(wake_on_trackball) = !id(wake_on_trackball);
+      - script.execute: lvgl_update_dynamic
+
+  - id: toggle_touch_debug
+    then:
+      - lambda: |-
+          id(touch_debug) = !id(touch_debug);
+      - script.execute: lvgl_update_dynamic
+
+  - id: start_touch_calibration
+    then:
+      - logger.log:
+          level: INFO
+          format: "LVGL profile: touch calibration flow is not yet implemented."
+      - script.execute: lvgl_update_dynamic
+
+  - id: reset_touch_calibration
+    then:
+      - logger.log:
+          level: INFO
+          format: "LVGL profile: no touch calibration reset action is implemented yet."
+
+  - id: display_backlight_down
+    then:
+      - lambda: |-
+          id(backlight_percent) -= 10;
+          if (id(backlight_percent) < 10) id(backlight_percent) = 10;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - script.execute: lvgl_update_dynamic
+
+  - id: display_backlight_up
+    then:
+      - lambda: |-
+          id(backlight_percent) += 10;
+          if (id(backlight_percent) > 100) id(backlight_percent) = 100;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_prev
+    then:
+      - lambda: |-
+          id(selected_light) = (id(selected_light) + 5) % 6;
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_next
+    then:
+      - lambda: |-
+          id(selected_light) = (id(selected_light) + 1) % 6;
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_toggle
+    then:
+      - homeassistant.action:
+          action: light.toggle
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+
+  - id: selected_light_brighter
+    then:
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            brightness_step_pct: "20"
+
+  - id: selected_light_dimmer
+    then:
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            brightness_step_pct: "-20"
+
+  - id: selected_light_warm
+    then:
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            color_temp_kelvin: "2700"
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_cool
+    then:
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            color_temp_kelvin: "6500"
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_color
+    parameters:
+      cname: string
+    then:
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            color_name: !lambda "return cname;"
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_preset_cycle
+    then:
+      - lambda: |-
+          id(light_preset_index) = (id(light_preset_index) + 1) % 5;
+      - if:
+          condition:
+            lambda: "return id(light_preset_index) == 0;"
+          then:
+            - script.execute: selected_light_warm
+      - if:
+          condition:
+            lambda: "return id(light_preset_index) == 1;"
+          then:
+            - script.execute: selected_light_cool
+      - if:
+          condition:
+            lambda: "return id(light_preset_index) == 2;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "orange"
+      - if:
+          condition:
+            lambda: "return id(light_preset_index) == 3;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "white"
+      - if:
+          condition:
+            lambda: "return id(light_preset_index) == 4;"
+          then:
+            - script.execute:
+                id: selected_light_color
+                cname: "purple"
+      - script.execute: lvgl_update_dynamic
+
+  - id: theme_prev
+    then:
+      - lambda: |-
+          id(theme_index) = (id(theme_index) + 2) % 3;
+      - script.execute: apply_theme
+
+  - id: theme_next
+    then:
+      - lambda: |-
+          id(theme_index) = (id(theme_index) + 1) % 3;
+      - script.execute: apply_theme
+
+  - id: apply_theme
+    then:
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 0;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x060607
+                text_color: 0xF2F2F2
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x101218
+                border_color: 0x2A2D36
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x182030
+                border_color: 0x2A5FB2
+                text_color: 0xF2F2F2
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 1;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x071018
+                text_color: 0xEAF4FF
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x0D1B2A
+                border_color: 0x2F5D86
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x14304A
+                border_color: 0x2C84C7
+                text_color: 0xEAF4FF
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 2;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x120D08
+                text_color: 0xFFF1E4
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x24170F
+                border_color: 0x855D36
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x3A2517
+                border_color: 0xC4822F
+                text_color: 0xFFF1E4
+      - script.execute: lvgl_update_dynamic
+
+  - id: open_detail_bbc
+    then:
+      - lambda: |-
+          id(detail_source) = 0;
+      - script.execute: refresh_detail_page
+      - lvgl.page.show: detail_page
+
+  - id: open_detail_dc
+    then:
+      - lambda: |-
+          id(detail_source) = 1;
+      - script.execute: refresh_detail_page
+      - lvgl.page.show: detail_page
+
+  - id: open_detail_loudoun
+    then:
+      - lambda: |-
+          id(detail_source) = 2;
+      - script.execute: refresh_detail_page
+      - lvgl.page.show: detail_page
+
+  - id: open_detail_word
+    then:
+      - lambda: |-
+          id(detail_source) = 3;
+      - script.execute: refresh_detail_page
+      - lvgl.page.show: detail_page
+
+  - id: open_detail_quote
+    then:
+      - lambda: |-
+          id(detail_source) = 4;
+      - script.execute: refresh_detail_page
+      - lvgl.page.show: detail_page
+
+  - id: refresh_detail_page
+    then:
+      - lvgl.label.update:
+          id: detail_title_lbl
+          text: !lambda |-
+            if (id(detail_source) == 0) return std::string("BBC");
+            if (id(detail_source) == 1) return std::string("DC");
+            if (id(detail_source) == 2) return std::string("Loudoun");
+            if (id(detail_source) == 3) return std::string("Word of the Day");
+            return std::string("Quote of the Hour");
+      - lvgl.label.update:
+          id: detail_body_lbl
+          text: !lambda |-
+            if (id(detail_source) == 0) {
+              if (id(feed_bbc_title).has_state() && !id(feed_bbc_title).state.empty()) return id(feed_bbc_title).state;
+              if (id(feed_bbc_message).has_state() && !id(feed_bbc_message).state.empty()) return id(feed_bbc_message).state;
+              if (id(feed_bbc_state).has_state()) return id(feed_bbc_state).state;
+            }
+            if (id(detail_source) == 1) {
+              if (id(feed_dc_title).has_state() && !id(feed_dc_title).state.empty()) return id(feed_dc_title).state;
+              if (id(feed_dc_message).has_state() && !id(feed_dc_message).state.empty()) return id(feed_dc_message).state;
+              if (id(feed_dc_state).has_state()) return id(feed_dc_state).state;
+            }
+            if (id(detail_source) == 2) {
+              if (id(feed_loudoun_title).has_state() && !id(feed_loudoun_title).state.empty()) return id(feed_loudoun_title).state;
+              if (id(feed_loudoun_message).has_state() && !id(feed_loudoun_message).state.empty()) return id(feed_loudoun_message).state;
+              if (id(feed_loudoun_state).has_state()) return id(feed_loudoun_state).state;
+            }
+            if (id(detail_source) == 3 && id(word_of_day).has_state()) return id(word_of_day).state;
+            if (id(detail_source) == 4 && id(quote_of_hour).has_state()) return id(quote_of_hour).state;
+            return std::string("No readable content available.");
+
+  - id: lvgl_update_dynamic
+    then:
+      - lvgl.label.update:
+          id: home_status_lbl
+          text: !lambda |-
+            char buf[96];
+            float sats = id(gps_satellites).state;
+            if (sats > 0.0f) {
+              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat", id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
+            } else {
+              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching", id(battery_percent).state, id(wifi_signal_tdeck).state);
+            }
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lights_selected_lbl
+          text: !lambda |-
+            auto name = std::string("Upstairs");
+            if (id(selected_light) == 0) name = "Foyer";
+            else if (id(selected_light) == 1) name = "Vanity";
+            else if (id(selected_light) == 2) name = "Bedroom";
+            else if (id(selected_light) == 3) name = "Hall";
+            else if (id(selected_light) == 4) name = "Office";
+
+            auto state = std::string("-");
+            if (id(selected_light) == 0 && id(foyer_state).has_state()) state = id(foyer_state).state;
+            else if (id(selected_light) == 1 && id(vanity_state).has_state()) state = id(vanity_state).state;
+            else if (id(selected_light) == 2 && id(bedroom_state).has_state()) state = id(bedroom_state).state;
+            else if (id(selected_light) == 3 && id(hall_state).has_state()) state = id(hall_state).state;
+            else if (id(selected_light) == 4 && id(office_state).has_state()) state = id(office_state).state;
+            else if (id(selected_light) == 5 && id(upstairs_state).has_state()) state = id(upstairs_state).state;
+
+            return name + " (" + state + ")";
+      - lvgl.label.update:
+          id: lights_preset_lbl
+          text: !lambda |-
+            if (id(light_preset_index) == 0) return std::string("Preset: Warm");
+            if (id(light_preset_index) == 1) return std::string("Preset: Cool");
+            if (id(light_preset_index) == 2) return std::string("Preset: Relax");
+            if (id(light_preset_index) == 3) return std::string("Preset: Focus");
+            return std::string("Preset: Party");
+      - lvgl.label.update:
+          id: weather_temp_lbl
+          text: !lambda |-
+            if (id(wx_temp).state != id(wx_temp).state) return std::string("--");
+            char buf[16];
+            snprintf(buf, sizeof(buf), "%.1f", id(wx_temp).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: weather_cond_lbl
+          text: !lambda |-
+            if (id(wx_weather).has_state() && !id(wx_weather).state.empty()) return id(wx_weather).state;
+            if (id(wx_condition).has_state() && !id(wx_condition).state.empty()) return id(wx_condition).state;
+            return std::string("-");
+      - lvgl.label.update:
+          id: weather_metrics_lbl
+          text: !lambda |-
+            char buf[160];
+            auto hum = (id(wx_humidity).state == id(wx_humidity).state) ? id(wx_humidity).state : 0;
+            auto wind = (id(wx_wind_speed).state == id(wx_wind_speed).state) ? id(wx_wind_speed).state : 0;
+            auto uv = (id(wx_uv).state == id(wx_uv).state) ? id(wx_uv).state : 0;
+            auto clouds = (id(wx_clouds).state == id(wx_clouds).state) ? id(wx_clouds).state : 0;
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f  Clouds %.0f%%", hum, wind, uv, clouds);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: settings_status_lbl
+          text: !lambda |-
+            char buf[160];
+            snprintf(buf, sizeof(buf), "Saver %ds | Wake T/K/B %s/%s/%s | KB %d%%",
+                     id(screensaver_timeout_s),
+                     id(wake_on_touch) ? "ON" : "OFF",
+                     id(wake_on_keyboard) ? "ON" : "OFF",
+                     id(wake_on_trackball) ? "ON" : "OFF",
+                     id(kb_backlight_percent));
+            return std::string(buf);
+      - lvgl.label.update:
+          id: theme_status_lbl
+          text: !lambda |-
+            const char *name = "Graphite";
+            if (id(theme_index) == 1) name = "Ocean";
+            if (id(theme_index) == 2) name = "Amber";
+            char buf[96];
+            snprintf(buf, sizeof(buf), "Theme %s | Display %d%% | Debug %s",
+                     name,
+                     id(backlight_percent),
+                     id(touch_debug) ? "ON" : "OFF");
+            return std::string(buf);
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          uint32_t now = esphome::millis();
+          uint32_t idle_ms = now - id(last_activity_ms);
+          if (id(screensaver_enabled) && !id(screensaver_active)) {
+            if (idle_ms >= (uint32_t) id(screensaver_timeout_s) * 1000UL) {
+              id(sleep_display).execute();
+            }
+          }
+
+  - interval: 2s
+    then:
+      - if:
+          condition:
+            lambda: "return !id(screensaver_active);"
+          then:
+            - script.execute: lvgl_update_dynamic
+
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            lambda: "return id(kb_backlight_percent) > 0;"
+          then:
+            - script.execute: kb_backlight_apply
+
+lvgl:
+  displays:
+    - tft
+  touchscreens:
+    - tdeck_touch
+  keypads:
+    - id: nav_keypad
+      group: nav_group
+      up: tb_up
+      down: tb_down
+      left: tb_left
+      right: tb_right
+      enter: tb_click
+
+  on_boot:
+    then:
+      - script.execute: apply_theme
+      - script.execute: lvgl_update_dynamic
+
+  style_definitions:
+    - id: lv_style_screen
+      bg_opa: cover
+      bg_color: 0x060607
+      text_color: 0xF2F2F2
+    - id: lv_style_card
+      bg_opa: cover
+      bg_color: 0x101218
+      border_width: 2
+      border_color: 0x2A2D36
+      radius: 8
+      pad_all: 6
+      text_color: 0xF2F2F2
+    - id: lv_style_btn
+      bg_opa: cover
+      bg_color: 0x182030
+      border_width: 2
+      border_color: 0x2A5FB2
+      radius: 8
+      text_color: 0xF2F2F2
+      pad_all: 4
+
+  pages:
+    - id: home_page
+      styles: [lv_style_screen]
+      widgets:
+        - label:
+            x: 12
+            y: 8
+            text: "Controller"
+        - button:
+            id: home_lights_btn
+            x: 12
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: lights_page
+            widgets:
+              - label:
+                  text: "Lights"
+                  align: CENTER
+        - button:
+            id: home_weather_btn
+            x: 113
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: weather_page
+            widgets:
+              - label:
+                  text: "Weather"
+                  align: CENTER
+        - button:
+            id: home_reader_btn
+            x: 214
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: reader_page
+            widgets:
+              - label:
+                  text: "Reader"
+                  align: CENTER
+        - button:
+            id: home_settings_btn
+            x: 12
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: settings_page
+            widgets:
+              - label:
+                  text: "Settings"
+                  align: CENTER
+        - button:
+            id: home_theme_btn
+            x: 113
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: theme_page
+            widgets:
+              - label:
+                  text: "Themes"
+                  align: CENTER
+        - button:
+            id: home_sleep_btn
+            x: 214
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: sleep_display
+            widgets:
+              - label:
+                  text: "Sleep"
+                  align: CENTER
+        - label:
+            id: home_status_lbl
+            x: 12
+            y: 206
+            width: 296
+            text: "Status"
+
+    - id: lights_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            id: lights_home_btn
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 132
+            y: 10
+            text: "Lights"
+        - label:
+            id: lights_selected_lbl
+            x: 12
+            y: 40
+            width: 296
+            text: "Selected"
+        - button:
+            x: 12
+            y: 68
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_prev
+            widgets:
+              - label:
+                  text: "Prev"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 68
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_next
+            widgets:
+              - label:
+                  text: "Next"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 68
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_toggle
+            widgets:
+              - label:
+                  text: "Toggle"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 138
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_dimmer
+            widgets:
+              - label:
+                  text: "Dim"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 138
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_brighter
+            widgets:
+              - label:
+                  text: "Bright"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 138
+            width: 94
+            height: 64
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_preset_cycle
+            widgets:
+              - label:
+                  text: "Preset"
+                  align: CENTER
+        - label:
+            id: lights_preset_lbl
+            x: 12
+            y: 206
+            width: 296
+            text: "Preset"
+
+    - id: weather_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 124
+            y: 10
+            text: "Weather"
+        - label:
+            id: weather_temp_lbl
+            x: 16
+            y: 48
+            text: "--"
+        - label:
+            id: weather_cond_lbl
+            x: 16
+            y: 82
+            width: 288
+            text: "-"
+        - label:
+            id: weather_metrics_lbl
+            x: 16
+            y: 118
+            width: 288
+            text: "metrics"
+
+    - id: reader_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 132
+            y: 10
+            text: "Reader"
+        - button:
+            x: 12
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_detail_bbc
+            widgets:
+              - label:
+                  text: "BBC"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_detail_dc
+            widgets:
+              - label:
+                  text: "DC"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_detail_loudoun
+            widgets:
+              - label:
+                  text: "Loudoun"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_detail_word
+            widgets:
+              - label:
+                  text: "Word"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_detail_quote
+            widgets:
+              - label:
+                  text: "Quote"
+                  align: CENTER
+
+    - id: settings_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 124
+            y: 10
+            text: "Settings"
+        - button:
+            x: 12
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: saver_timeout_down
+            widgets:
+              - label:
+                  text: "Saver-"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: saver_timeout_up
+            widgets:
+              - label:
+                  text: "Saver+"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: toggle_wake_touch
+            widgets:
+              - label:
+                  text: "WakeTouch"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: toggle_wake_keyboard
+            widgets:
+              - label:
+                  text: "WakeKeys"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: toggle_wake_trackball
+            widgets:
+              - label:
+                  text: "WakeBall"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_toggle
+            widgets:
+              - label:
+                  text: "KB Light"
+                  align: CENTER
+        - label:
+            id: settings_status_lbl
+            x: 12
+            y: 206
+            width: 296
+            text: "settings"
+
+    - id: theme_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 134
+            y: 10
+            text: "Theme"
+        - button:
+            x: 12
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: theme_prev
+            widgets:
+              - label:
+                  text: "Theme-"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: theme_next
+            widgets:
+              - label:
+                  text: "Theme+"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 42
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: display_backlight_down
+            widgets:
+              - label:
+                  text: "Disp-"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: display_backlight_up
+            widgets:
+              - label:
+                  text: "Disp+"
+                  align: CENTER
+        - button:
+            x: 113
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: toggle_touch_debug
+            widgets:
+              - label:
+                  text: "Debug"
+                  align: CENTER
+        - button:
+            x: 214
+            y: 126
+            width: 94
+            height: 70
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: start_touch_calibration
+            widgets:
+              - label:
+                  text: "TouchCal"
+                  align: CENTER
+        - label:
+            id: theme_status_lbl
+            x: 12
+            y: 206
+            width: 296
+            text: "theme"
+
+    - id: detail_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 52
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: reader_page
+            widgets:
+              - label:
+                  text: "Back"
+                  align: CENTER
+        - label:
+            id: detail_title_lbl
+            x: 70
+            y: 10
+            text: "Detail"
+        - label:
+            id: detail_body_lbl
+            x: 12
+            y: 42
+            width: 296
+            height: 184
+            text: ""

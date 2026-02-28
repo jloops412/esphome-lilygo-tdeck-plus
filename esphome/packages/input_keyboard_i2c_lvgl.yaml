@@ -1,0 +1,144 @@
+interval:
+  - interval: 35ms
+    then:
+      - lambda: |-
+          uint8_t key = 0;
+          auto err = id(bus_a).read(0x55, &key, 1);
+          if (err != esphome::i2c::ERROR_OK || key == 0x00) {
+            return;
+          }
+
+          if (id(wake_on_keyboard)) {
+            id(last_activity_ms) = esphome::millis();
+            if (id(screensaver_active)) {
+              id(wake_display).execute();
+            }
+          }
+
+          id(kb_last_raw) = key;
+          id(kb_last_code).publish_state(key);
+
+          if (key == 0x0D) {
+            id(kb_last_text).publish_state("ENTER");
+            id(kb_last_text_buf) = "ENTER";
+          } else if (key == 0x08) {
+            id(kb_last_text).publish_state("BACKSPACE");
+            id(kb_last_text_buf) = "BKSP";
+          } else if (key == 0x09) {
+            id(kb_last_text).publish_state("TAB");
+            id(kb_last_text_buf) = "TAB";
+          } else if (key == 0x1B) {
+            id(kb_last_text).publish_state("ESC");
+            id(kb_last_text_buf) = "ESC";
+          } else if (key == 0x20) {
+            id(kb_last_text).publish_state("SPACE");
+            id(kb_last_text_buf) = "SPACE";
+          } else if (key >= 32 && key <= 126) {
+            char s[2];
+            s[0] = static_cast<char>(key);
+            s[1] = '\0';
+            id(kb_last_text).publish_state(s);
+            id(kb_last_text_buf) = std::string(s);
+          } else {
+            char buf[8];
+            snprintf(buf, sizeof(buf), "0x%02X", key);
+            id(kb_last_text).publish_state(buf);
+            id(kb_last_text_buf) = std::string(buf);
+          }
+
+      - if:
+          condition:
+            lambda: "return id(kb_last_raw) != 0;"
+          then:
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'h' || id(kb_last_raw) == 'H' || id(kb_last_raw) == '1';"
+                then:
+                  - lvgl.page.show: home_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '2';"
+                then:
+                  - lvgl.page.show: lights_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '3';"
+                then:
+                  - lvgl.page.show: weather_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '4';"
+                then:
+                  - lvgl.page.show: reader_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '5';"
+                then:
+                  - lvgl.page.show: settings_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '6';"
+                then:
+                  - lvgl.page.show: theme_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q';"
+                then:
+                  - lvgl.page.previous:
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'e' || id(kb_last_raw) == 'E';"
+                then:
+                  - lvgl.page.next:
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B';"
+                then:
+                  - script.execute: kb_backlight_toggle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N';"
+                then:
+                  - script.execute: kb_backlight_down
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M';"
+                then:
+                  - script.execute: kb_backlight_up
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '[';"
+                then:
+                  - script.execute: selected_light_prev
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == ']';"
+                then:
+                  - script.execute: selected_light_next
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '-' || id(kb_last_raw) == '_';"
+                then:
+                  - script.execute: selected_light_dimmer
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '+' || id(kb_last_raw) == '=';"
+                then:
+                  - script.execute: selected_light_brighter
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 't' || id(kb_last_raw) == 'T';"
+                then:
+                  - script.execute: selected_light_toggle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'p' || id(kb_last_raw) == 'P';"
+                then:
+                  - script.execute: selected_light_preset_cycle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K';"
+                then:
+                  - script.execute: start_touch_calibration
+            - lambda: |-
+                id(kb_last_raw) = 0;

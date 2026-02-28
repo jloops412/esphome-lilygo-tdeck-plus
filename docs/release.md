@@ -8,15 +8,16 @@
 - `v0.3.1-ui-pass1-hotfix`: ESP32-S3 logger linker fix.
 - `v0.4.0-ui-pass2`: controller-first UX pass + keyboard shortcuts + weather robustness.
 - `v0.5.0-ui-groundup`: home-menu navigation + theme system + full layout refactor.
+- `v0.6.0-lvgl-beta1`: parallel LVGL interface track and migration starter.
 
-`v0.5.0-ui-groundup` highlights:
+`v0.6.0-lvgl-beta1` highlights:
 
-1. Removed always-visible tab bar and replaced with a clean `Home` launcher + subpages.
-2. Light controls are now consolidated into one dedicated controller surface.
-3. Added on-device multi-theme switching (`Graphite`, `Ocean`, `Amber`).
-4. Added dedicated theme/control page for display tuning and debug toggles.
-5. Touch behavior updated with a consistent header `HOME` action on subpages.
-6. Existing stable display/touch/trackball/keyboard architecture preserved.
+1. Added a parallel LVGL package stack (`display_mipi_lvgl`, LVGL input packages, `ui_lvgl`).
+2. Added a dedicated LVGL install YAML for HA testing.
+3. Added an LVGL profile for local iterative development.
+4. Implemented LVGL pages for `Home`, `Lights`, `Weather`, `Reader`, `Settings`, and `Theme`.
+5. Bound trackball directions/click to LVGL keypad navigation.
+6. Added an LVGL migration plan document and kept stable install path intact.
 
 ## Checklist per release
 

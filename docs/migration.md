@@ -3,7 +3,8 @@
 ## Baseline
 
 - Canonical modular baseline profile: `esphome/profiles/stable_snapshot.yaml`
-- Single HA install entrypoint: `esphome/install/lilygo-tdeck-plus-install.yaml`
+- Stable HA install entrypoint: `esphome/install/lilygo-tdeck-plus-install.yaml`
+- LVGL beta install entrypoint: `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
 ## What changed
 
@@ -24,9 +25,13 @@
 15. Ground-up UI pass replaces always-visible tabs with a cleaner Home launcher and subpages.
 16. New Theme page supports multi-palette switching (`Graphite`, `Ocean`, `Amber`) on-device.
 17. Lights page is now a dedicated control surface with preset cycling in-page.
+18. Added a parallel LVGL beta package path (`display/input/ui` LVGL modules).
+19. Added `lvgl_experimental` profile for local iterative testing.
 
 ## Migration steps for existing HA node
 
-1. Replace node YAML with contents of `esphome/install/lilygo-tdeck-plus-install.yaml`.
+1. Pick install target:
+   - Stable: `esphome/install/lilygo-tdeck-plus-install.yaml`
+   - LVGL beta: `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 2. Keep local secrets in HA (`wifi_ssid`, `wifi_password`).
 3. Install once over USB if needed, then OTA.

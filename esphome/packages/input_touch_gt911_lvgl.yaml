@@ -1,0 +1,23 @@
+touchscreen:
+  - platform: gt911
+    id: tdeck_touch
+    display: tft
+    address: 0x5D
+    update_interval: 30ms
+    touch_timeout: 50ms
+    calibration:
+      x_min: 0
+      x_max: 238
+      y_min: 16
+      y_max: 260
+    transform:
+      swap_xy: true
+      mirror_x: false
+      mirror_y: true
+    on_touch:
+      then:
+        - if:
+            condition:
+              lambda: "return id(wake_on_touch);"
+            then:
+              - script.execute: note_activity

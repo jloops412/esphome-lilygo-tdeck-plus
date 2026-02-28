@@ -12,11 +12,15 @@ Current priorities:
 
 ## Install
 
-Use one install YAML in HA/ESPHome:
+Stable install YAML:
 
 - `esphome/install/lilygo-tdeck-plus-install.yaml`
 
-It pulls modular files from this repo by release tag.
+LVGL beta install YAML (parallel track):
+
+- `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+
+Each install YAML pulls modular files from this repo by release tag.
 
 ## Current UI flow
 
@@ -38,4 +42,4 @@ It pulls modular files from this repo by release tag.
 7. `H`: jump to Home page.
 8. `K`: start touch calibration.
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), and [`docs/release.md`](docs/release.md) for conventions and release details.
+See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), and [`docs/release.md`](docs/release.md) for conventions and release details.
