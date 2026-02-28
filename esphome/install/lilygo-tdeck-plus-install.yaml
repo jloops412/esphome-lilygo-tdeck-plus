@@ -40,6 +40,10 @@ substitutions:
   entity_sensi_humidification_switch: "switch.sensi_sensi_humidification"
   entity_sensi_keypad_lockout_switch: "switch.sensi_sensi_keypad_lockout"
 
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git

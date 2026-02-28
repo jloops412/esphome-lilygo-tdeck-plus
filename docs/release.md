@@ -70,6 +70,8 @@ Hotfix after this pass:
   - extended ALT pending window for ESC-prefix detection.
   - enabled plain-key shortcut fallback while preserving ALT compatibility for firmware variants where ALT is not reliably surfaced.
   - updated shortcuts overlay/help text to match runtime behavior.
+- Install-parse compatibility fix:
+  - added minimal local `esphome:` blocks to install entrypoints (`name`, `friendly_name`) so environments that validate before package merge do not fail with `'esphome' section missing`.
 
 Post-tag note:
 

@@ -257,6 +257,16 @@
    - Added icon glyphs on key launcher/actions.
    - Rebalanced theme palettes for smoother complementary color sets.
 
+## Post `v0.12.0` Hotfixes on `main`
+1. Icon asset package-load fix:
+   - Added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists so remote package installs can resolve the icon font used by `board_base.yaml`.
+2. Keyboard shortcut reliability:
+   - Extended ESC-prefix ALT pending window to `700ms`.
+   - Enabled plain-key command fallback while preserving ALT compatibility.
+   - Updated shortcuts page text to match runtime behavior.
+3. Install parser compatibility:
+   - Added minimal local `esphome:` blocks (`name`, `friendly_name`) in install entrypoints to avoid `'esphome' section missing` validation failures before package merge.
+
 ## Immediate validation asks
 1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
 2. Verify:
@@ -270,7 +280,7 @@
    - climate page opens and Sensi actions fire correctly
    - weather metrics and GPS diagnostics still update
    - calibration persistence across reboot still holds
-   - ALT-only shortcuts work per overlay (`Alt+H/L/W/C/R/S/T`, `Alt+Q/E`, `Alt+K`, etc.)
+   - shortcuts work via plain keys and ALT chords (`H/L/A/W/C/R/S/T`, `Q/E`, `K`, etc.)
    - theme page `KB Profile` button cycles `Normal/Reverse/LiveOnly` and changes status text
 
 ## Notes

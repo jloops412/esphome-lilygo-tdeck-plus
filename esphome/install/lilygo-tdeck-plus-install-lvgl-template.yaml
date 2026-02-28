@@ -12,6 +12,10 @@ substitutions:
   # esphome/install/entity-overrides.template.yaml
   # and paste your HA entity IDs here.
 
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
