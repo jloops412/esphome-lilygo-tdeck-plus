@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.11.1-lvgl-ref-fix`
-3. Previous LVGL tag: `v0.11.0-lvgl-privacy-ui-gps-pass`
-4. Previous LVGL tag: `v0.10.0-lvgl-climate-theme-fix`
+2. Latest LVGL tag: `v0.12.0-lvgl-alt-shortcuts-ui-pass`
+3. Previous LVGL tag: `v0.11.1-lvgl-ref-fix`
+4. Previous LVGL tag: `v0.11.0-lvgl-privacy-ui-gps-pass`
 5. Current active dev ref in install YAMLs: `main` (unreleased pass after `v0.11.0`)
 
 ## Process Contract
