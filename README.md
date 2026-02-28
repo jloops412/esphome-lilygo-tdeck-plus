@@ -50,17 +50,18 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 1. `Home`: launcher-first layout with icon-only actions and a large primary lights control target.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Colors`, `Preset`)
+   - bottom quick row (`Colors`, `Preset`, `Off`) for faster one-handed control
    - LVGL sliders for per-light brightness and color temperature
    - dedicated `Color Chooser` page with expanded preset palette
-3. `Weather`: glance dashboard with large temperature, readable condition, compact metrics, `weather.openweathermap` entity-state line, and explicit GPS diagnostic state.
+3. `Weather`: glance dashboard with large temperature, readable condition, split metrics rows (readable at a glance), `weather.openweathermap` source line, and explicit GPS diagnostic state.
 4. `Climate`: dedicated Sensi control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
    - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
    - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)
    - direct toggles for Sensi feature switches (aux heat, display humidity/time, fan support, humidification, keypad lockout)
 5. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
-6. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
-7. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`), accent color chooser, LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
+6. `Settings`: wake behavior, saver timing, keyboard backlight, calibration, and direct reboot action.
+7. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`), accent color chooser, icon color mode (`White`/`Accent`), LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
 8. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
 9. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
 
@@ -94,7 +95,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
-Launcher and navigation icons now use package-safe `mdi:` image assets (no external binary package files).
+Launcher and navigation icons now use package-safe `mdi:` image assets with LVGL recolor, so icon color stays theme-consistent.
 Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.

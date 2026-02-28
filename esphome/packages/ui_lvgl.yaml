@@ -602,6 +602,13 @@ script:
       - script.execute: apply_theme_shape
       - script.execute: lvgl_update_dynamic
 
+  - id: theme_icon_mode_toggle
+    then:
+      - lambda: |-
+          id(theme_icon_mode) = (id(theme_icon_mode) + 1) % 2;
+      - script.execute: apply_theme_icon
+      - script.execute: lvgl_update_dynamic
+
   - id: set_theme_border_width
     parameters:
       val: int
@@ -942,6 +949,58 @@ script:
             - lvgl.style.update:
                 id: lv_style_btn_ok
                 border_color: 0x8F979F
+      - script.execute: apply_theme_icon
+
+  - id: apply_theme_icon
+    then:
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 0;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0xF2F6FF
+                image_recolor_opa: 100%
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 0;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0x4A7CD6
+                image_recolor_opa: 100%
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 1;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0x56A66C
+                image_recolor_opa: 100%
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 2;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0xC48B3D
+                image_recolor_opa: 100%
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 3;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0xB66F8E
+                image_recolor_opa: 100%
+      - if:
+          condition:
+            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 4;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_icon
+                image_recolor: 0xB8BFC6
+                image_recolor_opa: 100%
 
   - id: open_detail_bbc
     then:
@@ -1278,12 +1337,32 @@ script:
           text: !lambda |-
             char buf[160];
             float sats = id(gps_satellites).state;
+            float indoor = id(sensi_temperature).state;
+            bool has_indoor = indoor == indoor;
             if (!id(gps_data_alive).state) {
-              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO DATA", id(battery_percent).state, id(wifi_signal_tdeck).state);
+              if (has_indoor) {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS NO DATA",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor);
+              } else {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO DATA",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state);
+              }
             } else if (sats > 0.0f) {
-              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat", id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
+              if (has_indoor) {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS %.0f sat",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, sats);
+              } else {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
+              }
             } else {
-              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching", id(battery_percent).state, id(wifi_signal_tdeck).state);
+              if (has_indoor) {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS searching",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor);
+              } else {
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state);
+              }
             }
             return std::string(buf);
       - lvgl.label.update:
@@ -1403,9 +1482,9 @@ script:
             snprintf(buf, sizeof(buf), "Feels %.1f", feels);
             return std::string(buf);
       - lvgl.label.update:
-          id: weather_metrics_lbl
+          id: weather_metrics_top_lbl
           text: !lambda |-
-            char buf[220];
+            char buf[180];
             float hum = id(wx_humidity).state;
             if (hum != hum) hum = id(wx_entity_humidity).state;
             if (hum != hum) hum = 0;
@@ -1417,6 +1496,15 @@ script:
             float clouds = id(wx_clouds).state;
             if (clouds != clouds) clouds = id(wx_entity_cloud_coverage).state;
             if (clouds != clouds) clouds = 0;
+            float bearing = id(wx_entity_wind_bearing).state;
+            if (bearing != bearing) bearing = 0;
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f@%.0f  UV %.1f  Cloud %.0f%%",
+                     hum, wind, bearing, uv, clouds);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: weather_metrics_bottom_lbl
+          text: !lambda |-
+            char buf[180];
             float press = id(wx_pressure).state;
             if (press != press) press = id(wx_entity_pressure).state;
             if (press != press) press = 0;
@@ -1425,10 +1513,7 @@ script:
             if (vis != vis) vis = 0;
             float dew = id(wx_entity_dew_point).state;
             if (dew != dew) dew = 0;
-            float bearing = id(wx_entity_wind_bearing).state;
-            if (bearing != bearing) bearing = 0;
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f @ %.0f deg  UV %.1f\nCloud %.0f%%  Press %.0f  Vis %.0f  Dew %.1f",
-                     hum, wind, bearing, uv, clouds, press, vis, dew);
+            snprintf(buf, sizeof(buf), "Press %.0f  Vis %.0f  Dew %.1f", press, vis, dew);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_gps_lbl
@@ -1443,9 +1528,9 @@ script:
           id: weather_source_lbl
           text: !lambda |-
             if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) {
-              return std::string("Entity: ${entity_wx_main} = ") + id(wx_entity_state).state;
+              return std::string("Source ${entity_wx_main}: ") + id(wx_entity_state).state;
             }
-            return std::string("Entity: ${entity_wx_main} unavailable");
+            return std::string("Source ${entity_wx_main}: unavailable");
       - lvgl.label.update:
           id: climate_status_lbl
           text: !lambda |-
@@ -1561,10 +1646,12 @@ script:
             const char *kbprof = "Normal";
             if (id(kb_backlight_profile) == 1) kbprof = "Reverse";
             if (id(kb_backlight_profile) == 2) kbprof = "LiveOnly";
+            const char *icon_mode = id(theme_icon_mode) == 0 ? "White" : "Accent";
             char buf[220];
-            snprintf(buf, sizeof(buf), "Theme %s | Accent %s | Border %d | Radius %d | Disp %d%% | KB %d%% | Profile %s",
+            snprintf(buf, sizeof(buf), "Theme %s | Accent %s | Icon %s | Border %d | Radius %d | Disp %d%% | KB %d%% | %s",
                      name,
                      accent,
+                     icon_mode,
                      id(theme_border_width),
                      id(theme_radius),
                      id(backlight_percent),
@@ -1774,6 +1861,9 @@ lvgl:
       radius: 10
       text_color: 0xE8FFF2
       pad_all: 4
+    - id: lv_style_icon
+      image_recolor: 0xF2F6FF
+      image_recolor_opa: 100%
 
   pages:
     - id: home_page
@@ -1798,6 +1888,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_light_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_weather_btn
@@ -1812,6 +1903,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_weather_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_climate_btn
@@ -1826,6 +1918,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_climate_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_reader_btn
@@ -1840,6 +1933,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_reader_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_settings_btn
@@ -1854,6 +1948,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_settings_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_theme_btn
@@ -1868,6 +1963,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_theme_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             id: home_sleep_btn
@@ -1882,6 +1978,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_sleep_30
+                  styles: [lv_style_icon]
                   align: CENTER
 
     - id: lights_page
@@ -1900,6 +1997,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -2119,7 +2217,7 @@ lvgl:
         - button:
             x: 130
             y: 210
-            width: 88
+            width: 58
             height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2130,9 +2228,22 @@ lvgl:
                   text: "Colors"
                   align: CENTER
         - button:
-            x: 224
+            x: 192
             y: 210
-            width: 88
+            width: 58
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_preset_cycle
+            widgets:
+              - label:
+                  text: "Preset"
+                  align: CENTER
+        - button:
+            x: 254
+            y: 210
+            width: 58
             height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2140,7 +2251,7 @@ lvgl:
               - script.execute: all_lights_off
             widgets:
               - label:
-                  text: "All Off"
+                  text: "Off"
                   align: CENTER
         - label:
             id: lights_preset_lbl
@@ -2164,6 +2275,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             x: 258
@@ -2407,6 +2519,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             x: 256
@@ -2420,6 +2533,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_climate_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -2443,23 +2557,29 @@ lvgl:
             width: 296
             text: "Feels --"
         - label:
-            id: weather_metrics_lbl
+            id: weather_metrics_top_lbl
             x: 12
             y: 126
             width: 296
-            text: "metrics"
+            text: "metrics top"
         - label:
-            id: weather_gps_lbl
+            id: weather_metrics_bottom_lbl
             x: 12
-            y: 206
+            y: 146
             width: 296
-            text: "GPS"
+            text: "metrics bottom"
         - label:
             id: weather_source_lbl
             x: 12
-            y: 186
+            y: 168
             width: 296
             text: "Entity state"
+        - label:
+            id: weather_gps_lbl
+            x: 12
+            y: 190
+            width: 296
+            text: "GPS"
 
     - id: climate_page
       styles: [lv_style_screen]
@@ -2476,6 +2596,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -2493,6 +2614,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_weather_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - button:
             x: 12
@@ -2775,6 +2897,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -2871,6 +2994,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -2994,10 +3118,10 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: open_shortcuts
+              - button.press: restart_device_button
             widgets:
               - label:
-                  text: "Keys"
+                  text: "Reboot"
                   align: CENTER
         - button:
             x: 212
@@ -3011,6 +3135,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_sleep_30
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             id: settings_status_lbl
@@ -3034,6 +3159,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 72
@@ -3269,7 +3395,7 @@ lvgl:
         - button:
             x: 12
             y: 202
-            width: 96
+            width: 70
             height: 22
             styles: [lv_style_btn]
             group: nav_group
@@ -3280,9 +3406,9 @@ lvgl:
                   text: "Debug"
                   align: CENTER
         - button:
-            x: 112
+            x: 86
             y: 202
-            width: 96
+            width: 70
             height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3290,12 +3416,25 @@ lvgl:
               - script.execute: kb_backlight_profile_next
             widgets:
               - label:
-                  text: "KB Profile"
+                  text: "KB Prof"
                   align: CENTER
         - button:
-            x: 212
+            x: 160
             y: 202
-            width: 96
+            width: 70
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: theme_icon_mode_toggle
+            widgets:
+              - label:
+                  text: "Icon"
+                  align: CENTER
+        - button:
+            x: 234
+            y: 202
+            width: 74
             height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3418,6 +3557,7 @@ lvgl:
             widgets:
               - image:
                   src: icon_home_18
+                  styles: [lv_style_icon]
                   align: CENTER
         - label:
             x: 80
@@ -3458,4 +3598,3 @@ lvgl:
             width: 296
             height: 184
             text: ""
-

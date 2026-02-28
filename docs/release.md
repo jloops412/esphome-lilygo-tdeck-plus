@@ -23,6 +23,7 @@
 - `v0.12.0-lvgl-alt-shortcuts-ui-pass`: ALT-only shortcut system, home launcher cleanup, icon refresh, climate spacing polish, and keyboard-backlight profile testing controls.
 - `v0.13.0-lvgl-icons-climate-theme2`: package-safe MDI icon system, fully ALT-only shortcuts, slider-free climate +/- controls, and expanded theme shape controls.
 - `v0.13.1-lvgl-image-type-hotfix`: ESPHome 2026.2.2 image parser fix (`image.type` required for MDI icons).
+- `v0.14.0-lvgl-icon-theme-weather-polish`: theme-colored icons, weather readability pass, faster lights actions, and settings reboot action.
 
 Unreleased on `main` (candidate next tag):
 
@@ -234,6 +235,25 @@ Post-tag note:
 4. Implemented LVGL pages for `Home`, `Lights`, `Weather`, `Reader`, `Settings`, and `Theme`.
 5. Bound trackball directions/click to LVGL keypad navigation.
 6. Added an LVGL migration plan document and kept stable install path intact.
+
+`v0.14.0-lvgl-icon-theme-weather-polish` highlights:
+
+1. Theme-consistent icon rendering:
+   - Added LVGL icon style (`lv_style_icon`) using `image_recolor` + `image_recolor_opa`.
+   - Added theme-controlled icon color mode:
+     - `White`
+     - `Accent` (tracks current accent palette)
+2. Home/status polish:
+   - Home status line now includes indoor temperature when available.
+3. Weather page readability pass:
+   - Replaced dense weather metrics block with split top/bottom rows.
+   - Improved source line text and kept explicit GPS diagnostic line.
+4. Lights workflow polish:
+   - Added faster bottom quick row actions: `Colors`, `Preset`, `Off`.
+5. Settings functionality:
+   - Replaced bottom-center utility action with direct `Reboot` control.
+6. Docs/process:
+   - Updated README + handoff in the same pass.
 
 ## Checklist per release
 

@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
-3. Previous LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
-4. Previous LVGL tag: `v0.11.1-lvgl-ref-fix`
+2. Latest LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
+3. Previous LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
+4. Previous LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
 ## Process Contract
@@ -282,9 +282,17 @@
 6. ESPHome parser hotfix:
    - Added explicit `type: BINARY` to all `image:` entries in `esphome/packages/board_base.yaml`.
    - Resolves ESPHome 2026.2.2 config error for image entries with only `file/id/resize`.
+7. Icon/theme + app polish pass:
+   - Switched icon image defaults to `GRAYSCALE` + `alpha_channel` transparency for better LVGL recolor quality.
+   - Added `lv_style_icon` and applied it to all nav/home icons.
+   - Added theme-controlled icon mode (`White` / `Accent`) with runtime recolor updates.
+   - Improved weather readability with split metric rows and clearer source line.
+   - Updated home status line to include indoor temperature when available.
+   - Improved lights quick-action row (`Colors`, `Preset`, `Off`).
+   - Replaced settings bottom-center action with direct `Reboot`.
 
 ## Immediate validation asks
-1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
+1. Flash LVGL install YAML pinned to `v0.14.0-lvgl-icon-theme-weather-polish`.
 2. Verify:
    - config parse succeeds
    - restored entity IDs drive the intended HA entities again

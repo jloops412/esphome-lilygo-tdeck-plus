@@ -34,6 +34,11 @@ globals:
     restore_value: yes
     initial_value: "10"
 
+  - id: theme_icon_mode
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
   - id: light_preset_index
     type: int
     restore_value: yes
