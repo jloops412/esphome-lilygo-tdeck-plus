@@ -45,8 +45,9 @@ Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache i
 
 1. `Home`: launcher-first layout with icon-only actions and a large primary lights control target.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
-   - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, color chips, preset)
+   - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Colors`, `Preset`)
    - LVGL sliders for per-light brightness and color temperature
+   - dedicated `Color Chooser` page with expanded preset palette
 3. `Weather`: glance dashboard with large temperature, readable condition, compact metrics, `weather.openweathermap` entity-state line, and explicit GPS diagnostic state.
 4. `Climate`: dedicated Sensi control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
@@ -62,7 +63,7 @@ Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache i
 ## Quick keyboard shortcuts
 
 1. All command shortcuts now require `Alt`.
-2. `Alt+H/L/W/C/R/S/T`: `Home/Lights/Weather/Climate/Reader/Settings/Theme`.
+2. `Alt+H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
 3. `Alt+Q/E`: previous/next page.
 4. `Alt+K`: open shortcuts page.
 5. `Alt+D/F`: previous/next selected light.
@@ -88,6 +89,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
+Launcher and navigation icons now use explicit Font Awesome glyph mapping (`fa-solid-900.ttf`) to avoid wrong/missing symbol rendering.
 Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.

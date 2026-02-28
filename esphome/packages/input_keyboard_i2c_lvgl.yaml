@@ -91,6 +91,11 @@ interval:
                   - lvgl.page.show: lights_page
             - if:
                 condition:
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'a' || id(kb_last_raw) == 'A');"
+                then:
+                  - script.execute: open_light_colors
+            - if:
+                condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'w' || id(kb_last_raw) == 'W');"
                 then:
                   - lvgl.page.show: weather_page

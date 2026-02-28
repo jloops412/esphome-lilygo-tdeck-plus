@@ -43,6 +43,24 @@ Unreleased on `main` (candidate next tag):
   - profile is persisted and included in live status text
 - Climate page polish:
   - improved spacing hierarchy and compact control labels
+- Icon reliability + launcher cleanup:
+  - added explicit Font Awesome icon font mapping in `board_base.yaml`
+  - corrected launcher icons to requested semantics:
+    - Lights = light bulb
+    - Weather = cloud
+    - Climate = thermometer
+    - Reader = book
+    - Sleep = moon
+  - applied icon font bindings to page nav/home buttons for consistent rendering
+- Lights UX expansion:
+  - added dedicated `light_color_page` with expanded preset color palette
+  - kept main lights page focused on target selection + primary actions + sliders
+  - added `Alt+A` shortcut to open color chooser directly
+- Climate control UX expansion:
+  - added per-degree quick adjust buttons (`+/-`) for heat and cool targets
+  - retained sliders for larger adjustments
+- Trackball hardening:
+  - increased LVGL trackball GPIO debounce/settle filters to reduce runaway direction events
 
 Post-tag note:
 

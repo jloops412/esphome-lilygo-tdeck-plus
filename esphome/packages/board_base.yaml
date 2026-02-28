@@ -105,6 +105,32 @@ font:
   - file: "gfonts://Roboto"
     id: font_micro
     size: 9
+  - file: "esphome/assets/fa-solid-900.ttf"
+    id: font_icon_sm
+    size: 18
+    bpp: 4
+    glyphs:
+      - "\uF015"  # home
+      - "\uF0EB"  # lightbulb
+      - "\uF0C2"  # cloud
+      - "\uF2C9"  # thermometer
+      - "\uF02D"  # book
+      - "\uF186"  # moon
+      - "\uF013"  # gear
+      - "\uF53F"  # palette
+  - file: "esphome/assets/fa-solid-900.ttf"
+    id: font_icon_lg
+    size: 30
+    bpp: 4
+    glyphs:
+      - "\uF015"
+      - "\uF0EB"
+      - "\uF0C2"
+      - "\uF2C9"
+      - "\uF02D"
+      - "\uF186"
+      - "\uF013"
+      - "\uF53F"
 
 color:
   - id: col_bg

@@ -55,6 +55,24 @@
 11. Climate page polish:
     - Improved spacing and compacted labels for dense control areas.
     - Added icon-based weather jump on climate page top bar.
+12. Icon rendering reliability + semantic icon correction:
+    - Added explicit Font Awesome icon font definitions in `esphome/packages/board_base.yaml`.
+    - Bound launcher/nav icon labels to `font_icon_sm`/`font_icon_lg` in `esphome/packages/ui_lvgl.yaml`.
+    - Corrected icon semantics per UX request:
+      - Lights: bulb
+      - Weather: cloud
+      - Climate: thermometer
+      - Reader: book
+      - Sleep: moon
+13. Lights UX expansion:
+    - Added dedicated `light_color_page` in `ui_lvgl.yaml` with expanded color palette.
+    - Kept main lights page focused and added direct `Colors` entry button.
+    - Added keyboard shortcut `Alt+A` (`input_keyboard_i2c_lvgl.yaml`) to open color chooser.
+14. Climate UX expansion:
+    - Added quick setpoint adjust controls (`+/-`) for heat and cool targets.
+    - Retained sliders for coarse movement and exact persistence through HA service calls.
+15. Trackball stability tuning:
+    - Increased LVGL trackball GPIO filtering (`delayed_on_off`, `settle`) to reduce runaway directional events.
 
 ## Install entrypoints
 1. Stable install YAML:
