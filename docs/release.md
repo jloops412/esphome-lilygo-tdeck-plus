@@ -16,6 +16,7 @@
 - `v0.7.1-lvgl-modern-ui-shortcuts`: calibration regression fit, modernized home styling, and shortcuts overlay with Alt+K support.
 - `v0.8.0-lvgl-groundup-ui2`: deeper LVGL layout rewrite, upgraded lights workflow, and improved 9-point edge-fit calibration.
 - `v0.9.0-lvgl-controls-calreview-gpsdiag`: calibration save/retry review, richer LVGL controls, and GPS diagnostics hardening.
+- `v0.9.1-lvgl-gps-hotfix`: fixes invalid `update_interval` option on template GPS binary sensor for HA compile compatibility.
 
 Post-tag note:
 
@@ -91,6 +92,11 @@ Post-tag note:
    - added `gps_baud_rate` substitution (default `9600`) to install/profile entrypoints.
    - added GPS data-alive telemetry (`GPS Data Alive`, data age, status text) to distinguish no-serial-data vs no-fix.
    - Weather/Home UI now reflects GPS diagnostics more explicitly.
+
+`v0.9.1-lvgl-gps-hotfix` highlights:
+
+1. Removed unsupported `update_interval` from `binary_sensor.template` in `gps_uart.yaml`.
+2. Restored ESPHome/HA config parsing compatibility for GPS diagnostics package.
 
 `v0.6.0-lvgl-beta1` highlights:
 

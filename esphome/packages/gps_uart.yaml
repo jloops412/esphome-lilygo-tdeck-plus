@@ -75,7 +75,6 @@ binary_sensor:
     lambda: |-
       uint32_t age_ms = esphome::millis() - id(gps_last_update_ms);
       return age_ms < 15000;
-    update_interval: 1s
 
 text_sensor:
   - platform: template

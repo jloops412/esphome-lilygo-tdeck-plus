@@ -39,7 +39,7 @@ If LVGL regressions appear, continue using the stable install YAML:
 LVGL testing target:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
-## Current status (after v0.9.0-lvgl-controls-calreview-gpsdiag)
+## Current status (after v0.9.1-lvgl-gps-hotfix)
 1. Parallel LVGL packages and install YAML are in place.
 2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
 3. Compile blocker was found in HA and patched in hotfix:
@@ -66,7 +66,8 @@ LVGL testing target:
 13. Added GPS diagnostics:
    - `gps_baud_rate` substitution
    - `GPS Data Alive`, data age, and status entities
-14. Next validation:
-   - compile/flash with latest LVGL tag and verify slider interactions and HA light actions
-   - verify calibration review (`Save`/`Retry`) behavior on intentional bad taps
-   - verify GPS diagnostics distinguish no-data vs searching vs fix
+14. Compile compatibility hotfix:
+   - removed unsupported `update_interval` from template GPS binary sensor.
+15. Next validation:
+   - confirm config parse is clean in HA with GPS diagnostics enabled
+   - then continue runtime GPS diagnostics/fix testing

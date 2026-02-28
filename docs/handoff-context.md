@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag`
-3. Previous LVGL tag: `v0.8.0-lvgl-groundup-ui2` (`12bd551`)
-4. Previous LVGL tag: `v0.7.1-lvgl-modern-ui-shortcuts` (`b1f290b`)
+2. Latest LVGL tag: `v0.9.1-lvgl-gps-hotfix`
+3. Previous LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag` (`58f903e`)
+4. Previous LVGL tag: `v0.8.0-lvgl-groundup-ui2` (`12bd551`)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -126,9 +126,16 @@
 6. Docs/process:
    - README, release, LVGL plan, and handoff docs updated in same pass.
 
+## GPS compile hotfix in `v0.9.1-lvgl-gps-hotfix`
+1. Fixed HA compile/config parse error:
+   - removed unsupported `update_interval` from `binary_sensor.template` in `gps_uart.yaml`.
+2. No UI behavior changes in this hotfix.
+3. Docs/handoff updated in same pass.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.9.0-lvgl-controls-calreview-gpsdiag`.
+1. Flash LVGL install YAML pinned to `v0.9.1-lvgl-gps-hotfix`.
 2. Verify:
+   - config parse succeeds (no `binary_sensor.template update_interval` error)
    - calibration flow ends with `Save`/`Retry` and does not auto-save bad captures
    - lights sliders apply correctly to selected entity (`brightness_pct` and `color_temp_kelvin`)
    - reduced utility-button duplication still keeps navigation discoverable
