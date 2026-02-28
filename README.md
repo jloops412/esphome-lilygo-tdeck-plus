@@ -41,6 +41,7 @@ LVGL beta install YAML (parallel track):
 Each install YAML pulls modular files from this repo by configured Git ref.
 Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache issues during active development.
 Install YAMLs now include a minimal local `esphome:` block (`name` + `friendly_name`) for parser compatibility in environments that validate before package merge.
+Install YAMLs now include a minimal local `esp32:` block (`variant: esp32s3`, `framework: esp-idf`) for platform-key validation before package merge.
 
 ## Current UI flow
 

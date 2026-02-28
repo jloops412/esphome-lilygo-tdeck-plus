@@ -51,6 +51,11 @@ esphome:
   name: ${name}
   friendly_name: ${friendly_name}
 
+esp32:
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git

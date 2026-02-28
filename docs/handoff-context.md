@@ -266,6 +266,7 @@
    - Updated shortcuts page text to match runtime behavior.
 3. Install parser compatibility:
    - Added minimal local `esphome:` blocks (`name`, `friendly_name`) in install entrypoints to avoid `'esphome' section missing` validation failures before package merge.
+   - Added minimal local `esp32:` blocks (`variant: esp32s3`, `framework: esp-idf`) in install entrypoints to avoid `Platform missing` failures before package merge.
 
 ## Immediate validation asks
 1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
