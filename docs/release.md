@@ -19,6 +19,7 @@
 - `v0.9.1-lvgl-gps-hotfix`: fixes invalid `update_interval` option on template GPS binary sensor for HA compile compatibility.
 - `v0.10.0-lvgl-climate-theme-fix`: display color inversion correction, slider snapping, dedicated Sensi climate page, and weather entity-state diagnostics.
 - `v0.11.0-lvgl-privacy-ui-gps-pass`: private entity tokenization + templates, climate page cleanup, trackball debounce, weather attribute fallback, and keyboard/GPS hardening.
+- `v0.11.1-lvgl-ref-fix`: package install ref hotfix for ESPHome package fetch compatibility (tag-based pinning).
 
 Unreleased on `main` (candidate next tag):
 
