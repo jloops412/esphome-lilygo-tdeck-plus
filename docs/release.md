@@ -28,6 +28,7 @@ Unreleased on `main` (candidate next tag):
 - trackball stability: stronger debounce/filtering plus keypad repeat constraint.
 - theme pass: renamed/refined palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`).
 - ESPHome config compatibility fix: `long_press_repeat_time` now uses valid max duration (`65535ms`) instead of invalid `never`.
+- Package cache hotfix: install YAMLs now include `packages.refresh: 1min` to force timely Git package updates in HA.
 
 Post-tag note:
 

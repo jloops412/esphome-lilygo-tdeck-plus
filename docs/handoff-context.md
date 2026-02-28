@@ -28,7 +28,7 @@
 3. Trackball stability:
    - Stronger GPIO filtering (`delayed_on_off` + `settle`) in LVGL trackball package.
    - Throttled trackball activity timestamp updates while awake.
-   - Added LVGL keypad `long_press_repeat_time: never` to reduce runaway focus drift.
+   - Added LVGL keypad long-press repeat cap (`long_press_repeat_time: 65535ms`) to reduce runaway focus drift.
 4. UI pass across all major pages:
    - Home launcher redesigned with icon-first compact actions and larger lights entry.
    - Weather title/metrics formatting cleanup and clearer climate jump affordance.
@@ -39,6 +39,8 @@
    - Replaced previously failing icon codepoints with safer LVGL-compatible icon codes.
 6. Compile compatibility hotfix:
    - Replaced invalid `long_press_repeat_time: never` with `long_press_repeat_time: 65535ms` for ESPHome 2026.2.2 parser compatibility.
+7. Package refresh hotfix:
+   - Added `refresh: 1min` to install package blocks to avoid stale cached Git packages during rapid iteration.
 
 ## Install entrypoints
 1. Stable install YAML:

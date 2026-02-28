@@ -44,6 +44,7 @@ packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
     ref: main
+    refresh: 1min
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml
