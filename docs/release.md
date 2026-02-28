@@ -12,6 +12,7 @@
 - `v0.6.1-lvgl-beta1-hotfix`: LVGL compile fix for shared board template buttons.
 - `v0.6.2-lvgl-input-parity`: LVGL input parity pass for calibration, trackball navigation, and shortcut restore.
 - `v0.6.3-lvgl-calibration-overrides`: install-time touch calibration substitutions in one YAML.
+- `v0.7.0-lvgl-cal9-controller-ui`: persistent live 9-point calibration + controller-first lights UI redesign.
 
 Post-tag note:
 
@@ -39,6 +40,14 @@ Post-tag note:
 1. LVGL touch package now reads calibration from substitutions (`touch_x_min/x_max/y_min/y_max`).
 2. LVGL install YAML now exposes those substitutions directly.
 3. Calibration suggestions from the on-device flow can now be applied without editing package files.
+
+`v0.7.0-lvgl-cal9-controller-ui` highlights:
+
+1. Replaced 4-point calibration with a full-screen 9-point calibration flow.
+2. Added live runtime apply using `set_calibration(...)` and persisted calibration reuse on boot.
+3. Calibration values now remain active across reboot without rerunning the wizard.
+4. Redesigned lights page into direct target selection + contextual controls.
+5. Weather page now includes clearer hierarchy (`temp`, `condition`, `feels like`, compact metric rows).
 
 `v0.6.0-lvgl-beta1` highlights:
 

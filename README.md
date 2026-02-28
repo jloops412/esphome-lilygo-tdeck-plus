@@ -25,8 +25,8 @@ Each install YAML pulls modular files from this repo by release tag.
 ## Current UI flow
 
 1. `Home`: clean launcher page (`Lights`, `Weather`, `Reader`, `Settings`, `Themes`, `Sleep`).
-2. `Lights`: controller-only page (prev/next light, toggle, dim, brighten, preset-cycle).
-3. `Weather`: dashboard page with resilient value formatting for missing data.
+2. `Lights`: controller-first page with direct light selection and contextual actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Preset`).
+3. `Weather`: cleaner dashboard page with primary temp/condition + compact multi-metric rows.
 4. `Reader`: feed/source launcher into full detail reader.
 5. `Settings`: wake and timeout controls plus keyboard-backlight toggle.
 6. `Theme`: on-device theme presets and display brightness tuning.
@@ -48,8 +48,9 @@ Each install YAML pulls modular files from this repo by release tag.
 13. `R`: reset stored calibration values.
 14. `C`: toggle touch debug.
 
-Touch calibration in LVGL mode now walks through a 4-point capture page and computes suggested `x_min/x_max/y_min/y_max` values.
-Apply them in one place by editing install YAML substitutions:
+Touch calibration in LVGL mode now uses a full-screen 9-point capture flow.
+Captured calibration is applied live and persisted across reboot.
+Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), and [`docs/release.md`](docs/release.md) for conventions and release details.

@@ -33,6 +33,9 @@
 23. LVGL keypad mapping now uses `prev/next/up/down/enter` for trackball navigation parity.
 24. LVGL keyboard profile restored parity shortcuts (`Q/E`, `K/R/C`, and `WASD`/`Tab`/`Esc` focus navigation).
 25. LVGL touch calibration values are now install-YAML substitutions (`touch_x_min/x_max/y_min/y_max`) so updates stay one-file.
+26. LVGL touch calibration now runs as full-screen 9-point capture and applies live calibration with persistence across reboot.
+27. Lights page moved to controller-first direct selection + contextual actions for lower navigation friction.
+28. Weather page now includes `feels like` and denser compact metrics.
 
 ## Migration steps for existing HA node
 

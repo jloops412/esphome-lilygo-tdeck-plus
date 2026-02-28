@@ -136,10 +136,15 @@ script:
           id(cal_raw_tr_x) = 0; id(cal_raw_tr_y) = 0;
           id(cal_raw_bl_x) = 0; id(cal_raw_bl_y) = 0;
           id(cal_raw_br_x) = 0; id(cal_raw_br_y) = 0;
-          id(touch_cal_suggest_x_min) = 0;
-          id(touch_cal_suggest_x_max) = 0;
-          id(touch_cal_suggest_y_min) = 0;
-          id(touch_cal_suggest_y_max) = 0;
+          id(cal9_raw_tl_x) = 0; id(cal9_raw_tl_y) = 0;
+          id(cal9_raw_tc_x) = 0; id(cal9_raw_tc_y) = 0;
+          id(cal9_raw_tr_x) = 0; id(cal9_raw_tr_y) = 0;
+          id(cal9_raw_ml_x) = 0; id(cal9_raw_ml_y) = 0;
+          id(cal9_raw_mc_x) = 0; id(cal9_raw_mc_y) = 0;
+          id(cal9_raw_mr_x) = 0; id(cal9_raw_mr_y) = 0;
+          id(cal9_raw_bl_x) = 0; id(cal9_raw_bl_y) = 0;
+          id(cal9_raw_bc_x) = 0; id(cal9_raw_bc_y) = 0;
+          id(cal9_raw_br_x) = 0; id(cal9_raw_br_y) = 0;
       - lvgl.page.show: touch_cal_page
       - script.execute: lvgl_update_dynamic
 
@@ -159,12 +164,51 @@ script:
           id(cal_raw_tr_x) = 0; id(cal_raw_tr_y) = 0;
           id(cal_raw_bl_x) = 0; id(cal_raw_bl_y) = 0;
           id(cal_raw_br_x) = 0; id(cal_raw_br_y) = 0;
-          id(touch_cal_suggest_x_min) = 0;
-          id(touch_cal_suggest_x_max) = 0;
-          id(touch_cal_suggest_y_min) = 0;
-          id(touch_cal_suggest_y_max) = 0;
+          id(cal9_raw_tl_x) = 0; id(cal9_raw_tl_y) = 0;
+          id(cal9_raw_tc_x) = 0; id(cal9_raw_tc_y) = 0;
+          id(cal9_raw_tr_x) = 0; id(cal9_raw_tr_y) = 0;
+          id(cal9_raw_ml_x) = 0; id(cal9_raw_ml_y) = 0;
+          id(cal9_raw_mc_x) = 0; id(cal9_raw_mc_y) = 0;
+          id(cal9_raw_mr_x) = 0; id(cal9_raw_mr_y) = 0;
+          id(cal9_raw_bl_x) = 0; id(cal9_raw_bl_y) = 0;
+          id(cal9_raw_bc_x) = 0; id(cal9_raw_bc_y) = 0;
+          id(cal9_raw_br_x) = 0; id(cal9_raw_br_y) = 0;
           id(touch_cal_mode) = false;
           id(touch_cal_step) = 0;
+      - lambda: |-
+          id(touch_cal_suggest_x_min) = atoi("${touch_x_min}");
+          id(touch_cal_suggest_x_max) = atoi("${touch_x_max}");
+          id(touch_cal_suggest_y_min) = atoi("${touch_y_min}");
+          id(touch_cal_suggest_y_max) = atoi("${touch_y_max}");
+      - script.execute: touch_cal_apply_stored
+      - script.execute: lvgl_update_dynamic
+
+  - id: touch_cal_apply_stored
+    then:
+      - lambda: |-
+          if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
+              id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
+            id(tdeck_touch).set_calibration(
+              id(touch_cal_suggest_x_min),
+              id(touch_cal_suggest_x_max),
+              id(touch_cal_suggest_y_min),
+              id(touch_cal_suggest_y_max)
+            );
+            ESP_LOGI("touch_cal", "Using persisted calibration x_min=%d x_max=%d y_min=%d y_max=%d",
+                     id(touch_cal_suggest_x_min),
+                     id(touch_cal_suggest_x_max),
+                     id(touch_cal_suggest_y_min),
+                     id(touch_cal_suggest_y_max));
+          }
+
+  - id: select_light
+    parameters:
+      idx: int
+    then:
+      - lambda: |-
+          if (idx < 0) idx = 0;
+          if (idx > 5) idx = 5;
+          id(selected_light) = idx;
       - script.execute: lvgl_update_dynamic
 
   - id: display_backlight_down
@@ -501,7 +545,43 @@ script:
             else if (id(selected_light) == 4 && id(office_state).has_state()) state = id(office_state).state;
             else if (id(selected_light) == 5 && id(upstairs_state).has_state()) state = id(upstairs_state).state;
 
-            return name + " (" + state + ")";
+            return std::string("Active\n") + name + "\n" + state;
+      - lvgl.label.update:
+          id: light_foyer_lbl
+          text: !lambda |-
+            std::string s = id(foyer_state).has_state() ? id(foyer_state).state : "-";
+            std::string p = (id(selected_light) == 0) ? "> " : "  ";
+            return p + std::string("Foyer ") + s;
+      - lvgl.label.update:
+          id: light_vanity_lbl
+          text: !lambda |-
+            std::string s = id(vanity_state).has_state() ? id(vanity_state).state : "-";
+            std::string p = (id(selected_light) == 1) ? "> " : "  ";
+            return p + std::string("Vanity ") + s;
+      - lvgl.label.update:
+          id: light_bedroom_lbl
+          text: !lambda |-
+            std::string s = id(bedroom_state).has_state() ? id(bedroom_state).state : "-";
+            std::string p = (id(selected_light) == 2) ? "> " : "  ";
+            return p + std::string("Bed ") + s;
+      - lvgl.label.update:
+          id: light_hall_lbl
+          text: !lambda |-
+            std::string s = id(hall_state).has_state() ? id(hall_state).state : "-";
+            std::string p = (id(selected_light) == 3) ? "> " : "  ";
+            return p + std::string("Hall ") + s;
+      - lvgl.label.update:
+          id: light_office_lbl
+          text: !lambda |-
+            std::string s = id(office_state).has_state() ? id(office_state).state : "-";
+            std::string p = (id(selected_light) == 4) ? "> " : "  ";
+            return p + std::string("Office ") + s;
+      - lvgl.label.update:
+          id: light_upstairs_lbl
+          text: !lambda |-
+            std::string s = id(upstairs_state).has_state() ? id(upstairs_state).state : "-";
+            std::string p = (id(selected_light) == 5) ? "> " : "  ";
+            return p + std::string("Upstairs ") + s;
       - lvgl.label.update:
           id: lights_preset_lbl
           text: !lambda |-
@@ -524,6 +604,13 @@ script:
             if (id(wx_condition).has_state() && !id(wx_condition).state.empty()) return id(wx_condition).state;
             return std::string("-");
       - lvgl.label.update:
+          id: weather_feels_lbl
+          text: !lambda |-
+            if (id(wx_feels).state != id(wx_feels).state) return std::string("Feels --");
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Feels %.1f", id(wx_feels).state);
+            return std::string(buf);
+      - lvgl.label.update:
           id: weather_metrics_lbl
           text: !lambda |-
             char buf[160];
@@ -531,7 +618,8 @@ script:
             auto wind = (id(wx_wind_speed).state == id(wx_wind_speed).state) ? id(wx_wind_speed).state : 0;
             auto uv = (id(wx_uv).state == id(wx_uv).state) ? id(wx_uv).state : 0;
             auto clouds = (id(wx_clouds).state == id(wx_clouds).state) ? id(wx_clouds).state : 0;
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f  Clouds %.0f%%", hum, wind, uv, clouds);
+            auto press = (id(wx_pressure).state == id(wx_pressure).state) ? id(wx_pressure).state : 0;
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f\nCloud %.0f%%  Press %.0f", hum, wind, uv, clouds, press);
             return std::string(buf);
       - lvgl.label.update:
           id: settings_status_lbl
@@ -560,37 +648,65 @@ script:
           id: touch_cal_step_lbl
           text: !lambda |-
             if (id(touch_cal_mode)) {
-              if (id(touch_cal_step) == 0) return std::string("Step 1/4: tap TOP LEFT marker");
-              if (id(touch_cal_step) == 1) return std::string("Step 2/4: tap TOP RIGHT marker");
-              if (id(touch_cal_step) == 2) return std::string("Step 3/4: tap BOTTOM LEFT marker");
-              return std::string("Step 4/4: tap BOTTOM RIGHT marker");
+              if (id(touch_cal_step) == 0) return std::string("1/9 TOP LEFT");
+              if (id(touch_cal_step) == 1) return std::string("2/9 TOP CENTER");
+              if (id(touch_cal_step) == 2) return std::string("3/9 TOP RIGHT");
+              if (id(touch_cal_step) == 3) return std::string("4/9 MID LEFT");
+              if (id(touch_cal_step) == 4) return std::string("5/9 CENTER");
+              if (id(touch_cal_step) == 5) return std::string("6/9 MID RIGHT");
+              if (id(touch_cal_step) == 6) return std::string("7/9 BOTTOM LEFT");
+              if (id(touch_cal_step) == 7) return std::string("8/9 BOTTOM CENTER");
+              return std::string("9/9 BOTTOM RIGHT");
             }
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
-              return std::string("Capture complete. Copy suggested values.");
+              return std::string("Calibration applied and saved.");
             }
             return std::string("Press Start TouchCal to begin.");
       - lvgl.label.update:
           id: touch_cal_result_lbl
           text: !lambda |-
-            char buf[320];
+            char buf[180];
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
               snprintf(buf, sizeof(buf),
-                       "Suggested calibration for input_touch_gt911_lvgl.yaml\n"
-                       "x_min: %d  x_max: %d\n"
-                       "y_min: %d  y_max: %d\n"
-                       "Live raw: %d,%d",
+                       "x:%d-%d y:%d-%d raw:%d,%d",
                        id(touch_cal_suggest_x_min), id(touch_cal_suggest_x_max),
                        id(touch_cal_suggest_y_min), id(touch_cal_suggest_y_max),
                        id(touch_raw_x_last), id(touch_raw_y_last));
               return std::string(buf);
             }
             snprintf(buf, sizeof(buf),
-                     "Live raw: %d,%d\n"
-                     "Tap each marker once; values save on release.",
+                     "raw:%d,%d  tap highlighted marker",
                      id(touch_raw_x_last), id(touch_raw_y_last));
             return std::string(buf);
+      - lvgl.label.update:
+          id: touch_cal_p0_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 0) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p1_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 1) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p2_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 2) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p3_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 3) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p4_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 4) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p5_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 5) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p6_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 6) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p7_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 7) ? std::string(\"X\") : std::string(\"+\");"
+      - lvgl.label.update:
+          id: touch_cal_p8_lbl
+          text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 8) ? std::string(\"X\") : std::string(\"+\");"
 
 interval:
   - interval: 1s
@@ -636,6 +752,15 @@ lvgl:
 
   on_boot:
     then:
+      - lambda: |-
+          if (id(touch_cal_suggest_x_max) <= id(touch_cal_suggest_x_min) ||
+              id(touch_cal_suggest_y_max) <= id(touch_cal_suggest_y_min)) {
+            id(touch_cal_suggest_x_min) = atoi("${touch_x_min}");
+            id(touch_cal_suggest_x_max) = atoi("${touch_x_max}");
+            id(touch_cal_suggest_y_min) = atoi("${touch_y_min}");
+            id(touch_cal_suggest_y_max) = atoi("${touch_y_max}");
+          }
+      - script.execute: touch_cal_apply_stored
       - script.execute: apply_theme
       - lvgl.widget.focus: home_lights_btn
       - script.execute: lvgl_update_dynamic
@@ -784,41 +909,117 @@ lvgl:
             text: "Lights"
         - label:
             id: lights_selected_lbl
-            x: 12
-            y: 40
-            width: 296
+            x: 196
+            y: 12
+            width: 116
             text: "Selected"
         - button:
+            id: light_foyer_btn
             x: 12
-            y: 68
-            width: 94
-            height: 64
+            y: 40
+            width: 86
+            height: 40
             styles: [lv_style_btn]
             group: nav_group
             on_click:
-              - script.execute: selected_light_prev
+              - script.execute:
+                  id: select_light
+                  idx: 0
             widgets:
               - label:
-                  text: "Prev"
+                  id: light_foyer_lbl
+                  text: "Foyer"
                   align: CENTER
         - button:
-            x: 113
-            y: 68
-            width: 94
-            height: 64
+            id: light_vanity_btn
+            x: 104
+            y: 40
+            width: 86
+            height: 40
             styles: [lv_style_btn]
             group: nav_group
             on_click:
-              - script.execute: selected_light_next
+              - script.execute:
+                  id: select_light
+                  idx: 1
             widgets:
               - label:
-                  text: "Next"
+                  id: light_vanity_lbl
+                  text: "Vanity"
                   align: CENTER
         - button:
-            x: 214
-            y: 68
-            width: 94
-            height: 64
+            id: light_bedroom_btn
+            x: 12
+            y: 86
+            width: 86
+            height: 40
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: select_light
+                  idx: 2
+            widgets:
+              - label:
+                  id: light_bedroom_lbl
+                  text: "Bedroom"
+                  align: CENTER
+        - button:
+            id: light_hall_btn
+            x: 104
+            y: 86
+            width: 86
+            height: 40
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: select_light
+                  idx: 3
+            widgets:
+              - label:
+                  id: light_hall_lbl
+                  text: "Hall"
+                  align: CENTER
+        - button:
+            id: light_office_btn
+            x: 12
+            y: 132
+            width: 86
+            height: 40
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: select_light
+                  idx: 4
+            widgets:
+              - label:
+                  id: light_office_lbl
+                  text: "Office"
+                  align: CENTER
+        - button:
+            id: light_upstairs_btn
+            x: 104
+            y: 132
+            width: 86
+            height: 40
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: select_light
+                  idx: 5
+            widgets:
+              - label:
+                  id: light_upstairs_lbl
+                  text: "Upstairs"
+                  align: CENTER
+        - button:
+            x: 196
+            y: 50
+            width: 116
+            height: 32
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -828,10 +1029,10 @@ lvgl:
                   text: "Toggle"
                   align: CENTER
         - button:
-            x: 12
-            y: 138
-            width: 94
-            height: 64
+            x: 196
+            y: 88
+            width: 56
+            height: 32
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -841,10 +1042,10 @@ lvgl:
                   text: "Dim"
                   align: CENTER
         - button:
-            x: 113
-            y: 138
-            width: 94
-            height: 64
+            x: 256
+            y: 88
+            width: 56
+            height: 32
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -854,23 +1055,49 @@ lvgl:
                   text: "Bright"
                   align: CENTER
         - button:
-            x: 214
-            y: 138
-            width: 94
-            height: 64
+            x: 196
+            y: 126
+            width: 56
+            height: 32
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_warm
+            widgets:
+              - label:
+                  text: "Warm"
+                  align: CENTER
+        - button:
+            x: 256
+            y: 126
+            width: 56
+            height: 32
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_cool
+            widgets:
+              - label:
+                  text: "Cool"
+                  align: CENTER
+        - button:
+            x: 196
+            y: 164
+            width: 116
+            height: 32
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: selected_light_preset_cycle
             widgets:
               - label:
-                  text: "Preset"
+                  text: "Preset Cycle"
                   align: CENTER
         - label:
             id: lights_preset_lbl
-            x: 12
-            y: 206
-            width: 296
+            x: 8
+            y: 204
+            width: 304
             text: "Preset"
 
     - id: weather_page
@@ -896,18 +1123,24 @@ lvgl:
         - label:
             id: weather_temp_lbl
             x: 16
-            y: 48
+            y: 44
             text: "--"
         - label:
             id: weather_cond_lbl
             x: 16
-            y: 82
+            y: 78
             width: 288
             text: "-"
         - label:
+            id: weather_feels_lbl
+            x: 16
+            y: 100
+            width: 288
+            text: "Feels --"
+        - label:
             id: weather_metrics_lbl
             x: 16
-            y: 118
+            y: 126
             width: 288
             text: "metrics"
 
@@ -1213,8 +1446,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 70
-            height: 28
+            width: 56
+            height: 24
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1227,37 +1460,65 @@ lvgl:
                   text: "Back"
                   align: CENTER
         - label:
-            x: 92
-            y: 10
-            text: "Touch Calibration"
+            x: 78
+            y: 8
+            text: "Touch Calibration 9-Point"
         - label:
-            x: 18
-            y: 34
+            id: touch_cal_p0_lbl
+            x: 20
+            y: 36
             text: "+"
         - label:
-            x: 296
-            y: 34
+            id: touch_cal_p1_lbl
+            x: 160
+            y: 36
             text: "+"
         - label:
-            x: 18
-            y: 218
+            id: touch_cal_p2_lbl
+            x: 300
+            y: 36
             text: "+"
         - label:
-            x: 296
-            y: 218
+            id: touch_cal_p3_lbl
+            x: 20
+            y: 110
+            text: "+"
+        - label:
+            id: touch_cal_p4_lbl
+            x: 160
+            y: 110
+            text: "+"
+        - label:
+            id: touch_cal_p5_lbl
+            x: 300
+            y: 110
+            text: "+"
+        - label:
+            id: touch_cal_p6_lbl
+            x: 20
+            y: 184
+            text: "+"
+        - label:
+            id: touch_cal_p7_lbl
+            x: 160
+            y: 184
+            text: "+"
+        - label:
+            id: touch_cal_p8_lbl
+            x: 300
+            y: 184
             text: "+"
         - label:
             id: touch_cal_step_lbl
             x: 12
-            y: 70
-            width: 296
-            text: "Step 1/4"
+            y: 206
+            width: 308
+            text: "1/9 TOP LEFT"
         - label:
             id: touch_cal_result_lbl
             x: 12
-            y: 106
-            width: 296
-            height: 122
+            y: 222
+            width: 308
             text: "Result"
 
     - id: detail_page

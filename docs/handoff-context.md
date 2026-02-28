@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.6.3-lvgl-calibration-overrides`
-3. Previous LVGL tag: `v0.6.2-lvgl-input-parity` (`9f3e99e`)
-4. Previous LVGL hotfix tag: `v0.6.1-lvgl-beta1-hotfix` (`463c855`)
+2. Latest LVGL tag: `v0.7.0-lvgl-cal9-controller-ui`
+3. Previous LVGL tag: `v0.6.3-lvgl-calibration-overrides` (`58aed5a`)
+4. Previous LVGL tag: `v0.6.2-lvgl-input-parity` (`9f3e99e`)
 
 ## Install entrypoints
 1. Stable install YAML:
@@ -50,12 +50,28 @@
 2. `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml` now exposes those substitutions at top level.
 3. Calibration values suggested by the on-device flow can be applied in one install YAML edit.
 
+## Calibration + UI update in `v0.7.0-lvgl-cal9-controller-ui`
+1. Touch calibration:
+   - Upgraded to a full-screen 9-point flow.
+   - Captured values are applied live via `id(tdeck_touch).set_calibration(...)`.
+   - Suggested values persist (`restore_value: yes`) and are re-applied on boot.
+2. Calibration persistence behavior:
+   - Starting calibration no longer clears existing saved calibration values.
+   - Reset calibration restores install-default substitution values and reapplies immediately.
+3. LVGL lights page redesign:
+   - Direct light target selection buttons (6 lights).
+   - Contextual action column (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Preset Cycle`).
+   - Active light summary and state shown in-page.
+4. Weather page update:
+   - Added `Feels` row and denser metric formatting for quick glance readability.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.6.3-lvgl-calibration-overrides`.
+1. Flash LVGL install YAML pinned to `v0.7.0-lvgl-cal9-controller-ui`.
 2. Verify:
    - trackball focus movement and center click activation
    - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`)
-   - touch calibration page capture flow and suggested values output
+   - touch calibration 9-point flow applies live and still works after reboot
+   - lights page direct-selection flow is responsive with touch/trackball/keyboard
 
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.

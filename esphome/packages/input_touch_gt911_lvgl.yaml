@@ -42,29 +42,71 @@ touchscreen:
               - lambda: |-
                   switch (id(touch_cal_step)) {
                     case 0:
-                      id(cal_raw_tl_x) = id(touch_raw_x_last);
-                      id(cal_raw_tl_y) = id(touch_raw_y_last);
+                      id(cal9_raw_tl_x) = id(touch_raw_x_last);
+                      id(cal9_raw_tl_y) = id(touch_raw_y_last);
                       break;
                     case 1:
-                      id(cal_raw_tr_x) = id(touch_raw_x_last);
-                      id(cal_raw_tr_y) = id(touch_raw_y_last);
+                      id(cal9_raw_tc_x) = id(touch_raw_x_last);
+                      id(cal9_raw_tc_y) = id(touch_raw_y_last);
                       break;
                     case 2:
-                      id(cal_raw_bl_x) = id(touch_raw_x_last);
-                      id(cal_raw_bl_y) = id(touch_raw_y_last);
+                      id(cal9_raw_tr_x) = id(touch_raw_x_last);
+                      id(cal9_raw_tr_y) = id(touch_raw_y_last);
                       break;
                     case 3:
+                      id(cal9_raw_ml_x) = id(touch_raw_x_last);
+                      id(cal9_raw_ml_y) = id(touch_raw_y_last);
+                      break;
+                    case 4:
+                      id(cal9_raw_mc_x) = id(touch_raw_x_last);
+                      id(cal9_raw_mc_y) = id(touch_raw_y_last);
+                      break;
+                    case 5:
+                      id(cal9_raw_mr_x) = id(touch_raw_x_last);
+                      id(cal9_raw_mr_y) = id(touch_raw_y_last);
+                      break;
+                    case 6:
+                      id(cal9_raw_bl_x) = id(touch_raw_x_last);
+                      id(cal9_raw_bl_y) = id(touch_raw_y_last);
+                      break;
+                    case 7:
+                      id(cal9_raw_bc_x) = id(touch_raw_x_last);
+                      id(cal9_raw_bc_y) = id(touch_raw_y_last);
+                      break;
+                    case 8:
                     default:
-                      id(cal_raw_br_x) = id(touch_raw_x_last);
-                      id(cal_raw_br_y) = id(touch_raw_y_last);
+                      id(cal9_raw_br_x) = id(touch_raw_x_last);
+                      id(cal9_raw_br_y) = id(touch_raw_y_last);
                       break;
                   }
 
-                  if (id(touch_cal_step) >= 3) {
-                    int x_min = (id(cal_raw_tl_x) + id(cal_raw_bl_x)) / 2;
-                    int x_max = (id(cal_raw_tr_x) + id(cal_raw_br_x)) / 2;
-                    int y_min = (id(cal_raw_tl_y) + id(cal_raw_tr_y)) / 2;
-                    int y_max = (id(cal_raw_bl_y) + id(cal_raw_br_y)) / 2;
+                  if (id(touch_cal_step) >= 8) {
+                    int lx = (id(cal9_raw_tl_x) + id(cal9_raw_ml_x) + id(cal9_raw_bl_x)) / 3;
+                    int rx = (id(cal9_raw_tr_x) + id(cal9_raw_mr_x) + id(cal9_raw_br_x)) / 3;
+                    int ty = (id(cal9_raw_tl_y) + id(cal9_raw_tc_y) + id(cal9_raw_tr_y)) / 3;
+                    int by = (id(cal9_raw_bl_y) + id(cal9_raw_bc_y) + id(cal9_raw_br_y)) / 3;
+
+                    // Calibration targets are drawn slightly inside the edges.
+                    const int x_left_target = 20;
+                    const int x_right_target = 300;
+                    const int y_top_target = 36;
+                    const int y_bottom_target = 184;
+
+                    int x_min = lx;
+                    int x_max = rx;
+                    int y_min = ty;
+                    int y_max = by;
+
+                    if (rx != lx) {
+                      int32_t dx = (int32_t) (rx - lx);
+                      x_min = (int) (lx - ((int32_t) x_left_target * dx) / (x_right_target - x_left_target));
+                      x_max = (int) (lx + ((int32_t) (319 - x_left_target) * dx) / (x_right_target - x_left_target));
+                    }
+                    if (by != ty) {
+                      int32_t dy = (int32_t) (by - ty);
+                      y_min = (int) (ty - ((int32_t) y_top_target * dy) / (y_bottom_target - y_top_target));
+                      y_max = (int) (ty + ((int32_t) (239 - y_top_target) * dy) / (y_bottom_target - y_top_target));
+                    }
 
                     if (x_min > x_max) {
                       int t = x_min;
@@ -77,19 +119,33 @@ touchscreen:
                       y_max = t;
                     }
 
-                    id(touch_cal_suggest_x_min) = x_min;
-                    id(touch_cal_suggest_x_max) = x_max;
-                    id(touch_cal_suggest_y_min) = y_min;
-                    id(touch_cal_suggest_y_max) = y_max;
+                    if (x_min < 0) x_min = 0;
+                    if (x_max > 4095) x_max = 4095;
+                    if (y_min < 0) y_min = 0;
+                    if (y_max > 4095) y_max = 4095;
+
+                    if (x_max - x_min < 32 || y_max - y_min < 32) {
+                      ESP_LOGW("touch_cal", "Rejected calibration: invalid span x=%d y=%d", x_max - x_min, y_max - y_min);
+                    } else {
+                      id(touch_cal_suggest_x_min) = x_min;
+                      id(touch_cal_suggest_x_max) = x_max;
+                      id(touch_cal_suggest_y_min) = y_min;
+                      id(touch_cal_suggest_y_max) = y_max;
+                      id(tdeck_touch).set_calibration(
+                        id(touch_cal_suggest_x_min),
+                        id(touch_cal_suggest_x_max),
+                        id(touch_cal_suggest_y_min),
+                        id(touch_cal_suggest_y_max)
+                      );
+                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d",
+                               id(touch_cal_suggest_x_min),
+                               id(touch_cal_suggest_x_max),
+                               id(touch_cal_suggest_y_min),
+                               id(touch_cal_suggest_y_max));
+                    }
 
                     id(touch_cal_mode) = false;
                     id(touch_cal_step) = 0;
-
-                    ESP_LOGI("touch_cal", "Suggested GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d",
-                             id(touch_cal_suggest_x_min),
-                             id(touch_cal_suggest_x_max),
-                             id(touch_cal_suggest_y_min),
-                             id(touch_cal_suggest_y_max));
                   } else {
                     id(touch_cal_step) += 1;
                   }

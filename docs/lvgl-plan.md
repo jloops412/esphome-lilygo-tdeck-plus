@@ -39,16 +39,18 @@ If LVGL regressions appear, continue using the stable install YAML:
 LVGL testing target:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
-## Current status (after v0.6.3-lvgl-calibration-overrides)
+## Current status (after v0.7.0-lvgl-cal9-controller-ui)
 1. Parallel LVGL packages and install YAML are in place.
 2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
 3. Compile blocker was found in HA and patched in hotfix:
    - `board_base` template buttons reference `page_next`/`page_prev`.
    - LVGL package now defines those script IDs and maps them to LVGL page navigation.
 4. Input parity pass added:
-   - working LVGL touch calibration assistant (4-point capture + suggested calibration values)
+   - working LVGL touch calibration assistant (now upgraded to 9-point capture)
    - LVGL keypad `prev/next/up/down/enter` trackball mapping
    - restored keyboard shortcut set for navigation/calibration/debug/backlight/light control
 5. Install YAML now exposes touch calibration substitutions (`touch_x_min/x_max/y_min/y_max`) for one-file updates.
-6. Next validation:
-   - compile/flash with the latest LVGL tag and verify runtime behavior for touch calibration + trackball click.
+6. Calibration flow now upgraded to full-screen 9-point capture and applies calibration live with persisted reuse on boot.
+7. UI pass updated lights flow to direct light selection + contextual control panel.
+8. Next validation:
+   - compile/flash with latest LVGL tag and verify calibration persistence and trackball/keyboard focus behavior.

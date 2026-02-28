@@ -261,6 +261,79 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: cal9_raw_tl_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_tl_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_tc_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_tc_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_tr_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_tr_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_ml_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_ml_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_mc_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_mc_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_mr_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_mr_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_bl_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_bl_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_bc_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_bc_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_br_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal9_raw_br_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+
   - id: touch_cal_suggest_x_min
     type: int
     restore_value: yes
