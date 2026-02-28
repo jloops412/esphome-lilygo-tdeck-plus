@@ -57,8 +57,7 @@ esp32:
     type: esp-idf
 
 packages:
-  board_base:
-    url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
+  - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
     ref: main
     refresh: 1min
     files:
