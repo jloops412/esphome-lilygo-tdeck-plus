@@ -21,6 +21,7 @@
 - `v0.11.0-lvgl-privacy-ui-gps-pass`: private entity tokenization + templates, climate page cleanup, trackball debounce, weather attribute fallback, and keyboard/GPS hardening.
 - `v0.11.1-lvgl-ref-fix`: package install ref hotfix for ESPHome package fetch compatibility (tag-based pinning).
 - `v0.12.0-lvgl-alt-shortcuts-ui-pass`: ALT-only shortcut system, home launcher cleanup, icon refresh, climate spacing polish, and keyboard-backlight profile testing controls.
+- `v0.13.0-lvgl-icons-climate-theme2`: package-safe MDI icon system, fully ALT-only shortcuts, slider-free climate +/- controls, and expanded theme shape controls.
 
 Unreleased on `main` (candidate next tag):
 
@@ -77,6 +78,13 @@ Hotfix after this pass:
   - quoted all install YAML package refs (`ref: "main"`) to prevent YAML numeric coercion when users pin commit-like refs.
   - removed non-YAML asset entries from `packages.files` (ESPHome packages accept only `.yaml`/`.yml` there).
   - removed external icon font dependency from package path; UI now uses LVGL-compatible symbol codepoints without external font files.
+- UI/UX and controls pass:
+  - home and nav icons now use package-safe `mdi:` image assets (no external binary package files).
+  - climate page now uses larger `+/-` controls for heat/cool and humidity/temperature offsets (all climate sliders removed).
+  - theme page now includes persisted accent-color chooser controls.
+  - theme page now includes additional shape controls (border width + corner radius) persisted across reboot.
+  - keyboard shortcuts returned to strict `Alt+key` requirement (no plain-key fallback).
+  - added `All Off` light action and `Alt+0` shortcut.
 
 Post-tag note:
 

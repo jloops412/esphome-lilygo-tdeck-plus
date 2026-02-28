@@ -55,31 +55,32 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 3. `Weather`: glance dashboard with large temperature, readable condition, compact metrics, `weather.openweathermap` entity-state line, and explicit GPS diagnostic state.
 4. `Climate`: dedicated Sensi control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
-   - target sliders (`Auto Heat`, `Auto Cool`)
-   - offset sliders (`Humidity Offset`, `Temperature Offset`)
+   - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
+   - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)
    - direct toggles for Sensi feature switches (aux heat, display humidity/time, fan support, humidification, keypad lockout)
 5. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
 6. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
-7. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`) and LVGL sliders for display + keyboard backlight.
+7. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`), accent color chooser, LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
 8. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
 9. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
 
 ## Quick keyboard shortcuts
 
-1. Command shortcuts support plain-key mode for compatibility; `Alt+key` remains supported.
-2. `H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
-3. `Q/E`: previous/next page.
-4. `K`: open shortcuts page.
-5. `D/F`: previous/next selected light.
-6. `G`: toggle selected light.
-7. `Z/X`: dim/brighten selected light.
-8. `P`: cycle light preset.
-9. `B/N/M`: keyboard backlight toggle/down/up.
-10. `Y`: start touch calibration.
-11. `V`: reset stored calibration values.
-12. `J`: save calibration after 9-point capture.
-13. `U`: retry calibration after 9-point capture.
-14. `O`: toggle touch debug.
+1. All command shortcuts require `Alt`.
+2. `Alt+H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
+3. `Alt+Q/E`: previous/next page.
+4. `Alt+K`: open shortcuts page.
+5. `Alt+D/F`: previous/next selected light.
+6. `Alt+G`: toggle selected light.
+7. `Alt+Z/X`: dim/brighten selected light.
+8. `Alt+P`: cycle light preset.
+9. `Alt+0`: all mapped lights off.
+10. `Alt+B/N/M`: keyboard backlight toggle/down/up.
+11. `Alt+Y`: start touch calibration.
+12. `Alt+V`: reset stored calibration values.
+13. `Alt+J`: save calibration after 9-point capture.
+14. `Alt+U`: retry calibration after 9-point capture.
+15. `Alt+O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
@@ -93,7 +94,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
-Launcher and navigation icons now use LVGL-compatible symbol codepoints without external asset dependencies.
+Launcher and navigation icons now use package-safe `mdi:` image assets (no external binary package files).
 Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.

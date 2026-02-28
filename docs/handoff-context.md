@@ -2,10 +2,10 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.12.0-lvgl-alt-shortcuts-ui-pass`
-3. Previous LVGL tag: `v0.11.1-lvgl-ref-fix`
-4. Previous LVGL tag: `v0.11.0-lvgl-privacy-ui-gps-pass`
-5. Current active dev ref in install YAMLs: `main` (unreleased pass after `v0.11.0`)
+2. Latest LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
+3. Previous LVGL tag: `v0.12.0-lvgl-alt-shortcuts-ui-pass`
+4. Previous LVGL tag: `v0.11.1-lvgl-ref-fix`
+5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -272,6 +272,13 @@
 4. YAML-only package compatibility correction:
    - Removed non-YAML asset entries from install `packages.files` lists (`fa-solid-900.ttf`), because ESPHome packages only accept YAML file entries.
    - Removed external icon-font dependency from package code and reverted icon rendering to LVGL-compatible symbol codepoints.
+5. UI/control follow-up pass:
+   - Reworked home and nav icons to package-safe `mdi:` image assets in `board_base.yaml`.
+   - Climate page now uses larger `+/-` controls for heat/cool and humidity/temperature offsets (no climate sliders).
+   - Theme page now includes persisted accent-color chooser controls (`theme_accent_index`, `theme_accent_set`, `theme_accent_next`, `apply_theme_accent`).
+   - Theme page now includes persisted shape controls (`theme_border_width`, `theme_radius`) and runtime style apply (`apply_theme_shape`).
+   - Keyboard shortcuts restored to strict `Alt+key` requirement and shortcut overlay text updated accordingly.
+   - Added `all_lights_off` action path and `Alt+0` shortcut.
 
 ## Immediate validation asks
 1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
@@ -286,7 +293,7 @@
    - climate page opens and Sensi actions fire correctly
    - weather metrics and GPS diagnostics still update
    - calibration persistence across reboot still holds
-   - shortcuts work via plain keys and ALT chords (`H/L/A/W/C/R/S/T`, `Q/E`, `K`, etc.)
+   - shortcuts work via ALT-only commands (`Alt+H/L/A/W/C/R/S/T`, `Alt+Q/E`, `Alt+K`, etc.)
    - theme page `KB Profile` button cycles `Normal/Reverse/LiveOnly` and changes status text
 
 ## Notes

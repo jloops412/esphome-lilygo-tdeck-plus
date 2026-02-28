@@ -19,6 +19,21 @@ globals:
     restore_value: yes
     initial_value: "0"
 
+  - id: theme_accent_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: theme_border_width
+    type: int
+    restore_value: yes
+    initial_value: "2"
+
+  - id: theme_radius
+    type: int
+    restore_value: yes
+    initial_value: "10"
+
   - id: light_preset_index
     type: int
     restore_value: yes

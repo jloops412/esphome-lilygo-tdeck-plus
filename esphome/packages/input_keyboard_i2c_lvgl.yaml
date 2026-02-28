@@ -78,133 +78,138 @@ interval:
           condition:
             lambda: "return id(kb_last_raw) != 0;"
           then:
-            # Command shortcuts: ALT+key preferred, plain-key fallback enabled for keyboard firmware compatibility.
+            # All command shortcuts require ALT + key.
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'h' || id(kb_last_raw) == 'H');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'h' || id(kb_last_raw) == 'H');"
                 then:
                   - lvgl.page.show: home_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'l' || id(kb_last_raw) == 'L');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'l' || id(kb_last_raw) == 'L');"
                 then:
                   - lvgl.page.show: lights_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'a' || id(kb_last_raw) == 'A');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'a' || id(kb_last_raw) == 'A');"
                 then:
                   - script.execute: open_light_colors
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'w' || id(kb_last_raw) == 'W');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'w' || id(kb_last_raw) == 'W');"
                 then:
                   - lvgl.page.show: weather_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'c' || id(kb_last_raw) == 'C');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'c' || id(kb_last_raw) == 'C');"
                 then:
                   - lvgl.page.show: climate_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'r' || id(kb_last_raw) == 'R');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'r' || id(kb_last_raw) == 'R');"
                 then:
                   - lvgl.page.show: reader_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 's' || id(kb_last_raw) == 'S');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 's' || id(kb_last_raw) == 'S');"
                 then:
                   - lvgl.page.show: settings_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 't' || id(kb_last_raw) == 'T');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 't' || id(kb_last_raw) == 'T');"
                 then:
                   - lvgl.page.show: theme_page
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K');"
                 then:
                   - script.execute: open_shortcuts
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q');"
                 then:
                   - script.execute: page_prev
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'e' || id(kb_last_raw) == 'E');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'e' || id(kb_last_raw) == 'E');"
                 then:
                   - script.execute: page_next
 
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'd' || id(kb_last_raw) == 'D');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'd' || id(kb_last_raw) == 'D');"
                 then:
                   - script.execute: selected_light_prev
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'f' || id(kb_last_raw) == 'F');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'f' || id(kb_last_raw) == 'F');"
                 then:
                   - script.execute: selected_light_next
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'z' || id(kb_last_raw) == 'Z');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'z' || id(kb_last_raw) == 'Z');"
                 then:
                   - script.execute: selected_light_dimmer
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'x' || id(kb_last_raw) == 'X');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'x' || id(kb_last_raw) == 'X');"
                 then:
                   - script.execute: selected_light_brighter
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'g' || id(kb_last_raw) == 'G');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'g' || id(kb_last_raw) == 'G');"
                 then:
                   - script.execute: selected_light_toggle
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'p' || id(kb_last_raw) == 'P');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'p' || id(kb_last_raw) == 'P');"
                 then:
                   - script.execute: selected_light_preset_cycle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '0';"
+                then:
+                  - script.execute: all_lights_off
 
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B');"
                 then:
                   - script.execute: kb_backlight_toggle
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N');"
                 then:
                   - script.execute: kb_backlight_down
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M');"
                 then:
                   - script.execute: kb_backlight_up
 
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'y' || id(kb_last_raw) == 'Y');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'y' || id(kb_last_raw) == 'Y');"
                 then:
                   - script.execute: start_touch_calibration
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'v' || id(kb_last_raw) == 'V');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'v' || id(kb_last_raw) == 'V');"
                 then:
                   - script.execute: reset_touch_calibration
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'j' || id(kb_last_raw) == 'J');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'j' || id(kb_last_raw) == 'J');"
                 then:
                   - script.execute: touch_cal_save
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'u' || id(kb_last_raw) == 'U');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'u' || id(kb_last_raw) == 'U');"
                 then:
                   - script.execute: touch_cal_retry
             - if:
                 condition:
-                  lambda: "return (id(kb_last_raw) == 'o' || id(kb_last_raw) == 'O');"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'o' || id(kb_last_raw) == 'O');"
                 then:
                   - script.execute: toggle_touch_debug
 
