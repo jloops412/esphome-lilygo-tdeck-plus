@@ -8,11 +8,14 @@ substitutions:
   touch_x_max: "238"
   touch_y_min: "16"
   touch_y_max: "260"
+  # Copy substitution mapping from:
+  # esphome/install/entity-overrides.template.yaml
+  # and paste your real private entity IDs locally.
 
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.10.0-lvgl-climate-theme-fix
+    ref: v0.11.0-lvgl-privacy-ui-gps-pass
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

@@ -18,6 +18,7 @@
 - `v0.9.0-lvgl-controls-calreview-gpsdiag`: calibration save/retry review, richer LVGL controls, and GPS diagnostics hardening.
 - `v0.9.1-lvgl-gps-hotfix`: fixes invalid `update_interval` option on template GPS binary sensor for HA compile compatibility.
 - `v0.10.0-lvgl-climate-theme-fix`: display color inversion correction, slider snapping, dedicated Sensi climate page, and weather entity-state diagnostics.
+- `v0.11.0-lvgl-privacy-ui-gps-pass`: private entity tokenization + templates, climate page cleanup, trackball debounce, weather attribute fallback, and keyboard/GPS hardening.
 
 Post-tag note:
 
@@ -124,6 +125,36 @@ Post-tag note:
    - Home launcher now includes direct `Climate` entry
    - Keyboard quick-nav now maps `1..7` to `Home/Lights/Weather/Climate/Reader/Settings/Theme`
    - Shortcuts text updated accordingly
+
+`v0.11.0-lvgl-privacy-ui-gps-pass` highlights:
+
+1. Privacy hardening:
+   - Removed hardcoded HA entity IDs from package code paths.
+   - Replaced with substitution tokens (`${entity_*}`) across:
+     - `ha_entities.yaml`
+     - `ui_lvgl.yaml`
+     - `ui_render_core.yaml`
+   - Added public-safe templates:
+     - `docs/entities-template.md`
+     - `esphome/install/entity-overrides.template.yaml`
+   - Added `.gitignore` rules for local private override files.
+2. Climate page simplification:
+   - Removed verbose per-toggle ON/OFF text badges to reduce clutter.
+   - Kept direct action buttons only for feature toggles.
+3. Slider usability:
+   - Kept 5% / 100K snapping and now forces immediate slider value updates after snapping.
+4. Keyboard backlight robustness:
+   - Improved command write sequence with retries for better reliability.
+   - Preserves user brightness memory for Alt+B default behavior.
+5. Trackball stability:
+   - Added debounce filters to LVGL trackball GPIO inputs to reduce runaway focus movement.
+6. GPS/weather robustness:
+   - Explicitly binds GPS parser to `uart_id: gps_uart`.
+   - Improved no-data diagnostics to suggest trying `gps_baud_rate: 38400`.
+   - Weather page now falls back to `weather.*` attributes (humidity/pressure/visibility/cloud/wind/dew/bearing) when legacy weather sensors are unavailable.
+7. LVGL visual pass:
+   - Added icon glyphs on core launcher actions.
+   - Rebalanced theme palettes for smoother, less noisy color contrast.
 
 `v0.6.0-lvgl-beta1` highlights:
 

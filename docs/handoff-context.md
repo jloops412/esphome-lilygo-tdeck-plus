@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.10.0-lvgl-climate-theme-fix`
-3. Previous LVGL tag: `v0.9.1-lvgl-gps-hotfix`
-4. Previous LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag` (`58f903e`)
+2. Latest LVGL tag: `v0.11.0-lvgl-privacy-ui-gps-pass`
+3. Previous LVGL tag: `v0.10.0-lvgl-climate-theme-fix`
+4. Previous LVGL tag: `v0.9.1-lvgl-gps-hotfix`
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -158,14 +158,43 @@
      - `1 Home`, `2 Lights`, `3 Weather`, `4 Climate`, `5 Reader`, `6 Settings`, `7 Theme`.
    - Shortcut overlay text updated to match.
 
+## Privacy + UI + GPS pass in `v0.11.0-lvgl-privacy-ui-gps-pass`
+1. Private entity hardening:
+   - Replaced hardcoded HA entity IDs with substitution tokens in package code.
+   - Added public-safe templates for local private overrides:
+     - `docs/entities-template.md`
+     - `esphome/install/entity-overrides.template.yaml`
+   - Added `.gitignore` rules for local private files.
+2. Climate page cleanup:
+   - Removed noisy per-button ON/OFF text status badges.
+   - Kept cleaner action-button-only toggle row.
+3. Slider behavior:
+   - Snapping kept (5% brightness, 100K kelvin).
+   - Sliders now refresh immediately to snapped values after release.
+4. Keyboard backlight robustness:
+   - Improved I2C command retry sequence for better compatibility.
+   - Kept Alt+B memory/default handling.
+5. Trackball stability:
+   - Added debounce filters on LVGL trackball GPIO inputs.
+6. GPS/weather hardening:
+   - Added explicit `uart_id: gps_uart` in GPS package.
+   - Updated no-data diagnostics to suggest trying `gps_baud_rate: 38400`.
+   - Weather page now falls back to weather-entity attributes for richer metrics.
+7. UI pass:
+   - Added icon glyphs on key launcher/actions.
+   - Rebalanced theme palettes for smoother complementary color sets.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.10.0-lvgl-climate-theme-fix`.
+1. Flash LVGL install YAML pinned to `v0.11.0-lvgl-privacy-ui-gps-pass`.
 2. Verify:
    - config parse succeeds (no `binary_sensor.template update_interval` error)
    - calibration flow ends with `Save`/`Retry` and does not auto-save bad captures
    - lights sliders apply correctly to selected entity (`brightness_pct` and `color_temp_kelvin`)
    - display colors are no longer inverted (dark theme appears dark, amber no longer appears blue)
    - climate page opens and all Sensi controls/actions call expected HA entities
+   - climate toggle row fits cleanly without per-toggle status badge clutter
+   - slider releases visibly snap to expected increments (5% or 100K)
+   - trackball right/left focus no longer runs away
    - keyboard `1..7` page jumps route to expected LVGL pages
    - reduced utility-button duplication still keeps navigation discoverable
    - GPS diagnostic entities update (`GPS Data Alive`, `GPS Last Data Age`, `GPS Status`)
@@ -176,3 +205,9 @@
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.
 2. LVGL path is intentionally parallel and should not overwrite stable by default.
+3. Upstream hardware reference checks used for this pass:
+   - T-Deck GPS UART pins in LilyGO examples: TX `43`, RX `44`.
+   - LilyGO GPS example attempts recovery across `9600`/`38400` baud.
+   - Keyboard controller firmware command IDs for backlight:
+     - `0x01` (live brightness duty)
+     - `0x02` (Alt+B default duty)

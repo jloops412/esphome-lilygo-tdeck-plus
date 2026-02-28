@@ -7,6 +7,15 @@ This repo tracks the ESPHome controller work for LilyGO T-Deck Plus.
 1. Every code change must include documentation updates in Git.
 2. Every code change must include `docs/handoff-context.md` updates in the same iteration.
 
+## Privacy Policy (Entities)
+
+1. Real Home Assistant entity IDs are now tokenized in package files using substitutions.
+2. Keep your private entity mapping local and out of Git.
+3. Use:
+   - `docs/entities-template.md`
+   - `esphome/install/entity-overrides.template.yaml`
+4. Local private override filenames are gitignored (`*-private.yaml`, `*-local.yaml`).
+
 Current priorities:
 
 1. Preserve the known-good manual-rendered baseline.
@@ -42,6 +51,7 @@ Each install YAML pulls modular files from this repo by release tag.
 5. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
 6. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
 7. `Theme`: expanded palette set (`Graphite`, `Ocean`, `Amber`, `Rose`, `Teal`) and LVGL sliders for display + keyboard backlight.
+8. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
 
 ## Quick keyboard shortcuts
 
@@ -72,9 +82,10 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 - keyboard brightness: 5%
 - light brightness: 5%
 - color temperature: 100K
+Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 GPS serial baud is also substitution-driven:
 `gps_baud_rate` (default `9600`).
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), and [`docs/release.md`](docs/release.md) for conventions and release details.
+See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), [`docs/release.md`](docs/release.md), and [`docs/entities-template.md`](docs/entities-template.md) for conventions, privacy mapping, and release details.

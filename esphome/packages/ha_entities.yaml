@@ -1,3 +1,45 @@
+substitutions:
+  # Private/local entity mapping overrides.
+  # Keep your real values in local install YAML, not in this repo.
+  entity_light_foyer: "light.replace_me_foyer"
+  entity_light_vanity: "light.replace_me_vanity"
+  entity_light_bedroom: "light.replace_me_bedroom"
+  entity_light_hall: "light.replace_me_hall"
+  entity_light_office: "light.replace_me_office"
+  entity_light_upstairs: "light.replace_me_upstairs"
+
+  entity_wx_main: "weather.replace_me"
+  entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
+  entity_wx_weather_sensor: "sensor.replace_me_weather_text"
+  entity_wx_temp_sensor: "sensor.replace_me_weather_temperature"
+  entity_wx_feels_sensor: "sensor.replace_me_weather_feels_like"
+  entity_wx_humidity_sensor: "sensor.replace_me_weather_humidity"
+  entity_wx_clouds_sensor: "sensor.replace_me_weather_clouds"
+  entity_wx_pressure_sensor: "sensor.replace_me_weather_pressure"
+  entity_wx_uv_sensor: "sensor.replace_me_weather_uv"
+  entity_wx_visibility_sensor: "sensor.replace_me_weather_visibility"
+  entity_wx_wind_speed_sensor: "sensor.replace_me_weather_wind_speed"
+
+  entity_word_of_day_sensor: "sensor.replace_me_word_of_day"
+  entity_quote_of_hour_sensor: "sensor.replace_me_quote_of_hour"
+  entity_feed_bbc: "event.replace_me_bbc"
+  entity_feed_dc: "event.replace_me_dc"
+  entity_feed_loudoun: "event.replace_me_loudoun"
+
+  entity_sensi_climate: "climate.replace_me"
+  entity_sensi_temperature_sensor: "sensor.replace_me_sensi_temperature"
+  entity_sensi_humidity_sensor: "sensor.replace_me_sensi_humidity"
+  entity_sensi_auto_cool_number: "number.replace_me_sensi_auto_cool"
+  entity_sensi_auto_heat_number: "number.replace_me_sensi_auto_heat"
+  entity_sensi_humidity_offset_number: "number.replace_me_sensi_humidity_offset"
+  entity_sensi_temperature_offset_number: "number.replace_me_sensi_temperature_offset"
+  entity_sensi_aux_heat_switch: "switch.replace_me_sensi_aux_heat"
+  entity_sensi_display_humidity_switch: "switch.replace_me_sensi_display_humidity"
+  entity_sensi_display_time_switch: "switch.replace_me_sensi_display_time"
+  entity_sensi_fan_support_switch: "switch.replace_me_sensi_fan_support"
+  entity_sensi_humidification_switch: "switch.replace_me_sensi_humidification"
+  entity_sensi_keypad_lockout_switch: "switch.replace_me_sensi_keypad_lockout"
+
 text_sensor:
   - platform: wifi_info
     ip_address:
@@ -25,123 +67,123 @@ text_sensor:
 
   - platform: homeassistant
     id: foyer_state
-    entity_id: light.foyer_lights
+    entity_id: ${entity_light_foyer}
     internal: true
   - platform: homeassistant
     id: vanity_state
-    entity_id: light.main_vanity_lights
+    entity_id: ${entity_light_vanity}
     internal: true
   - platform: homeassistant
     id: bedroom_state
-    entity_id: light.bedroom_lamp
+    entity_id: ${entity_light_bedroom}
     internal: true
   - platform: homeassistant
     id: hall_state
-    entity_id: light.hall_lights
+    entity_id: ${entity_light_hall}
     internal: true
   - platform: homeassistant
     id: office_state
-    entity_id: light.office_lamps
+    entity_id: ${entity_light_office}
     internal: true
   - platform: homeassistant
     id: upstairs_state
-    entity_id: light.upstairs_lights
+    entity_id: ${entity_light_upstairs}
     internal: true
 
   - platform: homeassistant
     id: wx_condition
-    entity_id: sensor.openweathermap_condition
+    entity_id: ${entity_wx_condition_sensor}
     internal: true
   - platform: homeassistant
     id: wx_weather
-    entity_id: sensor.openweathermap_weather
+    entity_id: ${entity_wx_weather_sensor}
     internal: true
   - platform: homeassistant
     id: wx_entity_state
-    entity_id: weather.openweathermap
+    entity_id: ${entity_wx_main}
     internal: true
 
   - platform: homeassistant
     id: word_of_day
-    entity_id: sensor.word_of_the_day
+    entity_id: ${entity_word_of_day_sensor}
     internal: true
   - platform: homeassistant
     id: quote_of_hour
-    entity_id: sensor.quote_of_the_hour
+    entity_id: ${entity_quote_of_hour_sensor}
     internal: true
 
   - platform: homeassistant
     id: feed_bbc_title
-    entity_id: event.bbc_news
+    entity_id: ${entity_feed_bbc}
     attribute: title
     internal: true
   - platform: homeassistant
     id: feed_bbc_message
-    entity_id: event.bbc_news
+    entity_id: ${entity_feed_bbc}
     attribute: message
     internal: true
   - platform: homeassistant
     id: feed_bbc_event_type
-    entity_id: event.bbc_news
+    entity_id: ${entity_feed_bbc}
     attribute: event_type
     internal: true
   - platform: homeassistant
     id: feed_bbc_state
-    entity_id: event.bbc_news
+    entity_id: ${entity_feed_bbc}
     internal: true
 
   - platform: homeassistant
     id: feed_dc_title
-    entity_id: event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live
+    entity_id: ${entity_feed_dc}
     attribute: title
     internal: true
   - platform: homeassistant
     id: feed_dc_message
-    entity_id: event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live
+    entity_id: ${entity_feed_dc}
     attribute: message
     internal: true
   - platform: homeassistant
     id: feed_dc_event_type
-    entity_id: event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live
+    entity_id: ${entity_feed_dc}
     attribute: event_type
     internal: true
   - platform: homeassistant
     id: feed_dc_state
-    entity_id: event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live
+    entity_id: ${entity_feed_dc}
     internal: true
 
   - platform: homeassistant
     id: feed_loudoun_title
-    entity_id: event.loudoun_county_va_news_flash
+    entity_id: ${entity_feed_loudoun}
     attribute: title
     internal: true
   - platform: homeassistant
     id: feed_loudoun_message
-    entity_id: event.loudoun_county_va_news_flash
+    entity_id: ${entity_feed_loudoun}
     attribute: message
     internal: true
   - platform: homeassistant
     id: feed_loudoun_event_type
-    entity_id: event.loudoun_county_va_news_flash
+    entity_id: ${entity_feed_loudoun}
     attribute: event_type
     internal: true
   - platform: homeassistant
     id: feed_loudoun_state
-    entity_id: event.loudoun_county_va_news_flash
+    entity_id: ${entity_feed_loudoun}
     internal: true
 
   - platform: homeassistant
     id: sensi_climate_state
-    entity_id: climate.sensi_sensi
+    entity_id: ${entity_sensi_climate}
     internal: true
   - platform: homeassistant
     id: sensi_climate_hvac_action
-    entity_id: climate.sensi_sensi
+    entity_id: ${entity_sensi_climate}
     attribute: hvac_action
     internal: true
   - platform: homeassistant
     id: sensi_climate_fan_mode
-    entity_id: climate.sensi_sensi
+    entity_id: ${entity_sensi_climate}
     attribute: fan_mode
     internal: true
 
@@ -211,83 +253,124 @@ sensor:
 
   - platform: homeassistant
     id: wx_temp
-    entity_id: sensor.openweathermap_temperature
+    entity_id: ${entity_wx_temp_sensor}
     internal: true
   - platform: homeassistant
     id: wx_feels
-    entity_id: sensor.openweathermap_apparent_temperature
+    entity_id: ${entity_wx_feels_sensor}
     internal: true
   - platform: homeassistant
     id: wx_humidity
-    entity_id: sensor.openweathermap_humidity
+    entity_id: ${entity_wx_humidity_sensor}
     internal: true
   - platform: homeassistant
     id: wx_clouds
-    entity_id: sensor.openweathermap_cloud_coverage
+    entity_id: ${entity_wx_clouds_sensor}
     internal: true
   - platform: homeassistant
     id: wx_pressure
-    entity_id: sensor.openweathermap_pressure
+    entity_id: ${entity_wx_pressure_sensor}
     internal: true
   - platform: homeassistant
     id: wx_uv
-    entity_id: sensor.openweathermap_uv_index
+    entity_id: ${entity_wx_uv_sensor}
     internal: true
   - platform: homeassistant
     id: wx_visibility
-    entity_id: sensor.openweathermap_visibility
+    entity_id: ${entity_wx_visibility_sensor}
     internal: true
   - platform: homeassistant
     id: wx_wind_speed
-    entity_id: sensor.openweathermap_wind_speed
+    entity_id: ${entity_wx_wind_speed_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_temperature
+    entity_id: ${entity_wx_main}
+    attribute: temperature
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_humidity
+    entity_id: ${entity_wx_main}
+    attribute: humidity
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_pressure
+    entity_id: ${entity_wx_main}
+    attribute: pressure
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_wind_speed
+    entity_id: ${entity_wx_main}
+    attribute: wind_speed
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_wind_bearing
+    entity_id: ${entity_wx_main}
+    attribute: wind_bearing
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_visibility
+    entity_id: ${entity_wx_main}
+    attribute: visibility
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_cloud_coverage
+    entity_id: ${entity_wx_main}
+    attribute: cloud_coverage
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_dew_point
+    entity_id: ${entity_wx_main}
+    attribute: dew_point
     internal: true
   - platform: homeassistant
     id: sensi_temperature
-    entity_id: sensor.sensi_sensi_temperature
+    entity_id: ${entity_sensi_temperature_sensor}
     internal: true
   - platform: homeassistant
     id: sensi_humidity
-    entity_id: sensor.sensi_sensi_humidity
+    entity_id: ${entity_sensi_humidity_sensor}
     internal: true
   - platform: homeassistant
     id: sensi_auto_cool_temp
-    entity_id: number.sensi_sensi_auto_current_cool_temp
+    entity_id: ${entity_sensi_auto_cool_number}
     internal: true
   - platform: homeassistant
     id: sensi_auto_heat_temp
-    entity_id: number.sensi_sensi_auto_current_heat_temp
+    entity_id: ${entity_sensi_auto_heat_number}
     internal: true
   - platform: homeassistant
     id: sensi_humidity_offset
-    entity_id: number.sensi_sensi_humidity_offset
+    entity_id: ${entity_sensi_humidity_offset_number}
     internal: true
   - platform: homeassistant
     id: sensi_temperature_offset
-    entity_id: number.sensi_sensi_temperature_offset
+    entity_id: ${entity_sensi_temperature_offset_number}
     internal: true
 
 binary_sensor:
   - platform: homeassistant
     id: sensi_aux_heat_state
-    entity_id: switch.sensi_sensi_aux_heat
+    entity_id: ${entity_sensi_aux_heat_switch}
     internal: true
   - platform: homeassistant
     id: sensi_display_humidity_state
-    entity_id: switch.sensi_sensi_display_humidity
+    entity_id: ${entity_sensi_display_humidity_switch}
     internal: true
   - platform: homeassistant
     id: sensi_display_time_state
-    entity_id: switch.sensi_sensi_display_time
+    entity_id: ${entity_sensi_display_time_switch}
     internal: true
   - platform: homeassistant
     id: sensi_fan_support_state
-    entity_id: switch.sensi_sensi_fan_support
+    entity_id: ${entity_sensi_fan_support_switch}
     internal: true
   - platform: homeassistant
     id: sensi_humidification_state
-    entity_id: switch.sensi_sensi_humidification
+    entity_id: ${entity_sensi_humidification_switch}
     internal: true
   - platform: homeassistant
     id: sensi_keypad_lockout_state
-    entity_id: switch.sensi_sensi_keypad_lockout
+    entity_id: ${entity_sensi_keypad_lockout_switch}
     internal: true
+

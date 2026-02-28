@@ -4,6 +4,9 @@ substitutions:
   gps_rx_pin: "44"
   gps_tx_pin: "43"
   gps_baud_rate: "9600"
+  # Copy substitution mapping from:
+  # esphome/install/entity-overrides.template.yaml
+  # and paste your real private entity IDs locally.
 
 packages:
   board_base:

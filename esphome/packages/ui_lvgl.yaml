@@ -47,15 +47,25 @@ script:
           if (pct > 100) pct = 100;
 
           int live = (pct * 255) / 100;
-          int defv = live;
-          if (pct > 0 && defv < 30) defv = 30;
+          int remembered = id(kb_backlight_last_nonzero);
+          if (remembered < 20) remembered = 20;
+          if (remembered > 100) remembered = 100;
+          int defv = (remembered * 255) / 100;
+          if (pct > 0) {
+            defv = live;
+            if (defv < 40) defv = 40;
+          }
 
-          uint8_t cmd_default[2] = {0x02, (uint8_t)(pct > 0 ? defv : 30)};
+          uint8_t cmd_default[2] = {0x02, (uint8_t)defv};
           uint8_t cmd_live[2] = {0x01, (uint8_t)live};
 
-          id(bus_a).write(0x55, cmd_default, 2);
-          delay(5);
-          id(bus_a).write(0x55, cmd_live, 2);
+          // Retry sequence improves reliability on some keyboard MCU firmware revisions.
+          for (int i = 0; i < 3; i++) {
+            id(bus_a).write(0x55, cmd_default, 2);
+            delay(3);
+            id(bus_a).write(0x55, cmd_live, 2);
+            delay(3);
+          }
 
   - id: kb_backlight_toggle
     then:
@@ -273,6 +283,9 @@ script:
       - light.turn_on:
           id: tft_backlight
           brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - lvgl.slider.update:
+          id: display_brightness_slider
+          value: !lambda "return id(backlight_percent);"
       - script.execute: lvgl_update_dynamic
 
   - id: set_kb_backlight
@@ -286,6 +299,9 @@ script:
           id(kb_backlight_percent) = pct;
           if (pct > 0) id(kb_backlight_last_nonzero) = pct;
       - script.execute: kb_backlight_apply
+      - lvgl.slider.update:
+          id: kb_brightness_slider
+          value: !lambda "return id(kb_backlight_percent);"
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_prev
@@ -307,12 +323,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
       - script.execute: lvgl_update_dynamic
 
@@ -326,12 +342,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             brightness_step_pct: "20"
       - script.execute: lvgl_update_dynamic
@@ -346,12 +362,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             brightness_step_pct: "-20"
       - script.execute: lvgl_update_dynamic
@@ -370,17 +386,20 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             brightness_pct: !lambda |-
               char buf[8];
               snprintf(buf, sizeof(buf), "%d", id(selected_light_brightness_pct));
               return std::string(buf);
+      - lvgl.slider.update:
+          id: light_brightness_slider
+          value: !lambda "return id(selected_light_brightness_pct);"
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_warm
@@ -392,12 +411,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             color_temp_kelvin: "2700"
       - script.execute: lvgl_update_dynamic
@@ -411,12 +430,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             color_temp_kelvin: "6500"
       - script.execute: lvgl_update_dynamic
@@ -430,12 +449,12 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             color_name: !lambda "return cname;"
       - script.execute: lvgl_update_dynamic
@@ -497,160 +516,160 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x05070A
-                text_color: 0xF2F6FF
+                bg_color: 0x090D12
+                text_color: 0xF2F5FA
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x0F1624
-                border_color: 0x283A56
+                bg_color: 0x131A24
+                border_color: 0x2A3647
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x17253B
-                border_color: 0x2F6FD8
-                text_color: 0xF2F6FF
+                bg_color: 0x1B2533
+                border_color: 0x4A6B93
+                text_color: 0xF2F5FA
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x131A28
-                border_color: 0x36435D
-                text_color: 0xDCE7FF
+                bg_color: 0x151E2A
+                border_color: 0x34475F
+                text_color: 0xDFE8F3
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x3C1E1E
-                border_color: 0xB84747
-                text_color: 0xFFE7E7
+                bg_color: 0x2F1D22
+                border_color: 0x7B4A57
+                text_color: 0xFDEEF2
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x173022
-                border_color: 0x39A466
-                text_color: 0xE8FFF2
+                bg_color: 0x1C2B24
+                border_color: 0x4A7B62
+                text_color: 0xE9F8EF
       - if:
           condition:
             lambda: "return id(theme_index) == 1;"
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x071018
-                text_color: 0xEAF4FF
+                bg_color: 0x091017
+                text_color: 0xEAF3FA
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x0D1B2A
-                border_color: 0x2F5D86
+                bg_color: 0x102131
+                border_color: 0x2D4C68
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x14304A
-                border_color: 0x2C84C7
-                text_color: 0xEAF4FF
+                bg_color: 0x173149
+                border_color: 0x4A7CA6
+                text_color: 0xEAF3FA
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x113045
-                border_color: 0x2F5D86
-                text_color: 0xEAF4FF
+                bg_color: 0x132A3F
+                border_color: 0x3B6184
+                text_color: 0xDDEAF7
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x3A231A
-                border_color: 0xD0673B
-                text_color: 0xFFEBDC
+                bg_color: 0x2E2420
+                border_color: 0x7C5B4D
+                text_color: 0xF8ECE4
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x103A34
-                border_color: 0x1A9F9F
-                text_color: 0xE8FFFF
+                bg_color: 0x17312D
+                border_color: 0x3E7B73
+                text_color: 0xE6F7F4
       - if:
           condition:
             lambda: "return id(theme_index) == 2;"
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x120D08
-                text_color: 0xFFF1E4
+                bg_color: 0x140F0A
+                text_color: 0xFDF1E4
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x24170F
-                border_color: 0x855D36
+                bg_color: 0x241A12
+                border_color: 0x705638
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x3A2517
-                border_color: 0xC4822F
-                text_color: 0xFFF1E4
+                bg_color: 0x352518
+                border_color: 0x8B663F
+                text_color: 0xFDF1E4
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x332012
-                border_color: 0x94653B
-                text_color: 0xFFF1E4
+                bg_color: 0x2C2015
+                border_color: 0x6F5235
+                text_color: 0xF5E6D5
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x4D1818
-                border_color: 0xD15757
-                text_color: 0xFFE7E7
+                bg_color: 0x3A231E
+                border_color: 0x8A4A3F
+                text_color: 0xFAECE8
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x304018
-                border_color: 0x7FAE32
-                text_color: 0xF4FFE2
+                bg_color: 0x2A2815
+                border_color: 0x6D7140
+                text_color: 0xF3F5E2
       - if:
           condition:
             lambda: "return id(theme_index) == 3;"
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x1D0A13
-                text_color: 0xFFE9F4
+                bg_color: 0x140D13
+                text_color: 0xFBEFF6
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x331426
-                border_color: 0x9D3D76
+                bg_color: 0x251824
+                border_color: 0x68405D
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x4B1E36
-                border_color: 0xD05A97
-                text_color: 0xFFE9F4
+                bg_color: 0x372337
+                border_color: 0x8F5E83
+                text_color: 0xFBEFF6
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x3E1930
-                border_color: 0xA0467D
-                text_color: 0xFFE9F4
+                bg_color: 0x2E1D2E
+                border_color: 0x714864
+                text_color: 0xF3E2ED
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x53211B
-                border_color: 0xC45B4D
-                text_color: 0xFFEDE9
+                bg_color: 0x3A2025
+                border_color: 0x885264
+                text_color: 0xFCEEF4
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x294428
-                border_color: 0x69B36A
-                text_color: 0xEBFFEA
+                bg_color: 0x223025
+                border_color: 0x4B7A67
+                text_color: 0xEAF7F0
       - if:
           condition:
             lambda: "return id(theme_index) == 4;"
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x081112
-                text_color: 0xE8FCF9
+                bg_color: 0x0A0F13
+                text_color: 0xECF2F7
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x122326
-                border_color: 0x2D6A70
+                bg_color: 0x17202A
+                border_color: 0x3A4F66
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x1A3438
-                border_color: 0x46A9B4
-                text_color: 0xE8FCF9
+                bg_color: 0x202D3C
+                border_color: 0x56779A
+                text_color: 0xECF2F7
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x152B2E
-                border_color: 0x3A838C
-                text_color: 0xDDF4F2
+                bg_color: 0x1A2634
+                border_color: 0x445D7A
+                text_color: 0xDCE7F1
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x46251C
-                border_color: 0xC56D4F
-                text_color: 0xFFF1EA
+                bg_color: 0x332423
+                border_color: 0x835B58
+                text_color: 0xFAEEEE
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x1C3C30
-                border_color: 0x49B18B
-                text_color: 0xE6FFF6
+                bg_color: 0x203229
+                border_color: 0x4D7F6D
+                text_color: 0xE8F6EE
       - script.execute: lvgl_update_dynamic
 
   - id: open_detail_bbc
@@ -707,17 +726,20 @@ script:
           data:
             entity_id: !lambda |-
               switch (id(selected_light)) {
-                case 0: return std::string("light.foyer_lights");
-                case 1: return std::string("light.main_vanity_lights");
-                case 2: return std::string("light.bedroom_lamp");
-                case 3: return std::string("light.hall_lights");
-                case 4: return std::string("light.office_lamps");
-                default: return std::string("light.upstairs_lights");
+                case 0: return std::string("${entity_light_foyer}");
+                case 1: return std::string("${entity_light_vanity}");
+                case 2: return std::string("${entity_light_bedroom}");
+                case 3: return std::string("${entity_light_hall}");
+                case 4: return std::string("${entity_light_office}");
+                default: return std::string("${entity_light_upstairs}");
               }
             color_temp_kelvin: !lambda |-
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", id(selected_light_kelvin));
               return std::string(buf);
+      - lvgl.slider.update:
+          id: light_temp_slider
+          value: !lambda "return id(selected_light_kelvin);"
       - script.execute: lvgl_update_dynamic
 
   - id: open_climate
@@ -730,7 +752,7 @@ script:
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
-            entity_id: climate.sensi_sensi
+            entity_id: ${entity_sensi_climate}
             hvac_mode: "off"
       - script.execute: lvgl_update_dynamic
 
@@ -739,7 +761,7 @@ script:
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
-            entity_id: climate.sensi_sensi
+            entity_id: ${entity_sensi_climate}
             hvac_mode: "heat"
       - script.execute: lvgl_update_dynamic
 
@@ -748,7 +770,7 @@ script:
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
-            entity_id: climate.sensi_sensi
+            entity_id: ${entity_sensi_climate}
             hvac_mode: "cool"
       - script.execute: lvgl_update_dynamic
 
@@ -757,7 +779,7 @@ script:
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
-            entity_id: climate.sensi_sensi
+            entity_id: ${entity_sensi_climate}
             hvac_mode: "auto"
       - script.execute: lvgl_update_dynamic
 
@@ -766,7 +788,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_aux_heat
+            entity_id: ${entity_sensi_aux_heat_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_display_humidity
@@ -774,7 +796,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_display_humidity
+            entity_id: ${entity_sensi_display_humidity_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_display_time
@@ -782,7 +804,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_display_time
+            entity_id: ${entity_sensi_display_time_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_fan_support
@@ -790,7 +812,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_fan_support
+            entity_id: ${entity_sensi_fan_support_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_humidification
@@ -798,7 +820,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_humidification
+            entity_id: ${entity_sensi_humidification_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_keypad_lockout
@@ -806,7 +828,7 @@ script:
       - homeassistant.action:
           action: switch.toggle
           data:
-            entity_id: switch.sensi_sensi_keypad_lockout
+            entity_id: ${entity_sensi_keypad_lockout_switch}
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_set_heat_target
@@ -819,7 +841,7 @@ script:
       - homeassistant.action:
           action: number.set_value
           data:
-            entity_id: number.sensi_sensi_auto_current_heat_temp
+            entity_id: ${entity_sensi_auto_heat_number}
             value: !lambda |-
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", val);
@@ -836,7 +858,7 @@ script:
       - homeassistant.action:
           action: number.set_value
           data:
-            entity_id: number.sensi_sensi_auto_current_cool_temp
+            entity_id: ${entity_sensi_auto_cool_number}
             value: !lambda |-
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", val);
@@ -853,7 +875,7 @@ script:
       - homeassistant.action:
           action: number.set_value
           data:
-            entity_id: number.sensi_sensi_humidity_offset
+            entity_id: ${entity_sensi_humidity_offset_number}
             value: !lambda |-
               char buf[16];
               snprintf(buf, sizeof(buf), "%d", val);
@@ -870,7 +892,7 @@ script:
       - homeassistant.action:
           action: number.set_value
           data:
-            entity_id: number.sensi_sensi_temperature_offset
+            entity_id: ${entity_sensi_temperature_offset_number}
             value: !lambda |-
               char buf[16];
               snprintf(buf, sizeof(buf), "%d", val);
@@ -1008,9 +1030,11 @@ script:
       - lvgl.label.update:
           id: weather_temp_lbl
           text: !lambda |-
-            if (id(wx_temp).state != id(wx_temp).state) return std::string("--");
+            float temp = id(wx_temp).state;
+            if (temp != temp) temp = id(wx_entity_temperature).state;
+            if (temp != temp) return std::string("--");
             char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f", id(wx_temp).state);
+            snprintf(buf, sizeof(buf), "%.1f", temp);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_cond_lbl
@@ -1022,25 +1046,44 @@ script:
       - lvgl.label.update:
           id: weather_feels_lbl
           text: !lambda |-
-            if (id(wx_feels).state != id(wx_feels).state) return std::string("Feels --");
+            float feels = id(wx_feels).state;
+            if (feels != feels) feels = id(wx_entity_temperature).state;
+            if (feels != feels) return std::string("Feels --");
             char buf[24];
-            snprintf(buf, sizeof(buf), "Feels %.1f", id(wx_feels).state);
+            snprintf(buf, sizeof(buf), "Feels %.1f", feels);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_metrics_lbl
           text: !lambda |-
-            char buf[160];
-            auto hum = (id(wx_humidity).state == id(wx_humidity).state) ? id(wx_humidity).state : 0;
-            auto wind = (id(wx_wind_speed).state == id(wx_wind_speed).state) ? id(wx_wind_speed).state : 0;
-            auto uv = (id(wx_uv).state == id(wx_uv).state) ? id(wx_uv).state : 0;
-            auto clouds = (id(wx_clouds).state == id(wx_clouds).state) ? id(wx_clouds).state : 0;
-            auto press = (id(wx_pressure).state == id(wx_pressure).state) ? id(wx_pressure).state : 0;
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f\nCloud %.0f%%  Press %.0f", hum, wind, uv, clouds, press);
+            char buf[220];
+            float hum = id(wx_humidity).state;
+            if (hum != hum) hum = id(wx_entity_humidity).state;
+            if (hum != hum) hum = 0;
+            float wind = id(wx_wind_speed).state;
+            if (wind != wind) wind = id(wx_entity_wind_speed).state;
+            if (wind != wind) wind = 0;
+            float uv = id(wx_uv).state;
+            if (uv != uv) uv = 0;
+            float clouds = id(wx_clouds).state;
+            if (clouds != clouds) clouds = id(wx_entity_cloud_coverage).state;
+            if (clouds != clouds) clouds = 0;
+            float press = id(wx_pressure).state;
+            if (press != press) press = id(wx_entity_pressure).state;
+            if (press != press) press = 0;
+            float vis = id(wx_visibility).state;
+            if (vis != vis) vis = id(wx_entity_visibility).state;
+            if (vis != vis) vis = 0;
+            float dew = id(wx_entity_dew_point).state;
+            if (dew != dew) dew = 0;
+            float bearing = id(wx_entity_wind_bearing).state;
+            if (bearing != bearing) bearing = 0;
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f @ %.0f  UV %.1f\nCloud %.0f%%  Press %.0f  Vis %.0f  Dew %.1f",
+                     hum, wind, bearing, uv, clouds, press, vis, dew);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_gps_lbl
           text: !lambda |-
-            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Verify pin mapping and baud.");
+            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Verify pin mapping and try 38400 baud.");
             if (id(gps_satellites).state < 1.0f) return std::string("GPS: data alive, waiting for fix.");
             char buf[120];
             snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
@@ -1050,9 +1093,9 @@ script:
           id: weather_source_lbl
           text: !lambda |-
             if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) {
-              return std::string("Entity: weather.openweathermap = ") + id(wx_entity_state).state;
+              return std::string("Entity: ${entity_wx_main} = ") + id(wx_entity_state).state;
             }
-            return std::string("Entity: weather.openweathermap unavailable");
+            return std::string("Entity: ${entity_wx_main} unavailable");
       - lvgl.label.update:
           id: climate_status_lbl
           text: !lambda |-
@@ -1065,36 +1108,6 @@ script:
             snprintf(buf, sizeof(buf), "Mode %s  Action %s  Fan %s  |  Temp %.1f  Hum %.0f%%",
                      mode.c_str(), action.c_str(), fan.c_str(), t, h);
             return std::string(buf);
-      - lvgl.label.update:
-          id: climate_switches_lbl
-          text: !lambda |-
-            char buf[200];
-            snprintf(buf, sizeof(buf), "Aux:%s  DispHum:%s  Time:%s\nFanSup:%s  Humid:%s  Lock:%s",
-                     id(sensi_aux_heat_state).state ? "ON" : "OFF",
-                     id(sensi_display_humidity_state).state ? "ON" : "OFF",
-                     id(sensi_display_time_state).state ? "ON" : "OFF",
-                     id(sensi_fan_support_state).state ? "ON" : "OFF",
-                     id(sensi_humidification_state).state ? "ON" : "OFF",
-                     id(sensi_keypad_lockout_state).state ? "ON" : "OFF");
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_aux_lbl
-          text: !lambda "return std::string(id(sensi_aux_heat_state).state ? \"Aux ON\" : \"Aux OFF\");"
-      - lvgl.label.update:
-          id: climate_disp_hum_lbl
-          text: !lambda "return std::string(id(sensi_display_humidity_state).state ? \"Hum ON\" : \"Hum OFF\");"
-      - lvgl.label.update:
-          id: climate_disp_time_lbl
-          text: !lambda "return std::string(id(sensi_display_time_state).state ? \"Time ON\" : \"Time OFF\");"
-      - lvgl.label.update:
-          id: climate_fan_sup_lbl
-          text: !lambda "return std::string(id(sensi_fan_support_state).state ? \"Fan ON\" : \"Fan OFF\");"
-      - lvgl.label.update:
-          id: climate_humid_lbl
-          text: !lambda "return std::string(id(sensi_humidification_state).state ? \"Humid ON\" : \"Humid OFF\");"
-      - lvgl.label.update:
-          id: climate_lock_lbl
-          text: !lambda "return std::string(id(sensi_keypad_lockout_state).state ? \"Lock ON\" : \"Lock OFF\");"
       - lvgl.slider.update:
           id: climate_heat_slider
           value: !lambda |-
@@ -1410,7 +1423,7 @@ lvgl:
         - label:
             x: 12
             y: 6
-            text: "T-Deck Plus"
+            text: "\uF0E7 T-Deck Plus"
         - button:
             id: home_keys_btn
             x: 252
@@ -1423,7 +1436,7 @@ lvgl:
               - script.execute: open_shortcuts
             widgets:
               - label:
-                  text: "Keys"
+                  text: "\uF11C Keys"
                   align: CENTER
         - label:
             id: home_status_lbl
@@ -1443,7 +1456,7 @@ lvgl:
               - lvgl.page.show: lights_page
             widgets:
               - label:
-                  text: "Lights Controller"
+                  text: "\uF0EB Lights"
                   align: CENTER
         - button:
             id: home_weather_btn
@@ -1457,7 +1470,7 @@ lvgl:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "Weather"
+                  text: "\uF0C2 Weather"
                   align: CENTER
         - button:
             id: home_reader_btn
@@ -1471,7 +1484,7 @@ lvgl:
               - lvgl.page.show: reader_page
             widgets:
               - label:
-                  text: "Reader"
+                  text: "\uF02D Reader"
                   align: CENTER
         - button:
             id: home_climate_btn
@@ -1485,7 +1498,7 @@ lvgl:
               - script.execute: open_climate
             widgets:
               - label:
-                  text: "Climate"
+                  text: "\uF124 Climate"
                   align: CENTER
         - button:
             id: home_settings_btn
@@ -1499,7 +1512,7 @@ lvgl:
               - lvgl.page.show: settings_page
             widgets:
               - label:
-                  text: "Settings"
+                  text: "\uF013 Settings"
                   align: CENTER
         - button:
             id: home_theme_btn
@@ -1513,7 +1526,7 @@ lvgl:
               - lvgl.page.show: theme_page
             widgets:
               - label:
-                  text: "Themes"
+                  text: "\uF53F Themes"
                   align: CENTER
         - button:
             id: home_sleep_btn
@@ -1527,7 +1540,7 @@ lvgl:
               - script.execute: sleep_display
             widgets:
               - label:
-                  text: "Sleep"
+                  text: "\uF186 Sleep"
                   align: CENTER
         - button:
             id: home_shortcuts_btn
@@ -1541,7 +1554,7 @@ lvgl:
               - script.execute: open_shortcuts
             widgets:
               - label:
-                  text: "Shortcuts"
+                  text: "\uF128 Help"
                   align: CENTER
 
     - id: lights_page
@@ -1559,7 +1572,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 72
@@ -1855,7 +1868,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - button:
             x: 256
@@ -1924,7 +1937,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 72
@@ -2064,95 +2077,83 @@ lvgl:
               - script.execute:
                   id: sensi_set_temperature_offset
                   val: !lambda "return (int)x;"
-        - label:
-            id: climate_switches_lbl
-            x: 12
-            y: 172
-            width: 296
-            text: "switch states"
         - button:
             x: 12
-            y: 194
+            y: 172
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_aux_heat
             widgets:
               - label:
-                  id: climate_aux_lbl
-                  text: "Aux OFF"
+                  text: "Aux"
                   align: CENTER
         - button:
             x: 112
-            y: 194
+            y: 172
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_humidity
             widgets:
               - label:
-                  id: climate_disp_hum_lbl
-                  text: "Hum OFF"
+                  text: "Disp Hum"
                   align: CENTER
         - button:
             x: 212
-            y: 194
+            y: 172
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_time
             widgets:
               - label:
-                  id: climate_disp_time_lbl
-                  text: "Time OFF"
+                  text: "Disp Time"
                   align: CENTER
         - button:
             x: 12
-            y: 216
+            y: 206
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_fan_support
             widgets:
               - label:
-                  id: climate_fan_sup_lbl
-                  text: "Fan OFF"
+                  text: "Fan Sup"
                   align: CENTER
         - button:
             x: 112
-            y: 216
+            y: 206
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_humidification
             widgets:
               - label:
-                  id: climate_humid_lbl
-                  text: "Humid OFF"
+                  text: "Humidify"
                   align: CENTER
         - button:
             x: 212
-            y: 216
+            y: 206
             width: 96
-            height: 20
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_keypad_lockout
             widgets:
               - label:
-                  id: climate_lock_lbl
-                  text: "Lock OFF"
+                  text: "Lockout"
                   align: CENTER
 
     - id: reader_page
@@ -2169,7 +2170,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 72
@@ -2265,7 +2266,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 72
@@ -2414,7 +2415,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 72
@@ -2682,7 +2683,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "Home"
+                  text: "\uF015 Home"
                   align: CENTER
         - label:
             x: 80
@@ -2723,3 +2724,5 @@ lvgl:
             width: 296
             height: 184
             text: ""
+
+

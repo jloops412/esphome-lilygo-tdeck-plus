@@ -7,6 +7,9 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true
+    filters:
+      - delayed_on: 8ms
+      - delayed_off: 8ms
     on_press:
       then:
         - if:
@@ -24,6 +27,9 @@ binary_sensor:
         pullup: true
       inverted: true
       ignore_strapping_warning: true
+    filters:
+      - delayed_on: 8ms
+      - delayed_off: 8ms
     on_press:
       then:
         - if:
@@ -40,6 +46,9 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true
+    filters:
+      - delayed_on: 8ms
+      - delayed_off: 8ms
     on_press:
       then:
         - if:
@@ -56,6 +65,9 @@ binary_sensor:
         input: true
         pullup: true
       inverted: true
+    filters:
+      - delayed_on: 8ms
+      - delayed_off: 8ms
     on_press:
       then:
         - if:
@@ -73,6 +85,9 @@ binary_sensor:
         pullup: true
       inverted: true
       ignore_strapping_warning: true
+    filters:
+      - delayed_on: 12ms
+      - delayed_off: 12ms
     on_press:
       then:
         - if:

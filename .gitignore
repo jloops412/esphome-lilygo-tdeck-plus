@@ -1,0 +1,4 @@
+# Local/private overrides (do not commit)
+esphome/install/*-private.yaml
+esphome/install/*-local.yaml
+esphome/private/

@@ -324,7 +324,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
       - if:
           condition:
             lambda: "return id(selected_light) == 1;"
@@ -332,7 +332,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
       - if:
           condition:
             lambda: "return id(selected_light) == 2;"
@@ -340,7 +340,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
       - if:
           condition:
             lambda: "return id(selected_light) == 3;"
@@ -348,7 +348,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
       - if:
           condition:
             lambda: "return id(selected_light) == 4;"
@@ -356,7 +356,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
       - if:
           condition:
             lambda: "return id(selected_light) == 5;"
@@ -364,7 +364,7 @@ script:
             - homeassistant.action:
                 action: light.toggle
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
 
   - id: selected_light_brighter
     then:
@@ -375,7 +375,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
                   brightness_step_pct: "20"
       - if:
           condition:
@@ -384,7 +384,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
                   brightness_step_pct: "20"
       - if:
           condition:
@@ -393,7 +393,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
                   brightness_step_pct: "20"
       - if:
           condition:
@@ -402,7 +402,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
                   brightness_step_pct: "20"
       - if:
           condition:
@@ -411,7 +411,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
                   brightness_step_pct: "20"
       - if:
           condition:
@@ -420,7 +420,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
                   brightness_step_pct: "20"
 
   - id: selected_light_dimmer
@@ -432,7 +432,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
                   brightness_step_pct: "-20"
       - if:
           condition:
@@ -441,7 +441,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
                   brightness_step_pct: "-20"
       - if:
           condition:
@@ -450,7 +450,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
                   brightness_step_pct: "-20"
       - if:
           condition:
@@ -459,7 +459,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
                   brightness_step_pct: "-20"
       - if:
           condition:
@@ -468,7 +468,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
                   brightness_step_pct: "-20"
       - if:
           condition:
@@ -477,7 +477,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
                   brightness_step_pct: "-20"
 
   - id: selected_light_warm
@@ -489,7 +489,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
                   color_temp_kelvin: "2700"
       - if:
           condition:
@@ -498,7 +498,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
                   color_temp_kelvin: "2700"
       - if:
           condition:
@@ -507,7 +507,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
                   color_temp_kelvin: "2700"
       - if:
           condition:
@@ -516,7 +516,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
                   color_temp_kelvin: "2700"
       - if:
           condition:
@@ -525,7 +525,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
                   color_temp_kelvin: "2700"
       - if:
           condition:
@@ -534,7 +534,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
                   color_temp_kelvin: "2700"
 
   - id: selected_light_cool
@@ -546,7 +546,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
                   color_temp_kelvin: "6500"
       - if:
           condition:
@@ -555,7 +555,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
                   color_temp_kelvin: "6500"
       - if:
           condition:
@@ -564,7 +564,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
                   color_temp_kelvin: "6500"
       - if:
           condition:
@@ -573,7 +573,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
                   color_temp_kelvin: "6500"
       - if:
           condition:
@@ -582,7 +582,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
                   color_temp_kelvin: "6500"
       - if:
           condition:
@@ -591,7 +591,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
                   color_temp_kelvin: "6500"
 
   - id: selected_light_color
@@ -605,7 +605,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.foyer_lights
+                  entity_id: ${entity_light_foyer}
                   color_name: !lambda "return cname;"
       - if:
           condition:
@@ -614,7 +614,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.main_vanity_lights
+                  entity_id: ${entity_light_vanity}
                   color_name: !lambda "return cname;"
       - if:
           condition:
@@ -623,7 +623,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.bedroom_lamp
+                  entity_id: ${entity_light_bedroom}
                   color_name: !lambda "return cname;"
       - if:
           condition:
@@ -632,7 +632,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.hall_lights
+                  entity_id: ${entity_light_hall}
                   color_name: !lambda "return cname;"
       - if:
           condition:
@@ -641,7 +641,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.office_lamps
+                  entity_id: ${entity_light_office}
                   color_name: !lambda "return cname;"
       - if:
           condition:
@@ -650,7 +650,7 @@ script:
             - homeassistant.action:
                 action: light.turn_on
                 data:
-                  entity_id: light.upstairs_lights
+                  entity_id: ${entity_light_upstairs}
                   color_name: !lambda "return cname;"
 
   - id: selected_light_prev
@@ -870,3 +870,4 @@ script:
             - script.execute: toggle_touch_debug
 
       - script.execute: redraw
+

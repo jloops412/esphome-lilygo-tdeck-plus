@@ -6,6 +6,7 @@ uart:
   rx_buffer_size: 1024
 
 gps:
+  uart_id: gps_uart
   latitude:
     name: "${friendly_name} GPS Latitude"
     id: gps_latitude
@@ -83,6 +84,6 @@ text_sensor:
     update_interval: 1s
     lambda: |-
       uint32_t age_ms = esphome::millis() - id(gps_last_update_ms);
-      if (age_ms >= 15000) return std::string("No NMEA data (check pin/baud/power)");
+      if (age_ms >= 15000) return std::string("No NMEA data (check pin/baud/power, try 38400)");
       if (id(gps_satellites).state < 1.0f) return std::string("Data OK, searching for fix");
       return std::string("Fix with ") + std::to_string((int) id(gps_satellites).state) + " sat";
