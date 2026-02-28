@@ -34,12 +34,20 @@ Each install YAML pulls modular files from this repo by release tag.
 ## Quick keyboard shortcuts
 
 1. `1`..`6`: jump directly to pages `Home/Lights/Weather/Reader/Settings/Theme`.
-2. `[` / `]`: previous/next selected light.
-3. `-` / `+`: dim/brighten selected light.
-4. `T`: toggle selected light.
-5. `B`: keyboard backlight toggle.
-6. `N` / `M`: keyboard backlight down/up.
-7. `H`: jump to Home page.
-8. `K`: start touch calibration.
+2. `Q` / `E`: previous/next page.
+3. `Tab` or `D`/`S`: move focus forward.
+4. `Esc` or `A`/`W`: move focus backward.
+5. `[` / `]`: previous/next selected light.
+6. `-` / `+`: dim/brighten selected light.
+7. `T`: toggle selected light.
+8. `P`: cycle light preset.
+9. `B`: keyboard backlight toggle.
+10. `N` / `M`: keyboard backlight down/up.
+11. `H`: jump to Home page.
+12. `K`: start touch calibration.
+13. `R`: reset stored calibration values.
+14. `C`: toggle touch debug.
+
+Touch calibration in LVGL mode now walks through a 4-point capture page and computes suggested `x_min/x_max/y_min/y_max` values.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), and [`docs/release.md`](docs/release.md) for conventions and release details.

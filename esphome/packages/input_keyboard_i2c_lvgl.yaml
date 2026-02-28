@@ -84,12 +84,22 @@ interval:
                 condition:
                   lambda: "return id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q';"
                 then:
-                  - lvgl.page.previous:
+                  - script.execute: page_prev
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == 'e' || id(kb_last_raw) == 'E';"
                 then:
-                  - lvgl.page.next:
+                  - script.execute: page_next
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'r' || id(kb_last_raw) == 'R';"
+                then:
+                  - script.execute: reset_touch_calibration
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'c' || id(kb_last_raw) == 'C';"
+                then:
+                  - script.execute: toggle_touch_debug
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B';"
@@ -140,5 +150,17 @@ interval:
                   lambda: "return id(kb_last_raw) == 'k' || id(kb_last_raw) == 'K';"
                 then:
                   - script.execute: start_touch_calibration
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 0x09 || id(kb_last_raw) == 'd' || id(kb_last_raw) == 'D' || id(kb_last_raw) == 's' || id(kb_last_raw) == 'S';"
+                then:
+                  - lvgl.widget.focus:
+                      action: next
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 0x1B || id(kb_last_raw) == 'a' || id(kb_last_raw) == 'A' || id(kb_last_raw) == 'w' || id(kb_last_raw) == 'W';"
+                then:
+                  - lvgl.widget.focus:
+                      action: previous
             - lambda: |-
                 id(kb_last_raw) = 0;

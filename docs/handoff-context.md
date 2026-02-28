@@ -2,8 +2,8 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.6.1-lvgl-beta1-hotfix`
-3. Latest commit at tag: `463c855`
+2. Latest LVGL tag: `v0.6.2-lvgl-input-parity`
+3. Previous LVGL tag: `v0.6.1-lvgl-beta1-hotfix` (`463c855`)
 4. Previous LVGL beta tag: `v0.6.0-lvgl-beta1` (`f11fad2`)
 
 ## Install entrypoints
@@ -20,19 +20,33 @@
 5. `esphome/packages/ui_lvgl.yaml`
 6. Local profile: `esphome/profiles/lvgl_experimental.yaml`
 
-## Confirmed blocker (resolved in hotfix)
-1. HA compile failed on LVGL install due to missing script IDs:
-   - `page_next`
-   - `page_prev`
-2. Error source:
-   - `esphome/packages/board_base.yaml` template buttons (`Next Page`, `Previous Page`) call these IDs.
-3. Hotfix status:
-   - `ui_lvgl.yaml` now defines `page_next` and `page_prev` scripts mapped to LVGL page navigation.
+## Input parity updates in `v0.6.2-lvgl-input-parity`
+1. Touch calibration:
+   - Replaced no-op calibration with a 4-point calibration capture page (`touch_cal_page`).
+   - Added corner raw capture globals and computed suggested values:
+     - `touch_cal_suggest_x_min`
+     - `touch_cal_suggest_x_max`
+     - `touch_cal_suggest_y_min`
+     - `touch_cal_suggest_y_max`
+   - Suggested values are shown on-device and logged via ESPHome logs.
+2. Trackball navigation:
+   - LVGL keypad mapping now uses `prev/next/up/down/enter` with `nav_group`.
+   - Added default focus on boot (`home_lights_btn`) to ensure click/navigation has a focused target.
+3. Keyboard shortcuts:
+   - Restored parity keys in LVGL keyboard package:
+     - `Q/E` page previous/next
+     - `K/R/C` calibration start/reset/debug
+     - `WASD` + `Tab/Esc` focus previous/next
+     - existing light and keyboard-backlight shortcuts retained
+4. Docs updated:
+   - `README.md`, `docs/release.md`, `docs/migration.md`, `docs/lvgl-plan.md`, and this handoff file.
 
-## Immediate fix path
-1. Keep stable install path unchanged.
-2. Tag and pin LVGL install YAML to hotfix release.
-3. Re-test compile in HA with LVGL install entrypoint.
+## Immediate validation asks
+1. Flash LVGL install YAML pinned to `v0.6.2-lvgl-input-parity`.
+2. Verify:
+   - trackball focus movement and center click activation
+   - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`)
+   - touch calibration page capture flow and suggested values output
 
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.

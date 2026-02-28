@@ -21,3 +21,78 @@ touchscreen:
               lambda: "return id(wake_on_touch);"
             then:
               - script.execute: note_activity
+        - lambda: |-
+            id(touch_raw_x_last) = touch.x_raw;
+            id(touch_raw_y_last) = touch.y_raw;
+            id(touch_x_last) = touch.x;
+            id(touch_y_last) = touch.y;
+            id(touch_active) = true;
+        - if:
+            condition:
+              lambda: "return id(touch_cal_mode);"
+            then:
+              - script.execute: lvgl_update_dynamic
+
+    on_release:
+      then:
+        - if:
+            condition:
+              lambda: "return id(touch_cal_mode);"
+            then:
+              - lambda: |-
+                  switch (id(touch_cal_step)) {
+                    case 0:
+                      id(cal_raw_tl_x) = id(touch_raw_x_last);
+                      id(cal_raw_tl_y) = id(touch_raw_y_last);
+                      break;
+                    case 1:
+                      id(cal_raw_tr_x) = id(touch_raw_x_last);
+                      id(cal_raw_tr_y) = id(touch_raw_y_last);
+                      break;
+                    case 2:
+                      id(cal_raw_bl_x) = id(touch_raw_x_last);
+                      id(cal_raw_bl_y) = id(touch_raw_y_last);
+                      break;
+                    case 3:
+                    default:
+                      id(cal_raw_br_x) = id(touch_raw_x_last);
+                      id(cal_raw_br_y) = id(touch_raw_y_last);
+                      break;
+                  }
+
+                  if (id(touch_cal_step) >= 3) {
+                    int x_min = (id(cal_raw_tl_x) + id(cal_raw_bl_x)) / 2;
+                    int x_max = (id(cal_raw_tr_x) + id(cal_raw_br_x)) / 2;
+                    int y_min = (id(cal_raw_tl_y) + id(cal_raw_tr_y)) / 2;
+                    int y_max = (id(cal_raw_bl_y) + id(cal_raw_br_y)) / 2;
+
+                    if (x_min > x_max) {
+                      int t = x_min;
+                      x_min = x_max;
+                      x_max = t;
+                    }
+                    if (y_min > y_max) {
+                      int t = y_min;
+                      y_min = y_max;
+                      y_max = t;
+                    }
+
+                    id(touch_cal_suggest_x_min) = x_min;
+                    id(touch_cal_suggest_x_max) = x_max;
+                    id(touch_cal_suggest_y_min) = y_min;
+                    id(touch_cal_suggest_y_max) = y_max;
+
+                    id(touch_cal_mode) = false;
+                    id(touch_cal_step) = 0;
+
+                    ESP_LOGI("touch_cal", "Suggested GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d",
+                             id(touch_cal_suggest_x_min),
+                             id(touch_cal_suggest_x_max),
+                             id(touch_cal_suggest_y_min),
+                             id(touch_cal_suggest_y_max));
+                  } else {
+                    id(touch_cal_step) += 1;
+                  }
+              - script.execute: lvgl_update_dynamic
+        - lambda: |-
+            id(touch_active) = false;

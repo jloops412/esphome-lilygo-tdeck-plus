@@ -39,11 +39,15 @@ If LVGL regressions appear, continue using the stable install YAML:
 LVGL testing target:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
-## Current status (after v0.6.0-lvgl-beta1)
+## Current status (after v0.6.2-lvgl-input-parity)
 1. Parallel LVGL packages and install YAML are in place.
 2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
 3. Compile blocker was found in HA and patched in hotfix:
    - `board_base` template buttons reference `page_next`/`page_prev`.
    - LVGL package now defines those script IDs and maps them to LVGL page navigation.
-4. Next validation:
-   - re-run HA compile/flash using LVGL install YAML and verify runtime behavior.
+4. Input parity pass added:
+   - working LVGL touch calibration assistant (4-point capture + suggested calibration values)
+   - LVGL keypad `prev/next/up/down/enter` trackball mapping
+   - restored keyboard shortcut set for navigation/calibration/debug/backlight/light control
+5. Next validation:
+   - compile/flash with the latest LVGL tag and verify runtime behavior for touch calibration + trackball click.

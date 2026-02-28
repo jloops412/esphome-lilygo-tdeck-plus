@@ -128,16 +128,44 @@ script:
 
   - id: start_touch_calibration
     then:
-      - logger.log:
-          level: INFO
-          format: "LVGL profile: touch calibration flow is not yet implemented."
+      - lambda: |-
+          id(touch_cal_mode) = true;
+          id(touch_cal_step) = 0;
+          id(touch_active) = false;
+          id(cal_raw_tl_x) = 0; id(cal_raw_tl_y) = 0;
+          id(cal_raw_tr_x) = 0; id(cal_raw_tr_y) = 0;
+          id(cal_raw_bl_x) = 0; id(cal_raw_bl_y) = 0;
+          id(cal_raw_br_x) = 0; id(cal_raw_br_y) = 0;
+          id(touch_cal_suggest_x_min) = 0;
+          id(touch_cal_suggest_x_max) = 0;
+          id(touch_cal_suggest_y_min) = 0;
+          id(touch_cal_suggest_y_max) = 0;
+      - lvgl.page.show: touch_cal_page
       - script.execute: lvgl_update_dynamic
 
   - id: reset_touch_calibration
     then:
-      - logger.log:
-          level: INFO
-          format: "LVGL profile: no touch calibration reset action is implemented yet."
+      - lambda: |-
+          id(cal_dx_tl) = 0; id(cal_dy_tl) = 0;
+          id(cal_dx_tc) = 0; id(cal_dy_tc) = 0;
+          id(cal_dx_tr) = 0; id(cal_dy_tr) = 0;
+          id(cal_dx_ml) = 0; id(cal_dy_ml) = 0;
+          id(cal_dx_mc) = 0; id(cal_dy_mc) = 0;
+          id(cal_dx_mr) = 0; id(cal_dy_mr) = 0;
+          id(cal_dx_bl) = 0; id(cal_dy_bl) = 0;
+          id(cal_dx_bc) = 0; id(cal_dy_bc) = 0;
+          id(cal_dx_br) = 0; id(cal_dy_br) = 0;
+          id(cal_raw_tl_x) = 0; id(cal_raw_tl_y) = 0;
+          id(cal_raw_tr_x) = 0; id(cal_raw_tr_y) = 0;
+          id(cal_raw_bl_x) = 0; id(cal_raw_bl_y) = 0;
+          id(cal_raw_br_x) = 0; id(cal_raw_br_y) = 0;
+          id(touch_cal_suggest_x_min) = 0;
+          id(touch_cal_suggest_x_max) = 0;
+          id(touch_cal_suggest_y_min) = 0;
+          id(touch_cal_suggest_y_max) = 0;
+          id(touch_cal_mode) = false;
+          id(touch_cal_step) = 0;
+      - script.execute: lvgl_update_dynamic
 
   - id: display_backlight_down
     then:
@@ -528,6 +556,41 @@ script:
                      id(backlight_percent),
                      id(touch_debug) ? "ON" : "OFF");
             return std::string(buf);
+      - lvgl.label.update:
+          id: touch_cal_step_lbl
+          text: !lambda |-
+            if (id(touch_cal_mode)) {
+              if (id(touch_cal_step) == 0) return std::string("Step 1/4: tap TOP LEFT marker");
+              if (id(touch_cal_step) == 1) return std::string("Step 2/4: tap TOP RIGHT marker");
+              if (id(touch_cal_step) == 2) return std::string("Step 3/4: tap BOTTOM LEFT marker");
+              return std::string("Step 4/4: tap BOTTOM RIGHT marker");
+            }
+            if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
+                id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
+              return std::string("Capture complete. Copy suggested values.");
+            }
+            return std::string("Press Start TouchCal to begin.");
+      - lvgl.label.update:
+          id: touch_cal_result_lbl
+          text: !lambda |-
+            char buf[320];
+            if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
+                id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
+              snprintf(buf, sizeof(buf),
+                       "Suggested calibration for input_touch_gt911_lvgl.yaml\n"
+                       "x_min: %d  x_max: %d\n"
+                       "y_min: %d  y_max: %d\n"
+                       "Live raw: %d,%d",
+                       id(touch_cal_suggest_x_min), id(touch_cal_suggest_x_max),
+                       id(touch_cal_suggest_y_min), id(touch_cal_suggest_y_max),
+                       id(touch_raw_x_last), id(touch_raw_y_last));
+              return std::string(buf);
+            }
+            snprintf(buf, sizeof(buf),
+                     "Live raw: %d,%d\n"
+                     "Tap each marker once; values save on release.",
+                     id(touch_raw_x_last), id(touch_raw_y_last));
+            return std::string(buf);
 
 interval:
   - interval: 1s
@@ -565,15 +628,16 @@ lvgl:
   keypads:
     - id: nav_keypad
       group: nav_group
+      prev: tb_left
+      next: tb_right
       up: tb_up
       down: tb_down
-      left: tb_left
-      right: tb_right
       enter: tb_click
 
   on_boot:
     then:
       - script.execute: apply_theme
+      - lvgl.widget.focus: home_lights_btn
       - script.execute: lvgl_update_dynamic
 
   style_definitions:
@@ -1142,6 +1206,59 @@ lvgl:
             y: 206
             width: 296
             text: "theme"
+
+    - id: touch_cal_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 70
+            height: 28
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lambda: |-
+                  id(touch_cal_mode) = false;
+              - lvgl.page.show: theme_page
+              - script.execute: lvgl_update_dynamic
+            widgets:
+              - label:
+                  text: "Back"
+                  align: CENTER
+        - label:
+            x: 92
+            y: 10
+            text: "Touch Calibration"
+        - label:
+            x: 18
+            y: 34
+            text: "+"
+        - label:
+            x: 296
+            y: 34
+            text: "+"
+        - label:
+            x: 18
+            y: 218
+            text: "+"
+        - label:
+            x: 296
+            y: 218
+            text: "+"
+        - label:
+            id: touch_cal_step_lbl
+            x: 12
+            y: 70
+            width: 296
+            text: "Step 1/4"
+        - label:
+            id: touch_cal_result_lbl
+            x: 12
+            y: 106
+            width: 296
+            height: 122
+            text: "Result"
 
     - id: detail_page
       styles: [lv_style_screen]

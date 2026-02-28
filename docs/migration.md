@@ -28,8 +28,10 @@
 18. Added a parallel LVGL beta package path (`display/input/ui` LVGL modules).
 19. Added `lvgl_experimental` profile for local iterative testing.
 20. Discovered LVGL beta compile blocker: missing `page_next` and `page_prev` scripts referenced by `board_base` template buttons.
-21. Next patch is to add LVGL-compatible `page_next`/`page_prev` script IDs.
-22. LVGL hotfix added `page_next`/`page_prev` scripts so shared `board_base` buttons compile.
+21. LVGL hotfix added `page_next`/`page_prev` scripts so shared `board_base` buttons compile.
+22. LVGL touch calibration now has a real 4-point capture workflow and reports suggested `x_min/x_max/y_min/y_max`.
+23. LVGL keypad mapping now uses `prev/next/up/down/enter` for trackball navigation parity.
+24. LVGL keyboard profile restored parity shortcuts (`Q/E`, `K/R/C`, and `WASD`/`Tab`/`Esc` focus navigation).
 
 ## Migration steps for existing HA node
 

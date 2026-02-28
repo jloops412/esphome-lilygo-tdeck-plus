@@ -224,3 +224,56 @@ globals:
     type: int
     restore_value: yes
     initial_value: "0"
+
+  - id: cal_raw_tl_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal_raw_tl_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: cal_raw_tr_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal_raw_tr_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: cal_raw_bl_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal_raw_bl_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: cal_raw_br_x
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: cal_raw_br_y
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_cal_suggest_x_min
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: touch_cal_suggest_x_max
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: touch_cal_suggest_y_min
+    type: int
+    restore_value: yes
+    initial_value: "0"
+  - id: touch_cal_suggest_y_max
+    type: int
+    restore_value: yes
+    initial_value: "0"

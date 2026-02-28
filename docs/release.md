@@ -10,6 +10,7 @@
 - `v0.5.0-ui-groundup`: home-menu navigation + theme system + full layout refactor.
 - `v0.6.0-lvgl-beta1`: parallel LVGL interface track and migration starter.
 - `v0.6.1-lvgl-beta1-hotfix`: LVGL compile fix for shared board template buttons.
+- `v0.6.2-lvgl-input-parity`: LVGL input parity pass for calibration, trackball navigation, and shortcut restore.
 
 Post-tag note:
 
@@ -23,6 +24,14 @@ Post-tag note:
 1. Added `page_next` and `page_prev` script IDs in `ui_lvgl.yaml`.
 2. Kept `board_base` template buttons compatible with both stable and LVGL install paths.
 3. Updated LVGL status docs and handoff notes.
+
+`v0.6.2-lvgl-input-parity` highlights:
+
+1. Replaced LVGL touch calibration no-op with a working 4-point capture assistant page.
+2. Added computed `x_min/x_max/y_min/y_max` calibration suggestions and runtime logs.
+3. Updated LVGL keypad mapping to `prev/next/up/down/enter` for 5-key trackball navigation.
+4. Restored keyboard shortcut parity keys (`Q/E`, `K/R/C`, `WASD` focus nav, plus existing light/backlight shortcuts).
+5. Added shared calibration globals for raw capture and suggested calibration values.
 
 `v0.6.0-lvgl-beta1` highlights:
 
