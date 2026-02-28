@@ -2,8 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest tag before hotfix: `v0.6.0-lvgl-beta1`
-3. Latest commit at tag: `f11fad2`
+2. Latest LVGL tag: `v0.6.1-lvgl-beta1-hotfix`
+3. Latest commit at tag: `463c855`
+4. Previous LVGL beta tag: `v0.6.0-lvgl-beta1` (`f11fad2`)
 
 ## Install entrypoints
 1. Stable install YAML:
