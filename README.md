@@ -33,14 +33,19 @@ Each install YAML pulls modular files from this repo by release tag.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, color chips, preset)
    - LVGL sliders for per-light brightness and color temperature
-3. `Weather`: glance dashboard with large temperature, readable condition, compact metrics, and explicit GPS diagnostic state.
-4. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
-5. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
-6. `Theme`: expanded palette set (`Graphite`, `Ocean`, `Amber`, `Rose`, `Teal`) and LVGL sliders for display + keyboard backlight.
+3. `Weather`: glance dashboard with large temperature, readable condition, compact metrics, `weather.openweathermap` entity-state line, and explicit GPS diagnostic state.
+4. `Climate`: dedicated Sensi control page with:
+   - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
+   - target sliders (`Auto Heat`, `Auto Cool`)
+   - offset sliders (`Humidity Offset`, `Temperature Offset`)
+   - direct toggles for Sensi feature switches (aux heat, display humidity/time, fan support, humidification, keypad lockout)
+5. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
+6. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
+7. `Theme`: expanded palette set (`Graphite`, `Ocean`, `Amber`, `Rose`, `Teal`) and LVGL sliders for display + keyboard backlight.
 
 ## Quick keyboard shortcuts
 
-1. `1`..`6`: jump directly to pages `Home/Lights/Weather/Reader/Settings/Theme`.
+1. `1`..`7`: jump directly to pages `Home/Lights/Weather/Climate/Reader/Settings/Theme`.
 2. `Q` / `E`: previous/next page.
 3. `Tab` or `D`/`S`: move focus forward.
 4. `Esc` or `A`/`W`: move focus backward.
@@ -62,6 +67,11 @@ Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
 `Save` applies and persists the new calibration; `Retry` restarts capture.
 The fit now uses averaged 9-point edge regression for improved real-world tap accuracy near edges and small buttons.
+Sliders now snap to practical increments for easier one-handed adjustment:
+- display brightness: 5%
+- keyboard brightness: 5%
+- light brightness: 5%
+- color temperature: 100K
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 GPS serial baud is also substitution-driven:

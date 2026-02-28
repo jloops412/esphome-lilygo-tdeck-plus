@@ -266,6 +266,7 @@ script:
       pct: int
     then:
       - lambda: |-
+          pct = ((pct + 2) / 5) * 5;
           if (pct < 10) pct = 10;
           if (pct > 100) pct = 100;
           id(backlight_percent) = pct;
@@ -279,6 +280,7 @@ script:
       pct: int
     then:
       - lambda: |-
+          pct = ((pct + 2) / 5) * 5;
           if (pct < 0) pct = 0;
           if (pct > 100) pct = 100;
           id(kb_backlight_percent) = pct;
@@ -359,6 +361,7 @@ script:
       pct: int
     then:
       - lambda: |-
+          pct = ((pct + 2) / 5) * 5;
           if (pct < 1) pct = 1;
           if (pct > 100) pct = 100;
           id(selected_light_brightness_pct) = pct;
@@ -695,6 +698,7 @@ script:
       kelvin: int
     then:
       - lambda: |-
+          kelvin = ((kelvin + 50) / 100) * 100;
           if (kelvin < 2200) kelvin = 2200;
           if (kelvin > 6500) kelvin = 6500;
           id(selected_light_kelvin) = kelvin;
@@ -713,6 +717,163 @@ script:
             color_temp_kelvin: !lambda |-
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", id(selected_light_kelvin));
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
+
+  - id: open_climate
+    then:
+      - lvgl.page.show: climate_page
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_hvac_mode_off
+    then:
+      - homeassistant.action:
+          action: climate.set_hvac_mode
+          data:
+            entity_id: climate.sensi_sensi
+            hvac_mode: "off"
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_hvac_mode_heat
+    then:
+      - homeassistant.action:
+          action: climate.set_hvac_mode
+          data:
+            entity_id: climate.sensi_sensi
+            hvac_mode: "heat"
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_hvac_mode_cool
+    then:
+      - homeassistant.action:
+          action: climate.set_hvac_mode
+          data:
+            entity_id: climate.sensi_sensi
+            hvac_mode: "cool"
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_hvac_mode_auto
+    then:
+      - homeassistant.action:
+          action: climate.set_hvac_mode
+          data:
+            entity_id: climate.sensi_sensi
+            hvac_mode: "auto"
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_aux_heat
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_aux_heat
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_display_humidity
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_display_humidity
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_display_time
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_display_time
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_fan_support
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_fan_support
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_humidification
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_humidification
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_toggle_keypad_lockout
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: switch.sensi_sensi_keypad_lockout
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_set_heat_target
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          if (val < 50) val = 50;
+          if (val > 90) val = 90;
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: number.sensi_sensi_auto_current_heat_temp
+            value: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_set_cool_target
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          if (val < 50) val = 50;
+          if (val > 95) val = 95;
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: number.sensi_sensi_auto_current_cool_temp
+            value: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_set_humidity_offset
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          if (val < -20) val = -20;
+          if (val > 20) val = 20;
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: number.sensi_sensi_humidity_offset
+            value: !lambda |-
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_set_temperature_offset
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          if (val < -10) val = -10;
+          if (val > 10) val = 10;
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: number.sensi_sensi_temperature_offset
+            value: !lambda |-
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%d", val);
               return std::string(buf);
       - script.execute: lvgl_update_dynamic
 
@@ -856,6 +1017,7 @@ script:
           text: !lambda |-
             if (id(wx_weather).has_state() && !id(wx_weather).state.empty()) return id(wx_weather).state;
             if (id(wx_condition).has_state() && !id(wx_condition).state.empty()) return id(wx_condition).state;
+            if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) return id(wx_entity_state).state;
             return std::string("-");
       - lvgl.label.update:
           id: weather_feels_lbl
@@ -883,6 +1045,103 @@ script:
             char buf[120];
             snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
                      id(gps_satellites).state, id(gps_latitude).state, id(gps_longitude).state);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: weather_source_lbl
+          text: !lambda |-
+            if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) {
+              return std::string("Entity: weather.openweathermap = ") + id(wx_entity_state).state;
+            }
+            return std::string("Entity: weather.openweathermap unavailable");
+      - lvgl.label.update:
+          id: climate_status_lbl
+          text: !lambda |-
+            char buf[180];
+            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("-");
+            std::string action = id(sensi_climate_hvac_action).has_state() ? id(sensi_climate_hvac_action).state : std::string("-");
+            std::string fan = id(sensi_climate_fan_mode).has_state() ? id(sensi_climate_fan_mode).state : std::string("-");
+            float t = id(sensi_temperature).state == id(sensi_temperature).state ? id(sensi_temperature).state : 0.0f;
+            float h = id(sensi_humidity).state == id(sensi_humidity).state ? id(sensi_humidity).state : 0.0f;
+            snprintf(buf, sizeof(buf), "Mode %s  Action %s  Fan %s  |  Temp %.1f  Hum %.0f%%",
+                     mode.c_str(), action.c_str(), fan.c_str(), t, h);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_switches_lbl
+          text: !lambda |-
+            char buf[200];
+            snprintf(buf, sizeof(buf), "Aux:%s  DispHum:%s  Time:%s\nFanSup:%s  Humid:%s  Lock:%s",
+                     id(sensi_aux_heat_state).state ? "ON" : "OFF",
+                     id(sensi_display_humidity_state).state ? "ON" : "OFF",
+                     id(sensi_display_time_state).state ? "ON" : "OFF",
+                     id(sensi_fan_support_state).state ? "ON" : "OFF",
+                     id(sensi_humidification_state).state ? "ON" : "OFF",
+                     id(sensi_keypad_lockout_state).state ? "ON" : "OFF");
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_aux_lbl
+          text: !lambda "return std::string(id(sensi_aux_heat_state).state ? \"Aux ON\" : \"Aux OFF\");"
+      - lvgl.label.update:
+          id: climate_disp_hum_lbl
+          text: !lambda "return std::string(id(sensi_display_humidity_state).state ? \"Hum ON\" : \"Hum OFF\");"
+      - lvgl.label.update:
+          id: climate_disp_time_lbl
+          text: !lambda "return std::string(id(sensi_display_time_state).state ? \"Time ON\" : \"Time OFF\");"
+      - lvgl.label.update:
+          id: climate_fan_sup_lbl
+          text: !lambda "return std::string(id(sensi_fan_support_state).state ? \"Fan ON\" : \"Fan OFF\");"
+      - lvgl.label.update:
+          id: climate_humid_lbl
+          text: !lambda "return std::string(id(sensi_humidification_state).state ? \"Humid ON\" : \"Humid OFF\");"
+      - lvgl.label.update:
+          id: climate_lock_lbl
+          text: !lambda "return std::string(id(sensi_keypad_lockout_state).state ? \"Lock ON\" : \"Lock OFF\");"
+      - lvgl.slider.update:
+          id: climate_heat_slider
+          value: !lambda |-
+            if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) return (int) id(sensi_auto_heat_temp).state;
+            return 68;
+      - lvgl.slider.update:
+          id: climate_cool_slider
+          value: !lambda |-
+            if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) return (int) id(sensi_auto_cool_temp).state;
+            return 74;
+      - lvgl.slider.update:
+          id: climate_hum_offset_slider
+          value: !lambda |-
+            if (id(sensi_humidity_offset).state == id(sensi_humidity_offset).state) return (int) id(sensi_humidity_offset).state;
+            return 0;
+      - lvgl.slider.update:
+          id: climate_temp_offset_slider
+          value: !lambda |-
+            if (id(sensi_temperature_offset).state == id(sensi_temperature_offset).state) return (int) id(sensi_temperature_offset).state;
+            return 0;
+      - lvgl.label.update:
+          id: climate_heat_lbl
+          text: !lambda |-
+            char buf[32];
+            int v = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
+            snprintf(buf, sizeof(buf), "Heat Set %d", v);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_cool_lbl
+          text: !lambda |-
+            char buf[32];
+            int v = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
+            snprintf(buf, sizeof(buf), "Cool Set %d", v);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_hum_offset_lbl
+          text: !lambda |-
+            char buf[32];
+            int v = id(sensi_humidity_offset).state == id(sensi_humidity_offset).state ? (int) id(sensi_humidity_offset).state : 0;
+            snprintf(buf, sizeof(buf), "Hum Off %d", v);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_temp_offset_lbl
+          text: !lambda |-
+            char buf[32];
+            int v = id(sensi_temperature_offset).state == id(sensi_temperature_offset).state ? (int) id(sensi_temperature_offset).state : 0;
+            snprintf(buf, sizeof(buf), "Temp Off %d", v);
             return std::string(buf);
       - lvgl.label.update:
           id: reader_bbc_lbl
@@ -960,7 +1219,7 @@ script:
           text: !lambda |-
             return std::string(
               "Alt+K or / : show this page\n"
-              "1..6 : Home/Lights/Weather/Reader/Settings/Theme\n"
+              "1..7 : Home/Lights/Weather/Climate/Reader/Settings/Theme\n"
               "Q/E : prev/next page    H : Home\n"
               "Tab D S : focus next    Esc A W : focus prev\n"
               "T : light toggle        [ ] : select light\n"
@@ -1203,7 +1462,7 @@ lvgl:
         - button:
             id: home_reader_btn
             x: 208
-            y: 102
+            y: 146
             width: 100
             height: 38
             styles: [lv_style_btn_soft]
@@ -1215,10 +1474,24 @@ lvgl:
                   text: "Reader"
                   align: CENTER
         - button:
+            id: home_climate_btn
+            x: 208
+            y: 102
+            width: 100
+            height: 38
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: open_climate
+            widgets:
+              - label:
+                  text: "Climate"
+                  align: CENTER
+        - button:
             id: home_settings_btn
             x: 12
             y: 146
-            width: 146
+            width: 92
             height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -1230,9 +1503,9 @@ lvgl:
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 162
+            x: 108
             y: 146
-            width: 146
+            width: 92
             height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -1246,7 +1519,7 @@ lvgl:
             id: home_sleep_btn
             x: 12
             y: 192
-            width: 296
+            width: 188
             height: 40
             styles: [lv_style_btn_warn]
             group: nav_group
@@ -1255,6 +1528,20 @@ lvgl:
             widgets:
               - label:
                   text: "Sleep"
+                  align: CENTER
+        - button:
+            id: home_shortcuts_btn
+            x: 208
+            y: 192
+            width: 100
+            height: 40
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Shortcuts"
                   align: CENTER
 
     - id: lights_page
@@ -1570,6 +1857,19 @@ lvgl:
               - label:
                   text: "Home"
                   align: CENTER
+        - button:
+            x: 256
+            y: 6
+            width: 52
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_climate
+            widgets:
+              - label:
+                  text: "HVAC"
+                  align: CENTER
         - label:
             x: 72
             y: 10
@@ -1603,6 +1903,257 @@ lvgl:
             y: 206
             width: 296
             text: "GPS"
+        - label:
+            id: weather_source_lbl
+            x: 12
+            y: 186
+            width: 296
+            text: "Entity state"
+
+    - id: climate_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 54
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 72
+            y: 10
+            text: "Climate Control"
+        - button:
+            x: 12
+            y: 40
+            width: 68
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_hvac_mode_off
+            widgets:
+              - label:
+                  text: "Off"
+                  align: CENTER
+        - button:
+            x: 84
+            y: 40
+            width: 68
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_hvac_mode_heat
+            widgets:
+              - label:
+                  text: "Heat"
+                  align: CENTER
+        - button:
+            x: 156
+            y: 40
+            width: 68
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_hvac_mode_cool
+            widgets:
+              - label:
+                  text: "Cool"
+                  align: CENTER
+        - button:
+            x: 228
+            y: 40
+            width: 68
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_hvac_mode_auto
+            widgets:
+              - label:
+                  text: "Auto"
+                  align: CENTER
+        - label:
+            id: climate_status_lbl
+            x: 12
+            y: 68
+            width: 296
+            text: "mode/action/status"
+        - label:
+            id: climate_heat_lbl
+            x: 12
+            y: 88
+            width: 146
+            text: "Heat Set 68"
+        - slider:
+            id: climate_heat_slider
+            x: 12
+            y: 104
+            width: 146
+            min_value: 50
+            max_value: 90
+            value: 68
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: sensi_set_heat_target
+                  val: !lambda "return (int)x;"
+        - label:
+            id: climate_cool_lbl
+            x: 166
+            y: 88
+            width: 146
+            text: "Cool Set 74"
+        - slider:
+            id: climate_cool_slider
+            x: 166
+            y: 104
+            width: 146
+            min_value: 50
+            max_value: 95
+            value: 74
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: sensi_set_cool_target
+                  val: !lambda "return (int)x;"
+        - label:
+            id: climate_hum_offset_lbl
+            x: 12
+            y: 130
+            width: 146
+            text: "Hum Off 0"
+        - slider:
+            id: climate_hum_offset_slider
+            x: 12
+            y: 146
+            width: 146
+            min_value: -20
+            max_value: 20
+            value: 0
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: sensi_set_humidity_offset
+                  val: !lambda "return (int)x;"
+        - label:
+            id: climate_temp_offset_lbl
+            x: 166
+            y: 130
+            width: 146
+            text: "Temp Off 0"
+        - slider:
+            id: climate_temp_offset_slider
+            x: 166
+            y: 146
+            width: 146
+            min_value: -10
+            max_value: 10
+            value: 0
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: sensi_set_temperature_offset
+                  val: !lambda "return (int)x;"
+        - label:
+            id: climate_switches_lbl
+            x: 12
+            y: 172
+            width: 296
+            text: "switch states"
+        - button:
+            x: 12
+            y: 194
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_aux_heat
+            widgets:
+              - label:
+                  id: climate_aux_lbl
+                  text: "Aux OFF"
+                  align: CENTER
+        - button:
+            x: 112
+            y: 194
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_display_humidity
+            widgets:
+              - label:
+                  id: climate_disp_hum_lbl
+                  text: "Hum OFF"
+                  align: CENTER
+        - button:
+            x: 212
+            y: 194
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_display_time
+            widgets:
+              - label:
+                  id: climate_disp_time_lbl
+                  text: "Time OFF"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 216
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_fan_support
+            widgets:
+              - label:
+                  id: climate_fan_sup_lbl
+                  text: "Fan OFF"
+                  align: CENTER
+        - button:
+            x: 112
+            y: 216
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_humidification
+            widgets:
+              - label:
+                  id: climate_humid_lbl
+                  text: "Humid OFF"
+                  align: CENTER
+        - button:
+            x: 212
+            y: 216
+            width: 96
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_keypad_lockout
+            widgets:
+              - label:
+                  id: climate_lock_lbl
+                  text: "Lock OFF"
+                  align: CENTER
 
     - id: reader_page
       styles: [lv_style_screen]

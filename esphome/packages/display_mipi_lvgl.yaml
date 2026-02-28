@@ -15,7 +15,7 @@ display:
       mirror_x: true
       mirror_y: false
     color_order: rgb
-    invert_colors: false
+    invert_colors: true
     spi_mode: MODE0
     data_rate: 16MHz
     byte_order: big_endian

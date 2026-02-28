@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.9.1-lvgl-gps-hotfix`
-3. Previous LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag` (`58f903e`)
-4. Previous LVGL tag: `v0.8.0-lvgl-groundup-ui2` (`12bd551`)
+2. Latest LVGL tag: `v0.10.0-lvgl-climate-theme-fix`
+3. Previous LVGL tag: `v0.9.1-lvgl-gps-hotfix`
+4. Previous LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag` (`58f903e`)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -132,12 +132,41 @@
 2. No UI behavior changes in this hotfix.
 3. Docs/handoff updated in same pass.
 
+## Climate + theme inversion + slider snap in `v0.10.0-lvgl-climate-theme-fix`
+1. Display color correction:
+   - `display_mipi_lvgl.yaml` now uses `invert_colors: true` to correct panel-level inversion reports.
+2. Slider precision improvements:
+   - Added script-level snapping:
+     - display backlight: 5%
+     - keyboard backlight: 5%
+     - light brightness: 5%
+     - light kelvin: 100K
+3. Weather entity diagnostics:
+   - Added `weather.openweathermap` text sensor mirror (`wx_entity_state`).
+   - Weather page now shows explicit entity-state diagnostics.
+4. New climate entities:
+   - Added Sensi climate state/attribute mirrors.
+   - Added Sensi numeric and switch mirrors for all requested controls.
+5. New LVGL `climate_page`:
+   - HVAC quick modes (`Off/Heat/Cool/Auto`)
+   - Auto heat/cool setpoint sliders
+   - Humidity/temp offset sliders
+   - Direct toggle buttons for aux/display/fan/humidification/lockout switches
+6. Navigation updates:
+   - Home page now has direct `Climate` launcher button.
+   - Keyboard page jump now maps `1..7`:
+     - `1 Home`, `2 Lights`, `3 Weather`, `4 Climate`, `5 Reader`, `6 Settings`, `7 Theme`.
+   - Shortcut overlay text updated to match.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.9.1-lvgl-gps-hotfix`.
+1. Flash LVGL install YAML pinned to `v0.10.0-lvgl-climate-theme-fix`.
 2. Verify:
    - config parse succeeds (no `binary_sensor.template update_interval` error)
    - calibration flow ends with `Save`/`Retry` and does not auto-save bad captures
    - lights sliders apply correctly to selected entity (`brightness_pct` and `color_temp_kelvin`)
+   - display colors are no longer inverted (dark theme appears dark, amber no longer appears blue)
+   - climate page opens and all Sensi controls/actions call expected HA entities
+   - keyboard `1..7` page jumps route to expected LVGL pages
    - reduced utility-button duplication still keeps navigation discoverable
    - GPS diagnostic entities update (`GPS Data Alive`, `GPS Last Data Age`, `GPS Status`)
    - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`, `/`, `Alt+K`)

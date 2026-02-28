@@ -12,7 +12,7 @@ substitutions:
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.9.1-lvgl-gps-hotfix
+    ref: v0.10.0-lvgl-climate-theme-fix
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

@@ -56,6 +56,10 @@ text_sensor:
     id: wx_weather
     entity_id: sensor.openweathermap_weather
     internal: true
+  - platform: homeassistant
+    id: wx_entity_state
+    entity_id: weather.openweathermap
+    internal: true
 
   - platform: homeassistant
     id: word_of_day
@@ -124,6 +128,21 @@ text_sensor:
   - platform: homeassistant
     id: feed_loudoun_state
     entity_id: event.loudoun_county_va_news_flash
+    internal: true
+
+  - platform: homeassistant
+    id: sensi_climate_state
+    entity_id: climate.sensi_sensi
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_hvac_action
+    entity_id: climate.sensi_sensi
+    attribute: hvac_action
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_fan_mode
+    entity_id: climate.sensi_sensi
+    attribute: fan_mode
     internal: true
 
 sensor:
@@ -221,4 +240,54 @@ sensor:
   - platform: homeassistant
     id: wx_wind_speed
     entity_id: sensor.openweathermap_wind_speed
+    internal: true
+  - platform: homeassistant
+    id: sensi_temperature
+    entity_id: sensor.sensi_sensi_temperature
+    internal: true
+  - platform: homeassistant
+    id: sensi_humidity
+    entity_id: sensor.sensi_sensi_humidity
+    internal: true
+  - platform: homeassistant
+    id: sensi_auto_cool_temp
+    entity_id: number.sensi_sensi_auto_current_cool_temp
+    internal: true
+  - platform: homeassistant
+    id: sensi_auto_heat_temp
+    entity_id: number.sensi_sensi_auto_current_heat_temp
+    internal: true
+  - platform: homeassistant
+    id: sensi_humidity_offset
+    entity_id: number.sensi_sensi_humidity_offset
+    internal: true
+  - platform: homeassistant
+    id: sensi_temperature_offset
+    entity_id: number.sensi_sensi_temperature_offset
+    internal: true
+
+binary_sensor:
+  - platform: homeassistant
+    id: sensi_aux_heat_state
+    entity_id: switch.sensi_sensi_aux_heat
+    internal: true
+  - platform: homeassistant
+    id: sensi_display_humidity_state
+    entity_id: switch.sensi_sensi_display_humidity
+    internal: true
+  - platform: homeassistant
+    id: sensi_display_time_state
+    entity_id: switch.sensi_sensi_display_time
+    internal: true
+  - platform: homeassistant
+    id: sensi_fan_support_state
+    entity_id: switch.sensi_sensi_fan_support
+    internal: true
+  - platform: homeassistant
+    id: sensi_humidification_state
+    entity_id: switch.sensi_sensi_humidification
+    internal: true
+  - platform: homeassistant
+    id: sensi_keypad_lockout_state
+    entity_id: switch.sensi_sensi_keypad_lockout
     internal: true

@@ -17,6 +17,7 @@
 - `v0.8.0-lvgl-groundup-ui2`: deeper LVGL layout rewrite, upgraded lights workflow, and improved 9-point edge-fit calibration.
 - `v0.9.0-lvgl-controls-calreview-gpsdiag`: calibration save/retry review, richer LVGL controls, and GPS diagnostics hardening.
 - `v0.9.1-lvgl-gps-hotfix`: fixes invalid `update_interval` option on template GPS binary sensor for HA compile compatibility.
+- `v0.10.0-lvgl-climate-theme-fix`: display color inversion correction, slider snapping, dedicated Sensi climate page, and weather entity-state diagnostics.
 
 Post-tag note:
 
@@ -97,6 +98,32 @@ Post-tag note:
 
 1. Removed unsupported `update_interval` from `binary_sensor.template` in `gps_uart.yaml`.
 2. Restored ESPHome/HA config parsing compatibility for GPS diagnostics package.
+
+`v0.10.0-lvgl-climate-theme-fix` highlights:
+
+1. Display/theme correction:
+   - Set LVGL display path to `invert_colors: true` to correct panel-level color inversion symptoms
+   - Fixes reports where dark themes appeared light and amber accents appeared blue
+2. Slider usability:
+   - Added on-release snapping in scripts:
+     - display brightness: nearest 5%
+     - keyboard backlight: nearest 5%
+     - light brightness: nearest 5%
+     - color temperature: nearest 100K
+3. Weather diagnostics:
+   - Added `weather.openweathermap` entity state text sensor (`wx_entity_state`)
+   - Surfaced weather-entity state line on weather page for easier integration debugging
+4. Sensi climate integration:
+   - Added climate state/attribute sensors and required numeric/switch entity mirrors
+   - Added dedicated `climate_page` with:
+     - HVAC mode actions (`Off/Heat/Cool/Auto`)
+     - setpoint sliders (`auto cool/auto heat`)
+     - offset sliders (`humidity/temperature`)
+     - feature toggles (aux heat, display humidity/time, fan support, humidification, keypad lockout)
+5. Navigation updates:
+   - Home launcher now includes direct `Climate` entry
+   - Keyboard quick-nav now maps `1..7` to `Home/Lights/Weather/Climate/Reader/Settings/Theme`
+   - Shortcuts text updated accordingly
 
 `v0.6.0-lvgl-beta1` highlights:
 

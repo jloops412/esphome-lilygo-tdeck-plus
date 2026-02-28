@@ -99,15 +99,20 @@ interval:
                 condition:
                   lambda: "return id(kb_last_raw) == '4';"
                 then:
-                  - lvgl.page.show: reader_page
+                  - lvgl.page.show: climate_page
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == '5';"
                 then:
-                  - lvgl.page.show: settings_page
+                  - lvgl.page.show: reader_page
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == '6';"
+                then:
+                  - lvgl.page.show: settings_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == '7';"
                 then:
                   - lvgl.page.show: theme_page
             - if:
