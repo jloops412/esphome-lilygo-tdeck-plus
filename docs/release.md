@@ -9,6 +9,7 @@
 - `v0.4.0-ui-pass2`: controller-first UX pass + keyboard shortcuts + weather robustness.
 - `v0.5.0-ui-groundup`: home-menu navigation + theme system + full layout refactor.
 - `v0.6.0-lvgl-beta1`: parallel LVGL interface track and migration starter.
+- `v0.6.1-lvgl-beta1-hotfix`: LVGL compile fix for shared board template buttons.
 
 Post-tag note:
 
@@ -16,6 +17,12 @@ Post-tag note:
   - `board_base.yaml` template buttons call `page_next`/`page_prev`
   - `ui_lvgl.yaml` did not yet define those script IDs
   - fix is to add LVGL-compatible `page_next`/`page_prev` scripts (or decouple those template buttons from LVGL profile)
+
+`v0.6.1-lvgl-beta1-hotfix` highlights:
+
+1. Added `page_next` and `page_prev` script IDs in `ui_lvgl.yaml`.
+2. Kept `board_base` template buttons compatible with both stable and LVGL install paths.
+3. Updated LVGL status docs and handoff notes.
 
 `v0.6.0-lvgl-beta1` highlights:
 

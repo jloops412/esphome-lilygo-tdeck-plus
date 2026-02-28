@@ -29,6 +29,7 @@
 19. Added `lvgl_experimental` profile for local iterative testing.
 20. Discovered LVGL beta compile blocker: missing `page_next` and `page_prev` scripts referenced by `board_base` template buttons.
 21. Next patch is to add LVGL-compatible `page_next`/`page_prev` script IDs.
+22. LVGL hotfix added `page_next`/`page_prev` scripts so shared `board_base` buttons compile.
 
 ## Migration steps for existing HA node
 

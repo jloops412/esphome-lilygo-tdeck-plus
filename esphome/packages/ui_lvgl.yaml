@@ -10,6 +10,16 @@ script:
           then:
             - script.execute: wake_display
 
+  - id: page_next
+    then:
+      - lvgl.page.next:
+      - script.execute: lvgl_update_dynamic
+
+  - id: page_prev
+    then:
+      - lvgl.page.previous:
+      - script.execute: lvgl_update_dynamic
+
   - id: wake_display
     then:
       - lambda: |-

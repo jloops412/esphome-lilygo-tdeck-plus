@@ -42,8 +42,8 @@ LVGL testing target:
 ## Current status (after v0.6.0-lvgl-beta1)
 1. Parallel LVGL packages and install YAML are in place.
 2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
-3. Known compile blocker found in HA:
+3. Compile blocker was found in HA and patched in hotfix:
    - `board_base` template buttons reference `page_next`/`page_prev`.
-   - LVGL package currently lacks those script IDs.
-4. Immediate fix:
-   - add `page_next` and `page_prev` scripts in `ui_lvgl.yaml` that map to LVGL page navigation.
+   - LVGL package now defines those script IDs and maps them to LVGL page navigation.
+4. Next validation:
+   - re-run HA compile/flash using LVGL install YAML and verify runtime behavior.
