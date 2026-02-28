@@ -73,6 +73,16 @@
     - Retained sliders for coarse movement and exact persistence through HA service calls.
 15. Trackball stability tuning:
     - Increased LVGL trackball GPIO filtering (`delayed_on_off`, `settle`) to reduce runaway directional events.
+16. Post-pass hotfixes:
+    - Added icon asset file to install package manifests:
+      - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+      - `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
+      - `esphome/install/lilygo-tdeck-plus-install.yaml`
+      This resolves remote package compile failures where `board_base.yaml` references `esphome/assets/fa-solid-900.ttf`.
+    - Keyboard shortcut reliability:
+      - Extended ALT ESC-prefix pending window from `260ms` to `700ms`.
+      - Enabled plain-key fallback for command shortcuts while retaining ALT support.
+      - Updated shortcut help text to match actual behavior.
 
 ## Install entrypoints
 1. Stable install YAML:

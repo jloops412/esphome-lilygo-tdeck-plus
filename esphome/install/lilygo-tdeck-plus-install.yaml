@@ -59,6 +59,7 @@ packages:
       - esphome/packages/ui_pages_weather.yaml
       - esphome/packages/ui_pages_feeds.yaml
       - esphome/packages/ui_pages_settings.yaml
+      - esphome/assets/fa-solid-900.ttf
 
 wifi:
   ssid: !secret wifi_ssid

@@ -62,6 +62,15 @@ Unreleased on `main` (candidate next tag):
 - Trackball hardening:
   - increased LVGL trackball GPIO debounce/settle filters to reduce runaway direction events
 
+Hotfix after this pass:
+
+- Package-asset compile fix:
+  - added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists so remote package installs can resolve icon font files.
+- Keyboard shortcut reliability fix:
+  - extended ALT pending window for ESC-prefix detection.
+  - enabled plain-key shortcut fallback while preserving ALT compatibility for firmware variants where ALT is not reliably surfaced.
+  - updated shortcuts overlay/help text to match runtime behavior.
+
 Post-tag note:
 
 - `v0.6.0-lvgl-beta1` has a compile blocker in HA when using the LVGL install YAML:

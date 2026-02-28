@@ -1337,15 +1337,15 @@ script:
           id: shortcuts_body_lbl
           text: !lambda |-
             return std::string(
-              "ALL SHORTCUTS REQUIRE ALT\n"
-              "Alt+H/L/A/W/C/R/S/T : Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme\n"
-              "Alt+Q/E : prev/next page     Alt+K : this page\n"
-              "Alt+D/F : prev/next light    Alt+G : light toggle\n"
-              "Alt+Z/X : dim/bright         Alt+P : preset cycle\n"
-              "Alt+B/N/M : keyboard light toggle/down/up\n"
-              "Alt+Y : start calibration    Alt+V : reset calibration\n"
-              "Cal page: Alt+J Save, Alt+U Retry\n"
-              "Alt+O : touch debug toggle\n"
+              "SHORTCUTS: ALT PREF, PLAIN FALLBACK\n"
+              "H/L/A/W/C/R/S/T : Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme\n"
+              "Q/E : prev/next page         K : this page\n"
+              "D/F : prev/next light        G : light toggle\n"
+              "Z/X : dim/bright             P : preset cycle\n"
+              "B/N/M : keyboard light toggle/down/up\n"
+              "Y : start calibration        V : reset calibration\n"
+              "Cal page: J Save, U Retry\n"
+              "O : touch debug toggle\n"
               "Trackball: move focus + click activate"
             );
       - lvgl.label.update:

@@ -62,6 +62,7 @@ packages:
       - esphome/packages/input_touch_gt911_lvgl.yaml
       - esphome/packages/input_trackball_lvgl.yaml
       - esphome/packages/input_keyboard_i2c_lvgl.yaml
+      - esphome/assets/fa-solid-900.ttf
 
 wifi:
   ssid: !secret wifi_ssid

@@ -62,20 +62,20 @@ Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache i
 
 ## Quick keyboard shortcuts
 
-1. All command shortcuts now require `Alt`.
-2. `Alt+H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
-3. `Alt+Q/E`: previous/next page.
-4. `Alt+K`: open shortcuts page.
-5. `Alt+D/F`: previous/next selected light.
-6. `Alt+G`: toggle selected light.
-7. `Alt+Z/X`: dim/brighten selected light.
-8. `Alt+P`: cycle light preset.
-9. `Alt+B/N/M`: keyboard backlight toggle/down/up.
-10. `Alt+Y`: start touch calibration.
-11. `Alt+V`: reset stored calibration values.
-12. `Alt+J`: save calibration after 9-point capture.
-13. `Alt+U`: retry calibration after 9-point capture.
-14. `Alt+O`: toggle touch debug.
+1. Command shortcuts support plain-key mode for compatibility; `Alt+key` remains supported.
+2. `H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
+3. `Q/E`: previous/next page.
+4. `K`: open shortcuts page.
+5. `D/F`: previous/next selected light.
+6. `G`: toggle selected light.
+7. `Z/X`: dim/brighten selected light.
+8. `P`: cycle light preset.
+9. `B/N/M`: keyboard backlight toggle/down/up.
+10. `Y`: start touch calibration.
+11. `V`: reset stored calibration values.
+12. `J`: save calibration after 9-point capture.
+13. `U`: retry calibration after 9-point capture.
+14. `O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
