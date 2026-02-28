@@ -93,7 +93,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
-Launcher and navigation icons now use explicit Font Awesome glyph mapping (`fa-solid-900.ttf`) to avoid wrong/missing symbol rendering.
+Launcher and navigation icons now use LVGL-compatible symbol codepoints without external asset dependencies.
 Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.

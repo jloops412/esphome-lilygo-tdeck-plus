@@ -44,14 +44,14 @@ Unreleased on `main` (candidate next tag):
 - Climate page polish:
   - improved spacing hierarchy and compact control labels
 - Icon reliability + launcher cleanup:
-  - added explicit Font Awesome icon font mapping in `board_base.yaml`
+  - trialed explicit external icon-font mapping (later removed for package compatibility)
   - corrected launcher icons to requested semantics:
     - Lights = light bulb
     - Weather = cloud
     - Climate = thermometer
     - Reader = book
     - Sleep = moon
-  - applied icon font bindings to page nav/home buttons for consistent rendering
+  - applied icon bindings to page nav/home buttons for consistent rendering
 - Lights UX expansion:
   - added dedicated `light_color_page` with expanded preset color palette
   - kept main lights page focused on target selection + primary actions + sliders
@@ -65,7 +65,7 @@ Unreleased on `main` (candidate next tag):
 Hotfix after this pass:
 
 - Package-asset compile fix:
-  - added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists so remote package installs can resolve icon font files.
+  - initial attempt added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists.
 - Keyboard shortcut reliability fix:
   - extended ALT pending window for ESC-prefix detection.
   - enabled plain-key shortcut fallback while preserving ALT compatibility for firmware variants where ALT is not reliably surfaced.
@@ -75,6 +75,8 @@ Hotfix after this pass:
   - added minimal local `esp32:` blocks to install entrypoints (`variant: esp32s3`, `framework: esp-idf`) so pre-merge validation does not fail with `Platform missing`.
   - switched install entrypoints to list-form `packages:` syntax to avoid parser edge cases where labeled package keys are treated as components.
   - quoted all install YAML package refs (`ref: "main"`) to prevent YAML numeric coercion when users pin commit-like refs.
+  - removed non-YAML asset entries from `packages.files` (ESPHome packages accept only `.yaml`/`.yml` there).
+  - removed external icon font dependency from package path; UI now uses LVGL-compatible symbol codepoints without external font files.
 
 Post-tag note:
 

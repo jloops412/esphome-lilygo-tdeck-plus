@@ -1547,7 +1547,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF0EB"
-                  text_font: font_icon_lg
                   align: CENTER
         - button:
             id: home_weather_btn
@@ -1562,7 +1561,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF0C2"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             id: home_climate_btn
@@ -1577,7 +1575,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF2C9"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             id: home_reader_btn
@@ -1592,7 +1589,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF02D"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             id: home_settings_btn
@@ -1607,7 +1603,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF013"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             id: home_theme_btn
@@ -1622,7 +1617,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF53F"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             id: home_sleep_btn
@@ -1637,7 +1631,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF186"
-                  text_font: font_icon_sm
                   align: CENTER
 
     - id: lights_page
@@ -1656,7 +1649,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -1921,7 +1913,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             x: 258
@@ -2165,7 +2156,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             x: 256
@@ -2179,7 +2169,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF2C9"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -2236,7 +2225,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -2254,7 +2242,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF0C2"
-                  text_font: font_icon_sm
                   align: CENTER
         - button:
             x: 12
@@ -2537,7 +2524,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -2634,7 +2620,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -2775,7 +2760,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF186"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             id: settings_status_lbl
@@ -2799,7 +2783,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 72
@@ -3081,7 +3064,6 @@ lvgl:
             widgets:
               - label:
                   text: "\uF015"
-                  text_font: font_icon_sm
                   align: CENTER
         - label:
             x: 80

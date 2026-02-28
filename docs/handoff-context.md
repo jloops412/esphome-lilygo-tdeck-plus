@@ -56,8 +56,8 @@
     - Improved spacing and compacted labels for dense control areas.
     - Added icon-based weather jump on climate page top bar.
 12. Icon rendering reliability + semantic icon correction:
-    - Added explicit Font Awesome icon font definitions in `esphome/packages/board_base.yaml`.
-    - Bound launcher/nav icon labels to `font_icon_sm`/`font_icon_lg` in `esphome/packages/ui_lvgl.yaml`.
+    - Trialed explicit external icon font definitions in `esphome/packages/board_base.yaml` (later removed for package compatibility).
+    - Bound launcher/nav icon labels for semantic icon correction (later reverted to LVGL-symbol-only path).
     - Corrected icon semantics per UX request:
       - Lights: bulb
       - Weather: cloud
@@ -74,11 +74,11 @@
 15. Trackball stability tuning:
     - Increased LVGL trackball GPIO filtering (`delayed_on_off`, `settle`) to reduce runaway directional events.
 16. Post-pass hotfixes:
-    - Added icon asset file to install package manifests:
+    - Initial attempt added icon asset file to install package manifests:
       - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
       - `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
       - `esphome/install/lilygo-tdeck-plus-install.yaml`
-      This resolves remote package compile failures where `board_base.yaml` references `esphome/assets/fa-solid-900.ttf`.
+      This was later superseded because package `files` only supports YAML files.
     - Keyboard shortcut reliability:
       - Extended ALT ESC-prefix pending window from `260ms` to `700ms`.
       - Enabled plain-key fallback for command shortcuts while retaining ALT support.
@@ -259,7 +259,7 @@
 
 ## Post `v0.12.0` Hotfixes on `main`
 1. Icon asset package-load fix:
-   - Added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists so remote package installs can resolve the icon font used by `board_base.yaml`.
+   - Initial attempt added `esphome/assets/fa-solid-900.ttf` to install YAML `packages.files` lists (later superseded by YAML-only package correction).
 2. Keyboard shortcut reliability:
    - Extended ESC-prefix ALT pending window to `700ms`.
    - Enabled plain-key command fallback while preserving ALT compatibility.
@@ -269,6 +269,9 @@
    - Added minimal local `esp32:` blocks (`variant: esp32s3`, `framework: esp-idf`) in install entrypoints to avoid `Platform missing` failures before package merge.
    - Converted install entrypoints to list-form `packages:` syntax to avoid parser edge cases where labeled package keys (for example `board_base`) are treated as unknown components.
    - Quoted install package refs (`ref: "main"`) to avoid `git_ref` type errors when users paste numeric-like unquoted refs.
+4. YAML-only package compatibility correction:
+   - Removed non-YAML asset entries from install `packages.files` lists (`fa-solid-900.ttf`), because ESPHome packages only accept YAML file entries.
+   - Removed external icon-font dependency from package code and reverted icon rendering to LVGL-compatible symbol codepoints.
 
 ## Immediate validation asks
 1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
