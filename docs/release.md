@@ -10,6 +10,13 @@
 - `v0.5.0-ui-groundup`: home-menu navigation + theme system + full layout refactor.
 - `v0.6.0-lvgl-beta1`: parallel LVGL interface track and migration starter.
 
+Post-tag note:
+
+- `v0.6.0-lvgl-beta1` has a compile blocker in HA when using the LVGL install YAML:
+  - `board_base.yaml` template buttons call `page_next`/`page_prev`
+  - `ui_lvgl.yaml` did not yet define those script IDs
+  - fix is to add LVGL-compatible `page_next`/`page_prev` scripts (or decouple those template buttons from LVGL profile)
+
 `v0.6.0-lvgl-beta1` highlights:
 
 1. Added a parallel LVGL package stack (`display_mipi_lvgl`, LVGL input packages, `ui_lvgl`).

@@ -38,3 +38,12 @@ If LVGL regressions appear, continue using the stable install YAML:
 
 LVGL testing target:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+
+## Current status (after v0.6.0-lvgl-beta1)
+1. Parallel LVGL packages and install YAML are in place.
+2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
+3. Known compile blocker found in HA:
+   - `board_base` template buttons reference `page_next`/`page_prev`.
+   - LVGL package currently lacks those script IDs.
+4. Immediate fix:
+   - add `page_next` and `page_prev` scripts in `ui_lvgl.yaml` that map to LVGL page navigation.
