@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest pushed LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
-3. Current candidate tag from this working tree: `v0.15.1-lvgl-lighting-gps-kb-controls`
-4. Previous LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
+2. Latest pushed LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
+3. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
+4. Previous LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
 ## Process Contract
@@ -12,7 +12,7 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
-## Current pass summary (candidate `v0.15.1-lvgl-lighting-gps-kb-controls`)
+## Current pass summary (tagged `v0.15.1-lvgl-lighting-gps-kb-controls`)
 1. Icon and theme reliability:
    - Standardized MDI package icons to `GRAYSCALE` + `alpha_channel`.
    - Added explicit LVGL icon recolor style usage across launcher/navigation images.
