@@ -74,22 +74,28 @@ script:
           int profile = id(kb_backlight_profile);
           if (profile < 0 || profile > 2) profile = 0;
 
-          // Profile 0: default -> live (current stable preference)
-          // Profile 1: live -> default (some keyboard MCU revisions react better)
-          // Profile 2: live-only pulse
-          for (int i = 0; i < 4; i++) {
+          // Primary command path by profile:
+          // 0 default->live, 1 live->default, 2 live-only
+          // Then always emit a fallback default->live pulse to improve MCU compatibility.
+          for (int i = 0; i < 3; i++) {
             if (profile == 1) {
               id(bus_a).write(0x55, cmd_live, 2);
-              delay(3);
+              delay(6);
               id(bus_a).write(0x55, cmd_default, 2);
             } else if (profile == 2) {
               id(bus_a).write(0x55, cmd_live, 2);
             } else {
               id(bus_a).write(0x55, cmd_default, 2);
-              delay(3);
+              delay(6);
               id(bus_a).write(0x55, cmd_live, 2);
             }
-            delay(3);
+            delay(6);
+
+            // Compatibility fallback pulse.
+            id(bus_a).write(0x55, cmd_default, 2);
+            delay(4);
+            id(bus_a).write(0x55, cmd_live, 2);
+            delay(6);
           }
 
   - id: kb_backlight_profile_next
@@ -1208,28 +1214,6 @@ script:
             hvac_mode: "auto"
       - script.execute: lvgl_update_dynamic
 
-  - id: sensi_preset_eco
-    then:
-      - script.execute:
-          id: sensi_set_heat_target
-          val: 66
-      - script.execute:
-          id: sensi_set_cool_target
-          val: 78
-      - script.execute: sensi_hvac_mode_auto
-      - script.execute: lvgl_update_dynamic
-
-  - id: sensi_preset_comfort
-    then:
-      - script.execute:
-          id: sensi_set_heat_target
-          val: 70
-      - script.execute:
-          id: sensi_set_cool_target
-          val: 74
-      - script.execute: sensi_hvac_mode_auto
-      - script.execute: lvgl_update_dynamic
-
   - id: sensi_toggle_aux_heat
     then:
       - homeassistant.action:
@@ -1451,7 +1435,8 @@ script:
             float sats = id(gps_satellites).state;
             float indoor = id(sensi_temperature).state;
             bool has_indoor = indoor == indoor;
-            if (!id(gps_data_alive).state) {
+            bool gps_alive = (esphome::millis() - id(gps_last_update_ms)) < 15000U;
+            if (!gps_alive) {
               if (has_indoor) {
                 snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS NO DATA",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, indoor);
@@ -1545,11 +1530,11 @@ script:
       - lvgl.label.update:
           id: lights_preset_lbl
           text: !lambda |-
-            if (id(light_preset_index) == 0) return std::string("Preset: Warm");
-            if (id(light_preset_index) == 1) return std::string("Preset: Cool");
-            if (id(light_preset_index) == 2) return std::string("Preset: Relax");
-            if (id(light_preset_index) == 3) return std::string("Preset: Focus");
-            return std::string("Preset: Amber");
+            if (id(light_preset_index) == 0) return std::string("Cycle Preset: Warm");
+            if (id(light_preset_index) == 1) return std::string("Cycle Preset: Cool");
+            if (id(light_preset_index) == 2) return std::string("Cycle Preset: Relax");
+            if (id(light_preset_index) == 3) return std::string("Cycle Preset: Focus");
+            return std::string("Quick Actions: Palette / Relax / Focus / Amber / Off");
       - lvgl.label.update:
           id: lights_brightness_lbl
           text: !lambda |-
@@ -1638,7 +1623,8 @@ script:
       - lvgl.label.update:
           id: weather_gps_lbl
           text: !lambda |-
-            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Check RX ${gps_rx_pin}/TX ${gps_tx_pin}, then try gps_baud_rate 38400.");
+            bool gps_alive = (esphome::millis() - id(gps_last_update_ms)) < 15000U;
+            if (!gps_alive) return std::string("GPS: no NMEA data. Check RX ${gps_rx_pin}/TX ${gps_tx_pin}, then try gps_baud_rate 38400.");
             if (id(gps_satellites).state < 1.0f) return std::string("GPS: data alive, waiting for fix.");
             char buf[120];
             snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
@@ -1777,20 +1763,16 @@ script:
             if (id(theme_accent_index) == 2) accent = "Amber";
             if (id(theme_accent_index) == 3) accent = "Rose";
             if (id(theme_accent_index) == 4) accent = "Mono";
-            const char *kbprof = "Normal";
-            if (id(kb_backlight_profile) == 1) kbprof = "Reverse";
-            if (id(kb_backlight_profile) == 2) kbprof = "LiveOnly";
             const char *icon_mode = id(theme_icon_mode) == 0 ? "White" : "Accent";
             char buf[220];
-            snprintf(buf, sizeof(buf), "Theme %s | Accent %s | Icon %s | Border %d | Radius %d | Disp %d%% | KB %d%% | %s",
+            snprintf(buf, sizeof(buf), "Theme %s | Accent %s | Icon %s | Border %d | Radius %d | Disp %d%% | KB %d%%",
                      name,
                      accent,
                      icon_mode,
                      id(theme_border_width),
                      id(theme_radius),
                      id(backlight_percent),
-                     id(kb_backlight_percent),
-                     kbprof);
+                     id(kb_backlight_percent));
             return std::string(buf);
       - lvgl.slider.update:
           id: display_brightness_slider
@@ -1815,7 +1797,6 @@ script:
               "Alt+Z/X : dim/bright         Alt+P : preset cycle\n"
               "Alt+3/4 : Relax/Focus scene  Alt+0 : all lights off\n"
               "Alt+B/N/M : keyboard light toggle/down/up\n"
-              "Alt+1/2 : Climate Eco/Comfort presets\n"
               "Alt+Y : start calibration    Alt+V : reset calibration\n"
               "Cal page: Alt+J Save, Alt+U Retry\n"
               "Alt+I : icon color mode      Alt+O : touch debug\n"
@@ -2288,13 +2269,13 @@ lvgl:
         - label:
             id: lights_brightness_lbl
             x: 130
-            y: 106
+            y: 104
             width: 182
             text: "Brightness 60%"
         - slider:
             id: light_brightness_slider
             x: 130
-            y: 124
+            y: 120
             width: 182
             min_value: 1
             max_value: 100
@@ -2307,13 +2288,13 @@ lvgl:
         - label:
             id: lights_kelvin_lbl
             x: 130
-            y: 144
+            y: 138
             width: 182
             text: "Color Temp 4000K"
         - slider:
             id: light_temp_slider
             x: 130
-            y: 162
+            y: 154
             width: 182
             min_value: 2200
             max_value: 6500
@@ -2325,8 +2306,8 @@ lvgl:
                   kelvin: !lambda "return (int)x;"
         - button:
             x: 130
-            y: 182
-            width: 88
+            y: 170
+            width: 58
             height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2337,9 +2318,9 @@ lvgl:
                   text: "Warm"
                   align: CENTER
         - button:
-            x: 224
-            y: 182
-            width: 88
+            x: 192
+            y: 170
+            width: 58
             height: 24
             styles: [lv_style_btn]
             group: nav_group
@@ -2350,36 +2331,64 @@ lvgl:
                   text: "Cool"
                   align: CENTER
         - button:
-            x: 130
-            y: 210
+            x: 254
+            y: 170
             width: 58
-            height: 20
-            styles: [lv_style_btn_soft]
+            height: 24
+            styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: open_light_colors
             widgets:
               - label:
-                  text: "Colors"
+                  text: "Palette"
                   align: CENTER
         - button:
-            x: 192
-            y: 210
-            width: 58
-            height: 20
+            x: 130
+            y: 198
+            width: 42
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: selected_light_preset_cycle
+              - script.execute: selected_light_scene_relax
             widgets:
               - label:
-                  text: "Preset"
+                  text: "Rlx"
                   align: CENTER
         - button:
-            x: 254
-            y: 210
-            width: 58
-            height: 20
+            x: 174
+            y: 198
+            width: 42
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_scene_focus
+            widgets:
+              - label:
+                  text: "Fcs"
+                  align: CENTER
+        - button:
+            x: 218
+            y: 198
+            width: 42
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: selected_light_color
+                  cname: "amber"
+            widgets:
+              - label:
+                  text: "Am"
+                  align: CENTER
+        - button:
+            x: 262
+            y: 198
+            width: 50
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2391,7 +2400,7 @@ lvgl:
         - label:
             id: lights_preset_lbl
             x: 130
-            y: 228
+            y: 224
             width: 182
             text: "Preset"
 
@@ -2810,41 +2819,15 @@ lvgl:
             width: 296
             height: 32
             text: "mode/action/status"
-        - button:
-            x: 224
-            y: 100
-            width: 84
-            height: 42
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute: sensi_preset_eco
-            widgets:
-              - label:
-                  text: "Eco"
-                  align: CENTER
-        - button:
-            x: 224
-            y: 148
-            width: 84
-            height: 42
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute: sensi_preset_comfort
-            widgets:
-              - label:
-                  text: "Comfort"
-                  align: CENTER
         - label:
             id: climate_heat_lbl
             x: 12
-            y: 104
+            y: 108
             width: 112
             text: "Heat Set 68"
         - button:
-            x: 122
-            y: 96
+            x: 136
+            y: 98
             width: 44
             height: 44
             styles: [lv_style_btn_soft]
@@ -2856,8 +2839,8 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 172
-            y: 96
+            x: 184
+            y: 98
             width: 44
             height: 44
             styles: [lv_style_btn_soft]
@@ -2871,12 +2854,12 @@ lvgl:
         - label:
             id: climate_cool_lbl
             x: 12
-            y: 152
+            y: 160
             width: 112
             text: "Cool Set 74"
         - button:
-            x: 122
-            y: 144
+            x: 136
+            y: 150
             width: 44
             height: 44
             styles: [lv_style_btn_soft]
@@ -2888,8 +2871,8 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 172
-            y: 144
+            x: 184
+            y: 150
             width: 44
             height: 44
             styles: [lv_style_btn_soft]
@@ -2901,23 +2884,23 @@ lvgl:
                   text: "+"
                   align: CENTER
         - button:
-            x: 12
-            y: 196
-            width: 144
-            height: 34
+            x: 232
+            y: 98
+            width: 76
+            height: 44
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: open_climate_tools
             widgets:
               - label:
-                  text: "Climate Tools"
+                  text: "Tools"
                   align: CENTER
         - button:
-            x: 162
-            y: 196
-            width: 146
-            height: 34
+            x: 232
+            y: 150
+            width: 76
+            height: 44
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3258,8 +3241,34 @@ lvgl:
         - button:
             x: 212
             y: 38
+            width: 46
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_down
+            widgets:
+              - label:
+                  text: "KB-"
+                  align: CENTER
+        - button:
+            x: 262
+            y: 38
+            width: 46
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_up
+            widgets:
+              - label:
+                  text: "KB+"
+                  align: CENTER
+        - button:
+            x: 212
+            y: 66
             width: 96
-            height: 52
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3654,7 +3663,7 @@ lvgl:
         - button:
             x: 12
             y: 202
-            width: 70
+            width: 60
             height: 22
             styles: [lv_style_btn]
             group: nav_group
@@ -3665,22 +3674,35 @@ lvgl:
                   text: "Help"
                   align: CENTER
         - button:
-            x: 86
+            x: 76
             y: 202
-            width: 70
+            width: 56
             height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: kb_backlight_profile_next
+              - script.execute: kb_backlight_down
             widgets:
               - label:
-                  text: "KB Prof"
+                  text: "KB-"
                   align: CENTER
         - button:
-            x: 160
+            x: 136
             y: 202
-            width: 70
+            width: 56
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_up
+            widgets:
+              - label:
+                  text: "KB+"
+                  align: CENTER
+        - button:
+            x: 196
+            y: 202
+            width: 56
             height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3691,9 +3713,9 @@ lvgl:
                   text: "Icon"
                   align: CENTER
         - button:
-            x: 234
+            x: 256
             y: 202
-            width: 74
+            width: 52
             height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3701,7 +3723,7 @@ lvgl:
               - script.execute: theme_next
             widgets:
               - label:
-                  text: "Theme+"
+                  text: "Th+"
                   align: CENTER
         - label:
             id: theme_status_lbl

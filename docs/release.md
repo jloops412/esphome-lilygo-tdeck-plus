@@ -25,6 +25,7 @@
 - `v0.13.1-lvgl-image-type-hotfix`: ESPHome 2026.2.2 image parser fix (`image.type` required for MDI icons).
 - `v0.14.0-lvgl-icon-theme-weather-polish`: theme-colored icons, weather readability pass, faster lights actions, and settings reboot action.
 - `v0.15.0-lvgl-system-review-pass1`: comprehensive system polish pass with icon recolor controls, safer reboot flow, weather readability refinement, climate UX split (`main + tools`), and extended shortcut/help updates.
+- `v0.15.1-lvgl-lighting-gps-kb-controls`: lights quick-action redesign, climate preset removal, stronger keyboard-backlight controls, and GPS status reliability pass.
 
 Unreleased on `main` (candidate next tag):
 
@@ -277,7 +278,7 @@ Post-tag note:
    - Preserves icon-first navigation while improving tap ergonomics and visual hierarchy.
 7. Climate UX redesign:
    - Split climate into two pages:
-     - primary climate control (`mode`, `heat/cool +/-`, `Eco`, `Comfort`)
+     - primary climate control (`mode`, `heat/cool +/-`, `Tools`)
      - advanced climate tools (`offsets`, feature toggles, compact state line)
    - Reduced page clutter while preserving full Sensi entity coverage.
 8. Theme + style expansion:
@@ -287,9 +288,27 @@ Post-tag note:
    - Added direct light scenes (`Relax`, `Focus`) and integrated them into preset cycle.
    - Added keyboard shortcuts:
      - `Alt+3/4` for light scenes
-     - `Alt+1/2` for climate `Eco/Comfort`
 10. Input robustness:
    - Tightened trackball GPIO filtering (`delayed_on`, `delayed_off`, `settle`) to reduce noisy repeated directional pulses.
+
+`v0.15.1-lvgl-lighting-gps-kb-controls` highlights:
+
+1. Installer reliability:
+   - Keep install YAML package ref on branch/tag (`main` by default) instead of short commit refs to avoid remote-ref resolution failures.
+2. Climate simplification:
+   - Removed climate presets from the primary UI flow.
+   - Kept main page focused on mode + direct setpoint control + tools entry.
+3. Lights UX pass:
+   - Reworked quick-action row to make color workflow obvious:
+     - `Palette`, `Relax`, `Focus`, `Amber`, `Off`
+   - Kept dedicated color chooser page and direct `Palette` entry.
+4. Keyboard backlight control pass:
+   - Added explicit `KB-`, `KB+`, and toggle controls on Settings/Theme pages.
+   - Strengthened I2C apply sequence with compatibility fallback pulses.
+5. GPS reliability pass:
+   - Weather/home GPS status now computes liveness directly from `gps_last_update_ms` in LVGL lambdas.
+   - Avoids stale status behavior if template binary_sensor refresh timing varies.
+   - Kept official T-Deck Plus default UART mapping (`gps_rx_pin: 44`, `gps_tx_pin: 43`) with `gps_baud_rate` substitution for field tuning.
 
 ## Checklist per release
 

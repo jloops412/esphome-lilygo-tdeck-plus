@@ -224,16 +224,6 @@ interval:
                   - script.execute: theme_icon_mode_toggle
             - if:
                 condition:
-                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '1';"
-                then:
-                  - script.execute: sensi_preset_eco
-            - if:
-                condition:
-                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '2';"
-                then:
-                  - script.execute: sensi_preset_comfort
-            - if:
-                condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'o' || id(kb_last_raw) == 'O');"
                 then:
                   - script.execute: toggle_touch_debug

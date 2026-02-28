@@ -50,7 +50,7 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 1. `Home`: balanced icon-grid launcher with fast one-tap access to Lights/Weather/Climate/Reader/Settings/Theme plus compact Sleep action.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Colors`, `Preset`)
-   - bottom quick row (`Colors`, `Preset`, `Off`) for faster one-handed control
+   - bottom quick row (`Palette`, `Relax`, `Focus`, `Amber`, `Off`) for faster one-handed control
    - LVGL sliders for per-light brightness and color temperature
    - two direct scene actions (`Relax`, `Focus`) and shortcut support
    - dedicated `Color Chooser` page with expanded preset palette
@@ -58,7 +58,6 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 4. `Climate`: simplified primary control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
    - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
-   - preset actions (`Eco`, `Comfort`)
    - fast entry into `Climate Tools` for advanced controls
 5. `Climate Tools`: dedicated advanced Sensi controls:
    - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)
@@ -66,7 +65,7 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
    - compact live feature-state line (`Aux/Hum/Time/Fan/Humid/Lock`)
 6. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
 7. `Settings`: wake behavior, saver timing, keyboard backlight, calibration, and reboot confirmation flow.
-8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
+8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), LVGL sliders for display + keyboard backlight, shape controls (button/card border width + corner radius), and direct `KB-`/`KB+` controls.
 9. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
 10. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
 
@@ -82,14 +81,13 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 8. `Alt+P`: cycle light preset.
 9. `Alt+3/4`: selected-light `Relax/Focus` scenes.
 10. `Alt+0`: all mapped lights off.
-11. `Alt+1/2`: climate `Eco/Comfort` presets.
-12. `Alt+B/N/M`: keyboard backlight toggle/down/up.
-13. `Alt+Y`: start touch calibration.
-14. `Alt+V`: reset stored calibration values.
-15. `Alt+J`: save calibration after 9-point capture.
-16. `Alt+U`: retry calibration after 9-point capture.
-17. `Alt+I`: toggle icon color mode (`White`/`Accent`).
-18. `Alt+O`: toggle touch debug.
+11. `Alt+B/N/M`: keyboard backlight toggle/down/up.
+12. `Alt+Y`: start touch calibration.
+13. `Alt+V`: reset stored calibration values.
+14. `Alt+J`: save calibration after 9-point capture.
+15. `Alt+U`: retry calibration after 9-point capture.
+16. `Alt+I`: toggle icon color mode (`White`/`Accent`).
+17. `Alt+O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
@@ -104,7 +102,7 @@ Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runawa
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
 Launcher and navigation icons now use package-safe `mdi:` image assets with LVGL recolor, so icon color stays theme-consistent.
-Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
+Keyboard backlight UI now includes direct `KB-`, `KB+`, and toggle controls in addition to shortcut support.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 GPS serial baud is also substitution-driven:

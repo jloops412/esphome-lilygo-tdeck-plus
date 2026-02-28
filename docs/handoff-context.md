@@ -3,7 +3,7 @@
 ## Repository state
 1. Branch: `main`
 2. Latest pushed LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
-3. Current candidate tag from this working tree: `v0.15.0-lvgl-system-review-pass1`
+3. Current candidate tag from this working tree: `v0.15.1-lvgl-lighting-gps-kb-controls`
 4. Previous LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
@@ -12,7 +12,7 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
-## Current pass summary (candidate `v0.15.0-lvgl-system-review-pass1`)
+## Current pass summary (candidate `v0.15.1-lvgl-lighting-gps-kb-controls`)
 1. Icon and theme reliability:
    - Standardized MDI package icons to `GRAYSCALE` + `alpha_channel`.
    - Added explicit LVGL icon recolor style usage across launcher/navigation images.
@@ -21,7 +21,7 @@
    - Added compact top sleep action while retaining fast one-tap navigation.
 3. Climate UX redesign:
    - Split climate controls into:
-     - `climate_page` (mode, heat/cool setpoint controls, `Eco`, `Comfort`)
+     - `climate_page` (mode + heat/cool setpoint controls + tools entry)
      - `climate_tools_page` (offset controls + feature toggles + compact state line)
    - Reduced clutter on the primary climate screen.
 4. Theme expansion:
@@ -29,14 +29,19 @@
    - Added theme quick-cycle action in theme utility row.
 5. Lights workflow upgrades:
    - Added direct scene scripts (`Relax`, `Focus`) and wired them into preset cycle.
+   - Reworked quick-action row to make color workflow explicit (`Palette`, `Relax`, `Focus`, `Amber`, `Off`).
    - Added keyboard shortcuts:
      - `Alt+3/4` -> light `Relax/Focus`
-     - `Alt+1/2` -> climate `Eco/Comfort`
 6. Input hardening:
-   - Tightened trackball GPIO filters to reduce noisy repeated navigation events.
+   - Tightened trackball GPIO filters (`delayed_on`, `delayed_off`, `settle`) to reduce noisy repeated navigation events.
 7. Safety and help:
    - Kept reboot confirmation flow.
    - Updated shortcuts text/help to include new command mappings.
+8. Keyboard/GPS reliability:
+   - Added direct keyboard-backlight UI controls (`KB-`, `KB+`, `KB Light`) in Settings and Theme utilities.
+   - Strengthened keyboard-backlight I2C apply sequence with compatibility fallback pulses.
+   - Weather/Home GPS status now computes live age directly from `gps_last_update_ms` to avoid stale liveness state.
+   - Confirmed board default GPS UART mapping remains `RX=44`, `TX=43` (LilyGO utility headers), and keyboard brightness command path remains `0x01/0x02` (LilyGO keyboard MCU example).
 
 ## Unreleased Main Pass (post `v0.11.0`)
 1. Entity mapping restore + templates:
@@ -326,7 +331,7 @@
    - Swapped Theme utility button from debug to Help to improve discoverability.
 
 ## Immediate validation asks
-1. Flash LVGL install YAML from `main` for this pass (pin to `v0.15.0-lvgl-system-review-pass1` immediately after tag creation).
+1. Flash LVGL install YAML from `main` for this pass (pin to `v0.15.1-lvgl-lighting-gps-kb-controls` immediately after tag creation).
 2. Verify:
    - config parse succeeds
    - restored entity IDs drive the intended HA entities again
