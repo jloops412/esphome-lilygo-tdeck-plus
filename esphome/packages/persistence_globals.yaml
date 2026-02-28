@@ -39,6 +39,11 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: kb_last_alt
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
   - id: kb_alt_pending
     type: bool
     restore_value: no
@@ -68,6 +73,11 @@ globals:
     type: int
     restore_value: yes
     initial_value: "70"
+
+  - id: kb_backlight_profile
+    type: int
+    restore_value: yes
+    initial_value: "0"
 
   - id: touch_x_last
     type: int

@@ -43,7 +43,7 @@ Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache i
 
 ## Current UI flow
 
-1. `Home`: launcher-first layout with a large lights controller card and compact icon actions (`Weather`, `Climate`, `Reader`, `Settings`, `Theme`, `Sleep`).
+1. `Home`: launcher-first layout with icon-only actions and a large primary lights control target.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, color chips, preset)
    - LVGL sliders for per-light brightness and color temperature
@@ -61,23 +61,20 @@ Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache i
 
 ## Quick keyboard shortcuts
 
-1. `1`..`7`: jump directly to pages `Home/Lights/Weather/Climate/Reader/Settings/Theme`.
-2. `Q` / `E`: previous/next page.
-3. `Tab` or `D`/`S`: move focus forward.
-4. `Esc` or `A`/`W`: move focus backward.
-5. `[` / `]`: previous/next selected light.
-6. `-` / `+`: dim/brighten selected light.
-7. `T`: toggle selected light.
-8. `P`: cycle light preset.
-9. `B`: keyboard backlight toggle.
-10. `N` / `M`: keyboard backlight down/up.
-11. `H`: jump to Home page.
-12. `Alt+K` or `/` or `?`: open keyboard shortcuts page.
-13. `K`: start touch calibration.
-14. `R`: reset stored calibration values.
-15. `Y`: save calibration after 9-point capture.
-16. `U`: retry calibration after 9-point capture.
-17. `C`: toggle touch debug.
+1. All command shortcuts now require `Alt`.
+2. `Alt+H/L/W/C/R/S/T`: `Home/Lights/Weather/Climate/Reader/Settings/Theme`.
+3. `Alt+Q/E`: previous/next page.
+4. `Alt+K`: open shortcuts page.
+5. `Alt+D/F`: previous/next selected light.
+6. `Alt+G`: toggle selected light.
+7. `Alt+Z/X`: dim/brighten selected light.
+8. `Alt+P`: cycle light preset.
+9. `Alt+B/N/M`: keyboard backlight toggle/down/up.
+10. `Alt+Y`: start touch calibration.
+11. `Alt+V`: reset stored calibration values.
+12. `Alt+J`: save calibration after 9-point capture.
+13. `Alt+U`: retry calibration after 9-point capture.
+14. `Alt+O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
@@ -91,6 +88,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
 For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
+Theme page now includes keyboard backlight protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) for keyboard MCU compatibility testing.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 GPS serial baud is also substitution-driven:

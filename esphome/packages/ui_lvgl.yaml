@@ -71,13 +71,33 @@ script:
           uint8_t cmd_default[2] = {0x02, (uint8_t)defv};
           uint8_t cmd_live[2] = {0x01, (uint8_t)live};
 
-          // Retry sequence improves reliability on some keyboard MCU firmware revisions.
-          for (int i = 0; i < 3; i++) {
-            id(bus_a).write(0x55, cmd_default, 2);
-            delay(3);
-            id(bus_a).write(0x55, cmd_live, 2);
+          int profile = id(kb_backlight_profile);
+          if (profile < 0 || profile > 2) profile = 0;
+
+          // Profile 0: default -> live (current stable preference)
+          // Profile 1: live -> default (some keyboard MCU revisions react better)
+          // Profile 2: live-only pulse
+          for (int i = 0; i < 4; i++) {
+            if (profile == 1) {
+              id(bus_a).write(0x55, cmd_live, 2);
+              delay(3);
+              id(bus_a).write(0x55, cmd_default, 2);
+            } else if (profile == 2) {
+              id(bus_a).write(0x55, cmd_live, 2);
+            } else {
+              id(bus_a).write(0x55, cmd_default, 2);
+              delay(3);
+              id(bus_a).write(0x55, cmd_live, 2);
+            }
             delay(3);
           }
+
+  - id: kb_backlight_profile_next
+    then:
+      - lambda: |-
+          id(kb_backlight_profile) = (id(kb_backlight_profile) + 1) % 3;
+      - script.execute: kb_backlight_apply
+      - script.execute: lvgl_update_dynamic
 
   - id: kb_backlight_toggle
     then:
@@ -1109,7 +1129,7 @@ script:
       - lvgl.label.update:
           id: weather_gps_lbl
           text: !lambda |-
-            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Verify pin mapping and try 38400 baud.");
+            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Check RX ${gps_rx_pin}/TX ${gps_tx_pin}, then try gps_baud_rate 38400.");
             if (id(gps_satellites).state < 1.0f) return std::string("GPS: data alive, waiting for fix.");
             char buf[120];
             snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
@@ -1131,7 +1151,7 @@ script:
             std::string fan = id(sensi_climate_fan_mode).has_state() ? id(sensi_climate_fan_mode).state : std::string("-");
             float t = id(sensi_temperature).state == id(sensi_temperature).state ? id(sensi_temperature).state : 0.0f;
             float h = id(sensi_humidity).state == id(sensi_humidity).state ? id(sensi_humidity).state : 0.0f;
-            snprintf(buf, sizeof(buf), "Mode %s  Action %s  Fan %s  |  Temp %.1f  Hum %.0f%%",
+            snprintf(buf, sizeof(buf), "Mode %s  Action %s  Fan %s\nTemp %.1f  Hum %.0f%%",
                      mode.c_str(), action.c_str(), fan.c_str(), t, h);
             return std::string(buf);
       - lvgl.slider.update:
@@ -1249,11 +1269,15 @@ script:
             if (id(theme_index) == 2) name = "Ember";
             if (id(theme_index) == 3) name = "Moss";
             if (id(theme_index) == 4) name = "Mono";
-            char buf[160];
-            snprintf(buf, sizeof(buf), "Theme %s | Disp %d%% | KB %d%% | Debug %s",
+            const char *kbprof = "Normal";
+            if (id(kb_backlight_profile) == 1) kbprof = "Reverse";
+            if (id(kb_backlight_profile) == 2) kbprof = "LiveOnly";
+            char buf[180];
+            snprintf(buf, sizeof(buf), "Theme %s | Disp %d%% | KB %d%% | Profile %s | Debug %s",
                      name,
                      id(backlight_percent),
                      id(kb_backlight_percent),
+                     kbprof,
                      id(touch_debug) ? "ON" : "OFF");
             return std::string(buf);
       - lvgl.slider.update:
@@ -1266,15 +1290,15 @@ script:
           id: shortcuts_body_lbl
           text: !lambda |-
             return std::string(
-              "Alt+K or / : show this page\n"
-              "1..7 : Home/Lights/Weather/Climate/Reader/Settings/Theme\n"
-              "Q/E : prev/next page    H : Home\n"
-              "Tab D S : focus next    Esc A W : focus prev\n"
-              "T : light toggle        [ ] : select light\n"
-              "-/+ : dim/bright        P : preset cycle\n"
-              "B/N/M : keyboard light toggle/down/up\n"
-              "K : start calibration   R : reset calibration\n"
-              "Cal page: Y=Save, U=Retry after point 9\n"
+              "ALL SHORTCUTS REQUIRE ALT\n"
+              "Alt+H/L/W/C/R/S/T : Home/Lights/Weather/Climate/Reader/Settings/Theme\n"
+              "Alt+Q/E : prev/next page     Alt+K : this page\n"
+              "Alt+D/F : prev/next light    Alt+G : light toggle\n"
+              "Alt+Z/X : dim/bright         Alt+P : preset cycle\n"
+              "Alt+B/N/M : keyboard light toggle/down/up\n"
+              "Alt+Y : start calibration    Alt+V : reset calibration\n"
+              "Cal page: Alt+J Save, Alt+U Retry\n"
+              "Alt+O : touch debug toggle\n"
               "Trackball: move focus + click activate"
             );
       - lvgl.label.update:
@@ -1294,7 +1318,7 @@ script:
             if (id(touch_cal_review_pending)) return std::string("Review capture. Save or Retry.");
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
-              return std::string("Calibration saved. K rerun, R reset.");
+              return std::string("Calibration saved. Alt+Y rerun, Alt+V reset.");
             }
             return std::string("Press TouchCal button to start.");
       - lvgl.label.update:
@@ -1458,119 +1482,101 @@ lvgl:
       styles: [lv_style_screen]
       widgets:
         - label:
-            x: 12
-            y: 6
-            text: "\uF0E7 T-Deck Plus"
-        - button:
-            id: home_keys_btn
-            x: 252
-            y: 6
-            width: 60
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "\uF11C"
-                  align: CENTER
-        - label:
             id: home_status_lbl
             x: 12
-            y: 34
+            y: 8
             width: 296
             text: "Status"
         - button:
             id: home_lights_btn
             x: 12
-            y: 56
+            y: 34
             width: 144
-            height: 174
+            height: 196
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - lvgl.page.show: lights_page
             widgets:
               - label:
-                  text: "\uF0E7\nLights"
+                  text: "\uF0F3"
                   align: CENTER
         - button:
             id: home_weather_btn
             x: 162
-            y: 56
+            y: 34
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "\uF043\nWX"
+                  text: "\uF043"
                   align: CENTER
         - button:
             id: home_climate_btn
             x: 238
-            y: 56
+            y: 34
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: open_climate
             widgets:
               - label:
-                  text: "TEMP"
+                  text: "\uF021"
                   align: CENTER
         - button:
             id: home_reader_btn
             x: 162
-            y: 116
+            y: 100
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: reader_page
             widgets:
               - label:
-                  text: "\uF15B\nRD"
+                  text: "\uF158"
                   align: CENTER
         - button:
             id: home_settings_btn
             x: 238
-            y: 116
+            y: 100
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: settings_page
             widgets:
               - label:
-                  text: "\uF013\nSET"
+                  text: "\uF013"
                   align: CENTER
         - button:
             id: home_theme_btn
             x: 162
-            y: 176
+            y: 170
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: theme_page
             widgets:
               - label:
-                  text: "\uF03A\nTHE"
+                  text: "\uF03E"
                   align: CENTER
         - button:
             id: home_sleep_btn
             x: 238
-            y: 176
+            y: 170
             width: 70
-            height: 54
+            height: 60
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
@@ -1977,7 +1983,7 @@ lvgl:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "WX"
+                  text: "\uF043"
                   align: CENTER
         - button:
             x: 12
@@ -2036,17 +2042,18 @@ lvgl:
             x: 12
             y: 68
             width: 296
+            height: 32
             text: "mode/action/status"
         - label:
             id: climate_heat_lbl
             x: 12
-            y: 88
+            y: 102
             width: 146
             text: "Heat Set 68"
         - slider:
             id: climate_heat_slider
             x: 12
-            y: 104
+            y: 118
             width: 146
             min_value: 50
             max_value: 90
@@ -2059,13 +2066,13 @@ lvgl:
         - label:
             id: climate_cool_lbl
             x: 166
-            y: 88
+            y: 102
             width: 146
             text: "Cool Set 74"
         - slider:
             id: climate_cool_slider
             x: 166
-            y: 104
+            y: 118
             width: 146
             min_value: 50
             max_value: 95
@@ -2078,13 +2085,13 @@ lvgl:
         - label:
             id: climate_hum_offset_lbl
             x: 12
-            y: 130
+            y: 142
             width: 146
             text: "Hum Off 0"
         - slider:
             id: climate_hum_offset_slider
             x: 12
-            y: 146
+            y: 158
             width: 146
             min_value: -20
             max_value: 20
@@ -2097,13 +2104,13 @@ lvgl:
         - label:
             id: climate_temp_offset_lbl
             x: 166
-            y: 130
+            y: 142
             width: 146
             text: "Temp Off 0"
         - slider:
             id: climate_temp_offset_slider
             x: 166
-            y: 146
+            y: 158
             width: 146
             min_value: -10
             max_value: 10
@@ -2115,9 +2122,9 @@ lvgl:
                   val: !lambda "return (int)x;"
         - button:
             x: 12
-            y: 172
+            y: 184
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2128,68 +2135,68 @@ lvgl:
                   align: CENTER
         - button:
             x: 112
-            y: 172
+            y: 184
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_humidity
             widgets:
               - label:
-                  text: "Disp Hum"
+                  text: "Hum"
                   align: CENTER
         - button:
             x: 212
-            y: 172
+            y: 184
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_time
             widgets:
               - label:
-                  text: "Disp Time"
+                  text: "Time"
                   align: CENTER
         - button:
             x: 12
-            y: 206
+            y: 212
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_fan_support
             widgets:
               - label:
-                  text: "Fan Sup"
+                  text: "Fan"
                   align: CENTER
         - button:
             x: 112
-            y: 206
+            y: 212
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_humidification
             widgets:
               - label:
-                  text: "Humidify"
+                  text: "Humid"
                   align: CENTER
         - button:
             x: 212
-            y: 206
+            y: 212
             width: 96
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_keypad_lockout
             widgets:
               - label:
-                  text: "Lockout"
+                  text: "Lock"
                   align: CENTER
 
     - id: reader_page
@@ -2611,7 +2618,20 @@ lvgl:
         - button:
             x: 12
             y: 196
-            width: 296
+            width: 146
+            height: 32
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_profile_next
+            widgets:
+              - label:
+                  text: "KB Profile"
+                  align: CENTER
+        - button:
+            x: 162
+            y: 196
+            width: 146
             height: 32
             styles: [lv_style_btn_soft]
             group: nav_group

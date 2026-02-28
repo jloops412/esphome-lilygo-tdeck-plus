@@ -41,6 +41,20 @@
    - Replaced invalid `long_press_repeat_time: never` with `long_press_repeat_time: 65535ms` for ESPHome 2026.2.2 parser compatibility.
 7. Package refresh hotfix:
    - Added `refresh: 1min` to install package blocks to avoid stale cached Git packages during rapid iteration.
+8. Keyboard UX and layout alignment:
+   - Converted command shortcuts to `Alt+<key>` only in LVGL keyboard package.
+   - Removed punctuation-heavy shortcuts to better match compact keyboard layouts.
+   - Updated in-device shortcuts overlay text to the new ALT-only mapping.
+9. Home/icon pass:
+   - Removed home title and top shortcut button to free space.
+   - Switched launcher tiles to icon-only actions.
+   - Updated icon codepoints to LVGL-supported symbols (`lights/weather/reader/theme/temp` paths).
+10. Keyboard backlight diagnostics:
+    - Added persisted backlight protocol profile (`Normal`, `Reverse`, `LiveOnly`).
+    - Added Theme page action to cycle profile and apply immediately.
+11. Climate page polish:
+    - Improved spacing and compacted labels for dense control areas.
+    - Added icon-based weather jump on climate page top bar.
 
 ## Install entrypoints
 1. Stable install YAML:
@@ -228,6 +242,8 @@
    - climate page opens and Sensi actions fire correctly
    - weather metrics and GPS diagnostics still update
    - calibration persistence across reboot still holds
+   - ALT-only shortcuts work per overlay (`Alt+H/L/W/C/R/S/T`, `Alt+Q/E`, `Alt+K`, etc.)
+   - theme page `KB Profile` button cycles `Normal/Reverse/LiveOnly` and changes status text
 
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.

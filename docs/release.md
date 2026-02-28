@@ -30,6 +30,18 @@ Unreleased on `main` (candidate next tag):
 - theme pass: renamed/refined palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`).
 - ESPHome config compatibility fix: `long_press_repeat_time` now uses valid max duration (`65535ms`) instead of invalid `never`.
 - Package cache hotfix: install YAMLs now include `packages.refresh: 1min` to force timely Git package updates in HA.
+- Home/navigation UI pass:
+  - removed top title and keys button from home
+  - icon-only launcher actions
+  - switched to LVGL-supported icon codepoints for improved icon reliability
+- Keyboard shortcut redesign:
+  - all command shortcuts now require `Alt+<key>`
+  - removed dependency on punctuation shortcuts not guaranteed on compact keyboard layouts
+- Keyboard backlight diagnostics:
+  - added protocol profile cycling (`Normal`, `Reverse`, `LiveOnly`) in theme page
+  - profile is persisted and included in live status text
+- Climate page polish:
+  - improved spacing hierarchy and compact control labels
 
 Post-tag note:
 
