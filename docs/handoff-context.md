@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.6.2-lvgl-input-parity`
-3. Previous LVGL tag: `v0.6.1-lvgl-beta1-hotfix` (`463c855`)
-4. Previous LVGL beta tag: `v0.6.0-lvgl-beta1` (`f11fad2`)
+2. Latest LVGL tag: `v0.6.3-lvgl-calibration-overrides`
+3. Previous LVGL tag: `v0.6.2-lvgl-input-parity` (`9f3e99e`)
+4. Previous LVGL hotfix tag: `v0.6.1-lvgl-beta1-hotfix` (`463c855`)
 
 ## Install entrypoints
 1. Stable install YAML:
@@ -41,8 +41,17 @@
 4. Docs updated:
    - `README.md`, `docs/release.md`, `docs/migration.md`, `docs/lvgl-plan.md`, and this handoff file.
 
+## One-YAML calibration update in `v0.6.3-lvgl-calibration-overrides`
+1. `input_touch_gt911_lvgl.yaml` now reads calibration from substitutions:
+   - `touch_x_min`
+   - `touch_x_max`
+   - `touch_y_min`
+   - `touch_y_max`
+2. `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml` now exposes those substitutions at top level.
+3. Calibration values suggested by the on-device flow can be applied in one install YAML edit.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.6.2-lvgl-input-parity`.
+1. Flash LVGL install YAML pinned to `v0.6.3-lvgl-calibration-overrides`.
 2. Verify:
    - trackball focus movement and center click activation
    - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`)

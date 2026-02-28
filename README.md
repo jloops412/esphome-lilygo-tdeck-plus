@@ -49,5 +49,7 @@ Each install YAML pulls modular files from this repo by release tag.
 14. `C`: toggle touch debug.
 
 Touch calibration in LVGL mode now walks through a 4-point capture page and computes suggested `x_min/x_max/y_min/y_max` values.
+Apply them in one place by editing install YAML substitutions:
+`touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 
 See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), and [`docs/release.md`](docs/release.md) for conventions and release details.

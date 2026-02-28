@@ -11,6 +11,7 @@
 - `v0.6.0-lvgl-beta1`: parallel LVGL interface track and migration starter.
 - `v0.6.1-lvgl-beta1-hotfix`: LVGL compile fix for shared board template buttons.
 - `v0.6.2-lvgl-input-parity`: LVGL input parity pass for calibration, trackball navigation, and shortcut restore.
+- `v0.6.3-lvgl-calibration-overrides`: install-time touch calibration substitutions in one YAML.
 
 Post-tag note:
 
@@ -32,6 +33,12 @@ Post-tag note:
 3. Updated LVGL keypad mapping to `prev/next/up/down/enter` for 5-key trackball navigation.
 4. Restored keyboard shortcut parity keys (`Q/E`, `K/R/C`, `WASD` focus nav, plus existing light/backlight shortcuts).
 5. Added shared calibration globals for raw capture and suggested calibration values.
+
+`v0.6.3-lvgl-calibration-overrides` highlights:
+
+1. LVGL touch package now reads calibration from substitutions (`touch_x_min/x_max/y_min/y_max`).
+2. LVGL install YAML now exposes those substitutions directly.
+3. Calibration suggestions from the on-device flow can now be applied without editing package files.
 
 `v0.6.0-lvgl-beta1` highlights:
 

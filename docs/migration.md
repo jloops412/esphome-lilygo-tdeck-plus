@@ -32,6 +32,7 @@
 22. LVGL touch calibration now has a real 4-point capture workflow and reports suggested `x_min/x_max/y_min/y_max`.
 23. LVGL keypad mapping now uses `prev/next/up/down/enter` for trackball navigation parity.
 24. LVGL keyboard profile restored parity shortcuts (`Q/E`, `K/R/C`, and `WASD`/`Tab`/`Esc` focus navigation).
+25. LVGL touch calibration values are now install-YAML substitutions (`touch_x_min/x_max/y_min/y_max`) so updates stay one-file.
 
 ## Migration steps for existing HA node
 

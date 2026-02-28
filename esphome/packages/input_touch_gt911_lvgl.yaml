@@ -6,10 +6,10 @@ touchscreen:
     update_interval: 30ms
     touch_timeout: 50ms
     calibration:
-      x_min: 0
-      x_max: 238
-      y_min: 16
-      y_max: 260
+      x_min: ${touch_x_min}
+      x_max: ${touch_x_max}
+      y_min: ${touch_y_min}
+      y_max: ${touch_y_max}
     transform:
       swap_xy: true
       mirror_x: false
