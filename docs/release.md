@@ -27,6 +27,7 @@ Unreleased on `main` (candidate next tag):
 - screensaver reliability: added activity debounce guard and direct timeout slider in settings.
 - trackball stability: stronger debounce/filtering plus keypad repeat constraint.
 - theme pass: renamed/refined palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`).
+- ESPHome config compatibility fix: `long_press_repeat_time` now uses valid max duration (`65535ms`) instead of invalid `never`.
 
 Post-tag note:
 

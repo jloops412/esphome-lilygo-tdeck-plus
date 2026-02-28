@@ -89,6 +89,7 @@ Sliders now snap to practical increments for easier one-handed adjustment:
 - color temperature: 100K
 Trackball GPIO inputs in LVGL mode now include debounce filters to reduce runaway focus movement.
 LVGL keypad repeat is constrained to prevent continuous focus drift when a direction input bounces.
+For ESPHome parser compatibility, this is configured using `long_press_repeat_time: 65535ms`.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 GPS serial baud is also substitution-driven:

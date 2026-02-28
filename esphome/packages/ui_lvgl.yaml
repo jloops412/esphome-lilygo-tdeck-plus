@@ -1390,7 +1390,7 @@ lvgl:
       down: tb_down
       enter: tb_click
       long_press_time: 300ms
-      long_press_repeat_time: never
+      long_press_repeat_time: 65535ms
 
   on_boot:
     then:

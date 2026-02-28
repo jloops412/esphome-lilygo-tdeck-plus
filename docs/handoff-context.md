@@ -37,6 +37,8 @@
    - Theme page naming refresh (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`) and palette tuning.
 5. Icon compatibility:
    - Replaced previously failing icon codepoints with safer LVGL-compatible icon codes.
+6. Compile compatibility hotfix:
+   - Replaced invalid `long_press_repeat_time: never` with `long_press_repeat_time: 65535ms` for ESPHome 2026.2.2 parser compatibility.
 
 ## Install entrypoints
 1. Stable install YAML:
