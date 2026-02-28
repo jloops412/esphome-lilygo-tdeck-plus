@@ -16,7 +16,6 @@ esphome:
         - delay: 100ms
         - lambda: |-
             id(last_activity_ms) = esphome::millis();
-        - script.execute: kb_backlight_apply
         - component.update: tft
 
 esp32:

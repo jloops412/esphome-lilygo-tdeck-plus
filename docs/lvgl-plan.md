@@ -12,7 +12,7 @@ Migrate the UI layer from manual display lambda rendering to LVGL while preservi
 ## Phase 1: Parallel LVGL Baseline
 1. Create LVGL display package with the same proven `mipi_spi` + init sequence.
 2. Add LVGL pages for `Home`, `Lights`, `Weather`, `Reader`, `Settings`, and `Theme`.
-3. Keep wake/sleep, keyboard backlight, and light-control scripts functional.
+3. Keep wake/sleep and light-control scripts functional; keyboard-backlight firmware control stays optional/deferred.
 4. Preserve trackball/touch/keyboard input paths with LVGL navigation bindings.
 
 ## Phase 2: UX Hardening
@@ -48,7 +48,7 @@ LVGL testing target:
 4. Input parity pass added:
    - working LVGL touch calibration assistant (now upgraded to 9-point capture)
    - LVGL keypad `prev/next/up/down/enter` trackball mapping
-   - restored keyboard shortcut set for navigation/calibration/debug/backlight/light control
+   - restored keyboard shortcut set for navigation/calibration/debug/light control
 5. Install YAML now exposes touch calibration substitutions (`touch_x_min/x_max/y_min/y_max`) for one-file updates.
 6. Calibration flow now upgraded to full-screen 9-point capture and applies calibration live with persisted reuse on boot.
 7. UI pass updated lights flow to direct light selection + contextual control panel.
@@ -61,13 +61,16 @@ LVGL testing target:
 11. Added calibration review UX:
    - end-of-9-point now requires explicit `Save` or `Retry` confirmation.
 12. Added richer LVGL controls:
-   - lights brightness + kelvin sliders
-   - theme page display/keyboard backlight sliders
+   - lights brightness + kelvin controls (current pass uses LVGL arcs + switch + roller)
+   - theme page display controls and style-shape tuning
 13. Added GPS diagnostics:
    - `gps_baud_rate` substitution
    - `GPS Data Alive`, data age, and status entities
 14. Compile compatibility hotfix:
    - removed unsupported `update_interval` from template GPS binary sensor.
-15. Next validation:
+15. Keyboard-backlight scope update:
+   - LVGL firmware keyboard-backlight controls and shortcuts were intentionally removed.
+   - manual keyboard-side `Alt+B` remains the active user path for now.
+16. Next validation:
    - confirm config parse is clean in HA with GPS diagnostics enabled
    - then continue runtime GPS diagnostics/fix testing

@@ -11,7 +11,7 @@
 1. Monolithic config split into domain packages under `esphome/packages/`.
 2. Install flow now supports one YAML that fetches package files from GitHub tag.
 3. GPS package added.
-4. Keyboard wake flow now re-applies keyboard backlight script.
+4. Keyboard-backlight firmware control is currently deferred in LVGL path (manual hardware `Alt+B` remains the active method).
 5. `millis()` ambiguity fixed by using `esphome::millis()` in lambdas.
 6. Feed page no longer routes to settings from the 6th feed tile.
 7. UI pass 1 adds a redesigned weather dashboard and compact feed previews.
@@ -21,7 +21,7 @@
 11. Settings page now includes wake-on-trackball toggle directly in UI.
 12. Weather value formatting now handles invalid values more gracefully.
 13. Unused gust/dew weather imports were removed to reduce `unknown` parse warnings.
-14. Keyboard shortcuts now include direct page jumps (`1`..`6`) and controller actions (`[`, `]`, `-`, `+`, `T`).
+14. Keyboard shortcuts are ALT-only command chords aligned to the compact T-Deck keyboard (`Alt+H/L/A/W/C/R/S/T`, etc.).
 15. Ground-up UI pass replaces always-visible tabs with a cleaner Home launcher and subpages.
 16. New Theme page supports multi-palette switching (`Graphite`, `Ocean`, `Amber`) on-device.
 17. Lights page is now a dedicated control surface with preset cycling in-page.

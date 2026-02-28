@@ -183,22 +183,6 @@ interval:
 
             - if:
                 condition:
-                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B');"
-                then:
-                  - script.execute: kb_backlight_toggle
-            - if:
-                condition:
-                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N');"
-                then:
-                  - script.execute: kb_backlight_down
-            - if:
-                condition:
-                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M');"
-                then:
-                  - script.execute: kb_backlight_up
-
-            - if:
-                condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'y' || id(kb_last_raw) == 'Y');"
                 then:
                   - script.execute: start_touch_calibration

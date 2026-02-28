@@ -420,27 +420,23 @@ display:
         draw_tile(x3, y2, w, h, "Quote+",  id(focus_index) == 5, p4.c_str());
       } else if (id(page_index) == 4) {
         char saver_buf[20];
-        char kb_buf[20];
         snprintf(saver_buf, sizeof(saver_buf), "%ds", id(screensaver_timeout_s));
-        snprintf(kb_buf, sizeof(kb_buf), "%d%%", id(kb_backlight_percent));
         draw_tile(x1, y1, w, h, "Saver-",    id(focus_index) == 0, saver_buf);
         draw_tile(x2, y1, w, h, "Saver+",    id(focus_index) == 1, saver_buf);
         draw_tile(x3, y1, w, h, "WakeTouch", id(focus_index) == 2, id(wake_on_touch) ? "ON" : "OFF");
         draw_tile(x1, y2, w, h, "WakeKeys",  id(focus_index) == 3, id(wake_on_keyboard) ? "ON" : "OFF");
         draw_tile(x2, y2, w, h, "WakeBall",  id(focus_index) == 4, id(wake_on_trackball) ? "ON" : "OFF");
-        draw_tile(x3, y2, w, h, "KB Light",  id(focus_index) == 5, kb_buf);
+        draw_tile(x3, y2, w, h, "Debug",     id(focus_index) == 5, id(touch_debug) ? "ON" : "OFF");
       } else {
         char bl_buf[20];
-        char kb_buf[20];
         snprintf(bl_buf, sizeof(bl_buf), "%d%%", id(backlight_percent));
-        snprintf(kb_buf, sizeof(kb_buf), "%d%%", id(kb_backlight_percent));
         draw_tile(x1, y1, w, h, "Theme-",   id(focus_index) == 0, theme_name());
         draw_tile(x2, y1, w, h, "Theme+",   id(focus_index) == 1, theme_name());
         draw_tile(x3, y1, w, h, "Disp-",    id(focus_index) == 2, bl_buf);
         draw_tile(x1, y2, w, h, "Disp+",    id(focus_index) == 3, bl_buf);
         draw_tile(x2, y2, w, h, "TouchCal", id(focus_index) == 4, "start");
         draw_tile(x3, y2, w, h, "Debug",    id(focus_index) == 5, id(touch_debug) ? "ON" : "OFF");
-        it.printf(160, 208, id(font_micro), c_text_dim(), TextAlign::TOP_CENTER, "KB light %s", kb_buf);
+        it.printf(160, 208, id(font_micro), c_text_dim(), TextAlign::TOP_CENTER, "Theme + display controls");
       }
 
       it.rectangle(0, 223, 320, 1, c_border());

@@ -234,15 +234,6 @@ sensor:
     update_interval: 1s
 
   - platform: template
-    name: "${friendly_name} Keyboard Backlight Percent"
-    id: kb_backlight_percent_sensor
-    unit_of_measurement: "%"
-    accuracy_decimals: 0
-    lambda: |-
-      return id(kb_backlight_percent);
-    update_interval: 1s
-
-  - platform: template
     name: "${friendly_name} Screensaver Timeout"
     id: screensaver_timeout_sensor
     unit_of_measurement: "s"

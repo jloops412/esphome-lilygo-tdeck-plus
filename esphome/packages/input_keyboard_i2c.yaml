@@ -11,14 +11,6 @@ interval:
             }
           }
 
-  - interval: 15s
-    then:
-      - if:
-          condition:
-            lambda: "return id(kb_backlight_percent) > 0;"
-          then:
-            - script.execute: kb_backlight_apply
-
   - interval: 35ms
     then:
       - lambda: |-
@@ -35,7 +27,6 @@ interval:
               auto call = id(tft_backlight).turn_on();
               call.set_brightness(id(backlight_percent) / 100.0f);
               call.perform();
-              id(kb_backlight_apply).execute();
             }
           }
 
@@ -113,21 +104,6 @@ interval:
                   lambda: "return id(kb_last_raw) == 'c' || id(kb_last_raw) == 'C';"
                 then:
                   - script.execute: toggle_touch_debug
-            - if:
-                condition:
-                  lambda: "return id(kb_last_raw) == 'b' || id(kb_last_raw) == 'B';"
-                then:
-                  - script.execute: kb_backlight_toggle
-            - if:
-                condition:
-                  lambda: "return id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N';"
-                then:
-                  - script.execute: kb_backlight_down
-            - if:
-                condition:
-                  lambda: "return id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M';"
-                then:
-                  - script.execute: kb_backlight_up
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == '[';"

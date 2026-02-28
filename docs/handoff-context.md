@@ -12,6 +12,25 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
+## Current in-progress pass (post `v0.15.1`, not tagged yet)
+1. Keyboard backlight controls removed from active firmware package paths:
+   - Removed LVGL keyboard-backlight scripts, sliders, and UI controls.
+   - Removed ALT keyboard backlight shortcuts (`Alt+B/N/M`) from LVGL keyboard package.
+   - Removed legacy manual-render package references so non-LVGL installs stay compile-safe with shared globals.
+   - Kept manual physical keyboard `Alt+B` behavior as the temporary method.
+2. Lights UX focused rebuild with richer LVGL controls:
+   - Added selected-light `Power` switch plus direct `Toggle`.
+   - Migrated brightness and color-temp from sliders to LVGL arcs.
+   - Added `Color Studio` UX based on LVGL roller + `Apply Color`.
+   - Simplified bottom quick actions for one-handed use (`Palette`, `Rlx`, `Fcs`).
+3. Climate page control placement updated:
+   - HVAC mode buttons (`Off/Heat/Cool/Auto`) are now anchored at the page bottom.
+   - Heat/cool quick adjust buttons enlarged for better touch use.
+4. Dynamic update cleanup:
+   - Removed stale widget/script references that were causing compile-time ID errors after LVGL page refactors.
+5. GPS status path remains unchanged in this pass:
+   - UART/GPS package still uses `RX=44`, `TX=43`, `baud=${gps_baud_rate}` and age-based “data alive” checks.
+
 ## Current pass summary (tagged `v0.15.1-lvgl-lighting-gps-kb-controls`)
 1. Icon and theme reliability:
    - Standardized MDI package icons to `GRAYSCALE` + `alpha_channel`.

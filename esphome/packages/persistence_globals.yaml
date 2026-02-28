@@ -54,6 +54,11 @@ globals:
     restore_value: yes
     initial_value: "4000"
 
+  - id: light_color_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
   - id: kb_last_raw
     type: uint8_t
     restore_value: no
@@ -83,21 +88,6 @@ globals:
     type: int
     restore_value: yes
     initial_value: "80"
-
-  - id: kb_backlight_percent
-    type: int
-    restore_value: yes
-    initial_value: "70"
-
-  - id: kb_backlight_last_nonzero
-    type: int
-    restore_value: yes
-    initial_value: "70"
-
-  - id: kb_backlight_profile
-    type: int
-    restore_value: yes
-    initial_value: "0"
 
   - id: touch_x_last
     type: int

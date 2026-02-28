@@ -20,7 +20,6 @@ script:
       - light.turn_on:
           id: tft_backlight
           brightness: !lambda "return id(backlight_percent) / 100.0f;"
-      - script.execute: kb_backlight_apply
       - script.execute: redraw
 
   - id: sleep_display
@@ -28,55 +27,6 @@ script:
       - lambda: |-
           id(screensaver_active) = true;
       - light.turn_off: tft_backlight
-      - script.execute: redraw
-
-  - id: kb_backlight_apply
-    then:
-      - lambda: |-
-          int pct = id(kb_backlight_percent);
-          if (pct < 0) pct = 0;
-          if (pct > 100) pct = 100;
-
-          int live = (pct * 255) / 100;
-          int defv = live;
-          if (pct > 0 && defv < 30) defv = 30;
-
-          uint8_t cmd_default[2] = {0x02, (uint8_t)(pct > 0 ? defv : 30)};
-          uint8_t cmd_live[2] = {0x01, (uint8_t)live};
-
-          id(bus_a).write(0x55, cmd_default, 2);
-          delay(5);
-          id(bus_a).write(0x55, cmd_live, 2);
-
-  - id: kb_backlight_toggle
-    then:
-      - lambda: |-
-          if (id(kb_backlight_percent) > 0) {
-            id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
-            id(kb_backlight_percent) = 0;
-          } else {
-            if (id(kb_backlight_last_nonzero) <= 0) id(kb_backlight_last_nonzero) = 70;
-            id(kb_backlight_percent) = id(kb_backlight_last_nonzero);
-          }
-      - script.execute: kb_backlight_apply
-      - script.execute: redraw
-
-  - id: kb_backlight_down
-    then:
-      - lambda: |-
-          id(kb_backlight_percent) -= 20;
-          if (id(kb_backlight_percent) < 0) id(kb_backlight_percent) = 0;
-          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
-      - script.execute: kb_backlight_apply
-      - script.execute: redraw
-
-  - id: kb_backlight_up
-    then:
-      - lambda: |-
-          id(kb_backlight_percent) += 20;
-          if (id(kb_backlight_percent) > 100) id(kb_backlight_percent) = 100;
-          if (id(kb_backlight_percent) > 0) id(kb_backlight_last_nonzero) = id(kb_backlight_percent);
-      - script.execute: kb_backlight_apply
       - script.execute: redraw
 
   - id: display_backlight_down
@@ -836,7 +786,7 @@ script:
           condition:
             lambda: "return !id(detail_mode) && !id(touch_cal_mode) && id(page_index) == 4 && id(focus_index) == 5;"
           then:
-            - script.execute: kb_backlight_toggle
+            - script.execute: toggle_touch_debug
 
       - if:
           condition:

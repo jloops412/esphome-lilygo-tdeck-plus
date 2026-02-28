@@ -1,6 +1,9 @@
 substitutions:
   name: lilygo-tdeck-plus
   friendly_name: "LilyGO T-Deck Plus"
+  # Keyboard backlight note:
+  # Firmware control is currently disabled in LVGL path.
+  # Use keyboard hardware Alt+B toggle directly for now.
   gps_rx_pin: "44"
   gps_tx_pin: "43"
   gps_baud_rate: "9600"
