@@ -2,6 +2,18 @@ interval:
   - interval: 35ms
     then:
       - lambda: |-
+          if (id(kb_alt_pending)) {
+            uint32_t now = esphome::millis();
+            if ((now - id(kb_alt_pending_ms)) > 260) {
+              id(kb_alt_pending) = false;
+              id(kb_last_raw) = 0x1B;
+              id(kb_last_code).publish_state(0x1B);
+              id(kb_last_text).publish_state("ESC");
+              id(kb_last_text_buf) = "ESC";
+              return;
+            }
+          }
+
           uint8_t key = 0;
           auto err = id(bus_a).read(0x55, &key, 1);
           if (err != esphome::i2c::ERROR_OK || key == 0x00) {
@@ -15,33 +27,51 @@ interval:
             }
           }
 
-          id(kb_last_raw) = key;
-          id(kb_last_code).publish_state(key);
+          uint8_t out_key = key;
+          if (key == 0x1B) {
+            id(kb_alt_pending) = true;
+            id(kb_alt_pending_ms) = esphome::millis();
+            out_key = 0;
+          } else if (id(kb_alt_pending)) {
+            id(kb_alt_pending) = false;
+            if (key == 'k' || key == 'K') {
+              out_key = 0xF1;
+            }
+          }
 
-          if (key == 0x0D) {
+          id(kb_last_raw) = out_key;
+          id(kb_last_code).publish_state(out_key);
+          if (out_key == 0x00) {
+            return;
+          }
+
+          if (out_key == 0xF1) {
+            id(kb_last_text).publish_state("ALT+K");
+            id(kb_last_text_buf) = "ALT+K";
+          } else if (out_key == 0x0D) {
             id(kb_last_text).publish_state("ENTER");
             id(kb_last_text_buf) = "ENTER";
-          } else if (key == 0x08) {
+          } else if (out_key == 0x08) {
             id(kb_last_text).publish_state("BACKSPACE");
             id(kb_last_text_buf) = "BKSP";
-          } else if (key == 0x09) {
+          } else if (out_key == 0x09) {
             id(kb_last_text).publish_state("TAB");
             id(kb_last_text_buf) = "TAB";
-          } else if (key == 0x1B) {
+          } else if (out_key == 0x1B) {
             id(kb_last_text).publish_state("ESC");
             id(kb_last_text_buf) = "ESC";
-          } else if (key == 0x20) {
+          } else if (out_key == 0x20) {
             id(kb_last_text).publish_state("SPACE");
             id(kb_last_text_buf) = "SPACE";
-          } else if (key >= 32 && key <= 126) {
+          } else if (out_key >= 32 && out_key <= 126) {
             char s[2];
-            s[0] = static_cast<char>(key);
+            s[0] = static_cast<char>(out_key);
             s[1] = '\0';
             id(kb_last_text).publish_state(s);
             id(kb_last_text_buf) = std::string(s);
           } else {
             char buf[8];
-            snprintf(buf, sizeof(buf), "0x%02X", key);
+            snprintf(buf, sizeof(buf), "0x%02X", out_key);
             id(kb_last_text).publish_state(buf);
             id(kb_last_text_buf) = std::string(buf);
           }
@@ -80,6 +110,11 @@ interval:
                   lambda: "return id(kb_last_raw) == '6';"
                 then:
                   - lvgl.page.show: theme_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 0xF1 || id(kb_last_raw) == '/' || id(kb_last_raw) == '?';"
+                then:
+                  - script.execute: open_shortcuts
             - if:
                 condition:
                   lambda: "return id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q';"

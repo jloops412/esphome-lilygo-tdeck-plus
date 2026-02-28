@@ -81,32 +81,52 @@ touchscreen:
                   }
 
                   if (id(touch_cal_step) >= 8) {
-                    int lx = (id(cal9_raw_tl_x) + id(cal9_raw_ml_x) + id(cal9_raw_bl_x)) / 3;
-                    int rx = (id(cal9_raw_tr_x) + id(cal9_raw_mr_x) + id(cal9_raw_br_x)) / 3;
-                    int ty = (id(cal9_raw_tl_y) + id(cal9_raw_tc_y) + id(cal9_raw_tr_y)) / 3;
-                    int by = (id(cal9_raw_bl_y) + id(cal9_raw_bc_y) + id(cal9_raw_br_y)) / 3;
+                    const double tx[9] = {20, 160, 300, 20, 160, 300, 20, 160, 300};
+                    const double ty[9] = {36, 36, 36, 110, 110, 110, 184, 184, 184};
+                    const double rx[9] = {
+                      (double) id(cal9_raw_tl_x), (double) id(cal9_raw_tc_x), (double) id(cal9_raw_tr_x),
+                      (double) id(cal9_raw_ml_x), (double) id(cal9_raw_mc_x), (double) id(cal9_raw_mr_x),
+                      (double) id(cal9_raw_bl_x), (double) id(cal9_raw_bc_x), (double) id(cal9_raw_br_x)
+                    };
+                    const double ry[9] = {
+                      (double) id(cal9_raw_tl_y), (double) id(cal9_raw_tc_y), (double) id(cal9_raw_tr_y),
+                      (double) id(cal9_raw_ml_y), (double) id(cal9_raw_mc_y), (double) id(cal9_raw_mr_y),
+                      (double) id(cal9_raw_bl_y), (double) id(cal9_raw_bc_y), (double) id(cal9_raw_br_y)
+                    };
 
-                    // Calibration targets are drawn slightly inside the edges.
-                    const int x_left_target = 20;
-                    const int x_right_target = 300;
-                    const int y_top_target = 36;
-                    const int y_bottom_target = 184;
+                    const double n = 9.0;
+                    double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
+                    double tx_sum = 0.0, ty_sum = 0.0, tyy = 0.0, tyy_raw = 0.0;
+                    for (int i = 0; i < 9; i++) {
+                      sx += tx[i];
+                      sy += rx[i];
+                      sxx += tx[i] * tx[i];
+                      sxy += tx[i] * rx[i];
 
-                    int x_min = lx;
-                    int x_max = rx;
-                    int y_min = ty;
-                    int y_max = by;
-
-                    if (rx != lx) {
-                      int32_t dx = (int32_t) (rx - lx);
-                      x_min = (int) (lx - ((int32_t) x_left_target * dx) / (x_right_target - x_left_target));
-                      x_max = (int) (lx + ((int32_t) (319 - x_left_target) * dx) / (x_right_target - x_left_target));
+                      tx_sum += ty[i];
+                      ty_sum += ry[i];
+                      tyy += ty[i] * ty[i];
+                      tyy_raw += ty[i] * ry[i];
                     }
-                    if (by != ty) {
-                      int32_t dy = (int32_t) (by - ty);
-                      y_min = (int) (ty - ((int32_t) y_top_target * dy) / (y_bottom_target - y_top_target));
-                      y_max = (int) (ty + ((int32_t) (239 - y_top_target) * dy) / (y_bottom_target - y_top_target));
+
+                    double den_x = n * sxx - sx * sx;
+                    double den_y = n * tyy - tx_sum * tx_sum;
+                    if ((den_x > -0.001 && den_x < 0.001) || (den_y > -0.001 && den_y < 0.001)) {
+                      ESP_LOGW("touch_cal", "Rejected calibration: degenerate regression");
+                      id(touch_cal_mode) = false;
+                      id(touch_cal_step) = 0;
+                      return;
                     }
+
+                    double bx = (n * sxy - sx * sy) / den_x;
+                    double ax = (sy - bx * sx) / n;
+                    double by = (n * tyy_raw - tx_sum * ty_sum) / den_y;
+                    double ay = (ty_sum - by * tx_sum) / n;
+
+                    int x_min = (int) (ax + (ax >= 0.0 ? 0.5 : -0.5));
+                    int x_max = (int) ((ax + bx * 319.0) + ((ax + bx * 319.0) >= 0.0 ? 0.5 : -0.5));
+                    int y_min = (int) (ay + (ay >= 0.0 ? 0.5 : -0.5));
+                    int y_max = (int) ((ay + by * 239.0) + ((ay + by * 239.0) >= 0.0 ? 0.5 : -0.5));
 
                     if (x_min > x_max) {
                       int t = x_min;
@@ -137,7 +157,7 @@ touchscreen:
                         id(touch_cal_suggest_y_min),
                         id(touch_cal_suggest_y_max)
                       );
-                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d",
+                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d (regression)",
                                id(touch_cal_suggest_x_min),
                                id(touch_cal_suggest_x_max),
                                id(touch_cal_suggest_y_min),

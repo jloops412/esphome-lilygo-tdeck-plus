@@ -29,6 +29,16 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: kb_alt_pending
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: kb_alt_pending_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
   - id: kb_last_text_buf
     type: std::string
     restore_value: no

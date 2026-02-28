@@ -13,6 +13,7 @@
 - `v0.6.2-lvgl-input-parity`: LVGL input parity pass for calibration, trackball navigation, and shortcut restore.
 - `v0.6.3-lvgl-calibration-overrides`: install-time touch calibration substitutions in one YAML.
 - `v0.7.0-lvgl-cal9-controller-ui`: persistent live 9-point calibration + controller-first lights UI redesign.
+- `v0.7.1-lvgl-modern-ui-shortcuts`: calibration regression fit, modernized home styling, and shortcuts overlay with Alt+K support.
 
 Post-tag note:
 
@@ -48,6 +49,15 @@ Post-tag note:
 3. Calibration values now remain active across reboot without rerunning the wizard.
 4. Redesigned lights page into direct target selection + contextual controls.
 5. Weather page now includes clearer hierarchy (`temp`, `condition`, `feels like`, compact metric rows).
+
+`v0.7.1-lvgl-modern-ui-shortcuts` highlights:
+
+1. Improved 9-point calibration calculation using linear regression across all calibration targets.
+2. Preserved last known good calibration while calibration wizard is in progress.
+3. Added persisted calibration re-apply on boot and robust reset-to-default flow.
+4. Added in-device shortcuts page with Home entry and keyboard access (`Alt+K` and `/`).
+5. Added Alt-key chord handling (`Esc` prefix + key) to support `Alt+K` popup behavior.
+6. Refined LVGL styles and home/lights presentation for a less primitive, more controller-focused feel.
 
 `v0.6.0-lvgl-beta1` highlights:
 

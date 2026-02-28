@@ -400,17 +400,32 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x060607
-                text_color: 0xF2F2F2
+                bg_color: 0x05070A
+                text_color: 0xF2F6FF
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x101218
-                border_color: 0x2A2D36
+                bg_color: 0x0F1624
+                border_color: 0x283A56
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x182030
-                border_color: 0x2A5FB2
-                text_color: 0xF2F2F2
+                bg_color: 0x17253B
+                border_color: 0x2F6FD8
+                text_color: 0xF2F6FF
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x131A28
+                border_color: 0x36435D
+                text_color: 0xDCE7FF
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x3C1E1E
+                border_color: 0xB84747
+                text_color: 0xFFE7E7
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x173022
+                border_color: 0x39A466
+                text_color: 0xE8FFF2
       - if:
           condition:
             lambda: "return id(theme_index) == 1;"
@@ -428,6 +443,21 @@ script:
                 bg_color: 0x14304A
                 border_color: 0x2C84C7
                 text_color: 0xEAF4FF
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x113045
+                border_color: 0x2F5D86
+                text_color: 0xEAF4FF
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x3A231A
+                border_color: 0xD0673B
+                text_color: 0xFFEBDC
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x103A34
+                border_color: 0x1A9F9F
+                text_color: 0xE8FFFF
       - if:
           condition:
             lambda: "return id(theme_index) == 2;"
@@ -445,6 +475,21 @@ script:
                 bg_color: 0x3A2517
                 border_color: 0xC4822F
                 text_color: 0xFFF1E4
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x332012
+                border_color: 0x94653B
+                text_color: 0xFFF1E4
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x4D1818
+                border_color: 0xD15757
+                text_color: 0xFFE7E7
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x304018
+                border_color: 0x7FAE32
+                text_color: 0xF4FFE2
       - script.execute: lvgl_update_dynamic
 
   - id: open_detail_bbc
@@ -481,6 +526,11 @@ script:
           id(detail_source) = 4;
       - script.execute: refresh_detail_page
       - lvgl.page.show: detail_page
+
+  - id: open_shortcuts
+    then:
+      - lvgl.page.show: shortcuts_page
+      - script.execute: lvgl_update_dynamic
 
   - id: refresh_detail_page
     then:
@@ -519,12 +569,12 @@ script:
       - lvgl.label.update:
           id: home_status_lbl
           text: !lambda |-
-            char buf[96];
+            char buf[128];
             float sats = id(gps_satellites).state;
             if (sats > 0.0f) {
-              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat", id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
+              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat  |  Alt+K keys", id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
             } else {
-              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching", id(battery_percent).state, id(wifi_signal_tdeck).state);
+              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching  |  Alt+K keys", id(battery_percent).state, id(wifi_signal_tdeck).state);
             }
             return std::string(buf);
       - lvgl.label.update:
@@ -644,6 +694,21 @@ script:
                      id(backlight_percent),
                      id(touch_debug) ? "ON" : "OFF");
             return std::string(buf);
+      - lvgl.label.update:
+          id: shortcuts_body_lbl
+          text: !lambda |-
+            return std::string(
+              "Alt+K or / : this shortcuts page\n"
+              "1..6 : Home/Lights/Weather/Reader/Settings/Theme\n"
+              "Q/E : previous/next page\n"
+              "Tab or D/S : focus next\n"
+              "Esc or A/W : focus previous\n"
+              "[ ] : select light  -/+ : dim/bright\n"
+              "T : toggle light    P : preset cycle\n"
+              "B/N/M : keyboard light toggle/down/up\n"
+              "K : start calibration   R : reset calibration\n"
+              "C : toggle touch debug"
+            );
       - lvgl.label.update:
           id: touch_cal_step_lbl
           text: !lambda |-
@@ -768,23 +833,47 @@ lvgl:
   style_definitions:
     - id: lv_style_screen
       bg_opa: cover
-      bg_color: 0x060607
-      text_color: 0xF2F2F2
+      bg_color: 0x05070A
+      text_color: 0xF2F6FF
     - id: lv_style_card
       bg_opa: cover
-      bg_color: 0x101218
+      bg_color: 0x0F1624
       border_width: 2
-      border_color: 0x2A2D36
-      radius: 8
+      border_color: 0x283A56
+      radius: 10
       pad_all: 6
-      text_color: 0xF2F2F2
+      text_color: 0xF2F6FF
     - id: lv_style_btn
       bg_opa: cover
-      bg_color: 0x182030
+      bg_color: 0x17253B
       border_width: 2
-      border_color: 0x2A5FB2
-      radius: 8
-      text_color: 0xF2F2F2
+      border_color: 0x2F6FD8
+      radius: 10
+      text_color: 0xF2F6FF
+      pad_all: 4
+    - id: lv_style_btn_soft
+      bg_opa: cover
+      bg_color: 0x131A28
+      border_width: 2
+      border_color: 0x36435D
+      radius: 10
+      text_color: 0xDCE7FF
+      pad_all: 4
+    - id: lv_style_btn_warn
+      bg_opa: cover
+      bg_color: 0x3C1E1E
+      border_width: 2
+      border_color: 0xB84747
+      radius: 10
+      text_color: 0xFFE7E7
+      pad_all: 4
+    - id: lv_style_btn_ok
+      bg_opa: cover
+      bg_color: 0x173022
+      border_width: 2
+      border_color: 0x39A466
+      radius: 10
+      text_color: 0xE8FFF2
       pad_all: 4
 
   pages:
@@ -794,42 +883,62 @@ lvgl:
         - label:
             x: 12
             y: 8
-            text: "Controller"
+            text: "T-Deck Controller"
+        - button:
+            id: home_keys_btn
+            x: 258
+            y: 6
+            width: 54
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Keys"
+                  align: CENTER
+        - label:
+            id: home_status_lbl
+            x: 12
+            y: 40
+            width: 296
+            text: "Status"
         - button:
             id: home_lights_btn
             x: 12
-            y: 42
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            y: 72
+            width: 146
+            height: 56
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - lvgl.page.show: lights_page
             widgets:
               - label:
-                  text: "Lights"
+                  text: "Lights Control"
                   align: CENTER
         - button:
             id: home_weather_btn
-            x: 113
-            y: 42
-            width: 94
-            height: 70
+            x: 162
+            y: 72
+            width: 146
+            height: 56
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "Weather"
+                  text: "Weather Board"
                   align: CENTER
         - button:
             id: home_reader_btn
-            x: 214
-            y: 42
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 12
+            y: 136
+            width: 96
+            height: 56
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: reader_page
@@ -839,11 +948,11 @@ lvgl:
                   align: CENTER
         - button:
             id: home_settings_btn
-            x: 12
-            y: 126
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 112
+            y: 136
+            width: 96
+            height: 56
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: settings_page
@@ -853,11 +962,11 @@ lvgl:
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 113
-            y: 126
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 212
+            y: 136
+            width: 96
+            height: 56
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: theme_page
@@ -867,11 +976,11 @@ lvgl:
                   align: CENTER
         - button:
             id: home_sleep_btn
-            x: 214
-            y: 126
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 12
+            y: 198
+            width: 96
+            height: 34
+            styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: sleep_display
@@ -879,12 +988,34 @@ lvgl:
               - label:
                   text: "Sleep"
                   align: CENTER
-        - label:
-            id: home_status_lbl
-            x: 12
-            y: 206
-            width: 296
-            text: "Status"
+        - button:
+            id: home_shortcuts_btn
+            x: 112
+            y: 198
+            width: 96
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Shortcuts"
+                  align: CENTER
+        - button:
+            id: home_cal_btn
+            x: 212
+            y: 198
+            width: 96
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: start_touch_calibration
+            widgets:
+              - label:
+                  text: "TouchCal"
+                  align: CENTER
 
     - id: lights_page
       styles: [lv_style_screen]
@@ -893,8 +1024,8 @@ lvgl:
             id: lights_home_btn
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -919,7 +1050,7 @@ lvgl:
             y: 40
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -936,7 +1067,7 @@ lvgl:
             y: 40
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -953,7 +1084,7 @@ lvgl:
             y: 86
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -970,7 +1101,7 @@ lvgl:
             y: 86
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -987,7 +1118,7 @@ lvgl:
             y: 132
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -1004,7 +1135,7 @@ lvgl:
             y: 132
             width: 86
             height: 40
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute:
@@ -1020,7 +1151,7 @@ lvgl:
             y: 50
             width: 116
             height: 32
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: selected_light_toggle
@@ -1033,7 +1164,7 @@ lvgl:
             y: 88
             width: 56
             height: 32
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: selected_light_dimmer
@@ -1059,7 +1190,7 @@ lvgl:
             y: 126
             width: 56
             height: 32
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: selected_light_warm
@@ -1106,8 +1237,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1150,8 +1281,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1236,8 +1367,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1341,8 +1472,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1521,14 +1652,41 @@ lvgl:
             width: 308
             text: "Result"
 
+    - id: shortcuts_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 60
+            height: 30
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - label:
+                  text: "Home"
+                  align: CENTER
+        - label:
+            x: 80
+            y: 10
+            text: "Keyboard Shortcuts"
+        - label:
+            id: shortcuts_body_lbl
+            x: 12
+            y: 44
+            width: 308
+            text: "shortcuts"
+
     - id: detail_page
       styles: [lv_style_screen]
       widgets:
         - button:
             x: 8
             y: 6
-            width: 52
-            height: 28
+            width: 60
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:

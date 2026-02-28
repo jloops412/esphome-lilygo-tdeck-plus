@@ -2,6 +2,11 @@
 
 This repo tracks the ESPHome controller work for LilyGO T-Deck Plus.
 
+## Process Policy
+
+1. Every code change must include documentation updates in Git.
+2. Every code change must include `docs/handoff-context.md` updates in the same iteration.
+
 Current priorities:
 
 1. Preserve the known-good manual-rendered baseline.
@@ -44,9 +49,10 @@ Each install YAML pulls modular files from this repo by release tag.
 9. `B`: keyboard backlight toggle.
 10. `N` / `M`: keyboard backlight down/up.
 11. `H`: jump to Home page.
-12. `K`: start touch calibration.
-13. `R`: reset stored calibration values.
-14. `C`: toggle touch debug.
+12. `Alt+K` or `/` or `?`: open keyboard shortcuts page.
+13. `K`: start touch calibration.
+14. `R`: reset stored calibration values.
+15. `C`: toggle touch debug.
 
 Touch calibration in LVGL mode now uses a full-screen 9-point capture flow.
 Captured calibration is applied live and persisted across reboot.

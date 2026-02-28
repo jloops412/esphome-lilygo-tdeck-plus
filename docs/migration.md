@@ -36,6 +36,9 @@
 26. LVGL touch calibration now runs as full-screen 9-point capture and applies live calibration with persistence across reboot.
 27. Lights page moved to controller-first direct selection + contextual actions for lower navigation friction.
 28. Weather page now includes `feels like` and denser compact metrics.
+29. Calibration fitting now uses all 9 points (regression) for better final accuracy.
+30. Added keyboard shortcuts overlay page, accessible by `Alt+K` (ESC-prefix chord) and `/`.
+31. Added persistent process policy: every code change must update docs and handoff context in the same iteration.
 
 ## Migration steps for existing HA node
 
