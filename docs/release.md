@@ -15,6 +15,7 @@
 - `v0.7.0-lvgl-cal9-controller-ui`: persistent live 9-point calibration + controller-first lights UI redesign.
 - `v0.7.1-lvgl-modern-ui-shortcuts`: calibration regression fit, modernized home styling, and shortcuts overlay with Alt+K support.
 - `v0.8.0-lvgl-groundup-ui2`: deeper LVGL layout rewrite, upgraded lights workflow, and improved 9-point edge-fit calibration.
+- `v0.9.0-lvgl-controls-calreview-gpsdiag`: calibration save/retry review, richer LVGL controls, and GPS diagnostics hardening.
 
 Post-tag note:
 
@@ -70,6 +71,26 @@ Post-tag note:
 4. Strengthened calibration output fit using averaged 9-point edge regression for better small-target hit accuracy.
 5. Updated calibration page target placement to better cover practical screen edges while preserving full-screen flow.
 6. Updated docs and handoff report in the same pass per repo process contract.
+
+`v0.9.0-lvgl-controls-calreview-gpsdiag` highlights:
+
+1. Calibration UX upgrade:
+   - full-screen 9-point flow now ends with explicit `Save` or `Retry` review.
+   - avoids auto-saving bad taps when a point is pressed incorrectly.
+   - keyboard review shortcuts added: `Y` to save, `U` to retry.
+2. Lights page control upgrade:
+   - added LVGL sliders for selected-light `brightness_pct` and `color_temp_kelvin`.
+   - retained quick action buttons and color chips for fast operation.
+3. UI cleanup:
+   - reduced duplicate utility buttons on Home/Reader pages.
+   - shifted utility actions to clearer, more intentional locations.
+4. Theme system expansion:
+   - increased from 3 to 5 palettes (`Graphite`, `Ocean`, `Amber`, `Rose`, `Teal`).
+   - added display and keyboard backlight sliders on Theme page.
+5. GPS diagnostics:
+   - added `gps_baud_rate` substitution (default `9600`) to install/profile entrypoints.
+   - added GPS data-alive telemetry (`GPS Data Alive`, data age, status text) to distinguish no-serial-data vs no-fix.
+   - Weather/Home UI now reflects GPS diagnostics more explicitly.
 
 `v0.6.0-lvgl-beta1` highlights:
 

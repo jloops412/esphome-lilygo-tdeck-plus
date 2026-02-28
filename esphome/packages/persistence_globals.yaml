@@ -24,6 +24,16 @@ globals:
     restore_value: yes
     initial_value: "0"
 
+  - id: selected_light_brightness_pct
+    type: int
+    restore_value: yes
+    initial_value: "60"
+
+  - id: selected_light_kelvin
+    type: int
+    restore_value: yes
+    initial_value: "4000"
+
   - id: kb_last_raw
     type: uint8_t
     restore_value: no
@@ -106,6 +116,33 @@ globals:
 
   - id: touch_cal_step
     type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: touch_cal_review_pending
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: touch_cal_candidate_x_min
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: touch_cal_candidate_x_max
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: touch_cal_candidate_y_min
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: touch_cal_candidate_y_max
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: gps_last_update_ms
+    type: uint32_t
     restore_value: no
     initial_value: "0"
 

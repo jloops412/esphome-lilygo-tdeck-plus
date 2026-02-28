@@ -130,8 +130,13 @@ script:
     then:
       - lambda: |-
           id(touch_cal_mode) = true;
+          id(touch_cal_review_pending) = false;
           id(touch_cal_step) = 0;
           id(touch_active) = false;
+          id(touch_cal_candidate_x_min) = 0;
+          id(touch_cal_candidate_x_max) = 0;
+          id(touch_cal_candidate_y_min) = 0;
+          id(touch_cal_candidate_y_max) = 0;
           id(cal_raw_tl_x) = 0; id(cal_raw_tl_y) = 0;
           id(cal_raw_tr_x) = 0; id(cal_raw_tr_y) = 0;
           id(cal_raw_bl_x) = 0; id(cal_raw_bl_y) = 0;
@@ -173,7 +178,12 @@ script:
           id(cal9_raw_bl_x) = 0; id(cal9_raw_bl_y) = 0;
           id(cal9_raw_bc_x) = 0; id(cal9_raw_bc_y) = 0;
           id(cal9_raw_br_x) = 0; id(cal9_raw_br_y) = 0;
+          id(touch_cal_candidate_x_min) = 0;
+          id(touch_cal_candidate_x_max) = 0;
+          id(touch_cal_candidate_y_min) = 0;
+          id(touch_cal_candidate_y_max) = 0;
           id(touch_cal_mode) = false;
+          id(touch_cal_review_pending) = false;
           id(touch_cal_step) = 0;
       - lambda: |-
           id(touch_cal_suggest_x_min) = atoi("${touch_x_min}");
@@ -182,6 +192,26 @@ script:
           id(touch_cal_suggest_y_max) = atoi("${touch_y_max}");
       - script.execute: touch_cal_apply_stored
       - script.execute: lvgl_update_dynamic
+
+  - id: touch_cal_save
+    then:
+      - if:
+          condition:
+            lambda: "return id(touch_cal_review_pending);"
+          then:
+            - lambda: |-
+                id(touch_cal_suggest_x_min) = id(touch_cal_candidate_x_min);
+                id(touch_cal_suggest_x_max) = id(touch_cal_candidate_x_max);
+                id(touch_cal_suggest_y_min) = id(touch_cal_candidate_y_min);
+                id(touch_cal_suggest_y_max) = id(touch_cal_candidate_y_max);
+                id(touch_cal_review_pending) = false;
+            - script.execute: touch_cal_apply_stored
+            - lvgl.page.show: settings_page
+      - script.execute: lvgl_update_dynamic
+
+  - id: touch_cal_retry
+    then:
+      - script.execute: start_touch_calibration
 
   - id: touch_cal_apply_stored
     then:
@@ -231,6 +261,31 @@ script:
           brightness: !lambda "return id(backlight_percent) / 100.0f;"
       - script.execute: lvgl_update_dynamic
 
+  - id: set_display_backlight
+    parameters:
+      pct: int
+    then:
+      - lambda: |-
+          if (pct < 10) pct = 10;
+          if (pct > 100) pct = 100;
+          id(backlight_percent) = pct;
+      - light.turn_on:
+          id: tft_backlight
+          brightness: !lambda "return id(backlight_percent) / 100.0f;"
+      - script.execute: lvgl_update_dynamic
+
+  - id: set_kb_backlight
+    parameters:
+      pct: int
+    then:
+      - lambda: |-
+          if (pct < 0) pct = 0;
+          if (pct > 100) pct = 100;
+          id(kb_backlight_percent) = pct;
+          if (pct > 0) id(kb_backlight_last_nonzero) = pct;
+      - script.execute: kb_backlight_apply
+      - script.execute: lvgl_update_dynamic
+
   - id: selected_light_prev
     then:
       - lambda: |-
@@ -257,9 +312,13 @@ script:
                 case 4: return std::string("light.office_lamps");
                 default: return std::string("light.upstairs_lights");
               }
+      - script.execute: lvgl_update_dynamic
 
   - id: selected_light_brighter
     then:
+      - lambda: |-
+          id(selected_light_brightness_pct) += 20;
+          if (id(selected_light_brightness_pct) > 100) id(selected_light_brightness_pct) = 100;
       - homeassistant.action:
           action: light.turn_on
           data:
@@ -273,9 +332,13 @@ script:
                 default: return std::string("light.upstairs_lights");
               }
             brightness_step_pct: "20"
+      - script.execute: lvgl_update_dynamic
 
   - id: selected_light_dimmer
     then:
+      - lambda: |-
+          id(selected_light_brightness_pct) -= 20;
+          if (id(selected_light_brightness_pct) < 1) id(selected_light_brightness_pct) = 1;
       - homeassistant.action:
           action: light.turn_on
           data:
@@ -289,9 +352,38 @@ script:
                 default: return std::string("light.upstairs_lights");
               }
             brightness_step_pct: "-20"
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_set_brightness_pct
+    parameters:
+      pct: int
+    then:
+      - lambda: |-
+          if (pct < 1) pct = 1;
+          if (pct > 100) pct = 100;
+          id(selected_light_brightness_pct) = pct;
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            brightness_pct: !lambda |-
+              char buf[8];
+              snprintf(buf, sizeof(buf), "%d", id(selected_light_brightness_pct));
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
 
   - id: selected_light_warm
     then:
+      - lambda: |-
+          id(selected_light_kelvin) = 2700;
       - homeassistant.action:
           action: light.turn_on
           data:
@@ -309,6 +401,8 @@ script:
 
   - id: selected_light_cool
     then:
+      - lambda: |-
+          id(selected_light_kelvin) = 6500;
       - homeassistant.action:
           action: light.turn_on
           data:
@@ -383,13 +477,13 @@ script:
   - id: theme_prev
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 2) % 3;
+          id(theme_index) = (id(theme_index) + 4) % 5;
       - script.execute: apply_theme
 
   - id: theme_next
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 1) % 3;
+          id(theme_index) = (id(theme_index) + 1) % 5;
       - script.execute: apply_theme
 
   - id: apply_theme
@@ -490,6 +584,70 @@ script:
                 bg_color: 0x304018
                 border_color: 0x7FAE32
                 text_color: 0xF4FFE2
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 3;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x1D0A13
+                text_color: 0xFFE9F4
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x331426
+                border_color: 0x9D3D76
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x4B1E36
+                border_color: 0xD05A97
+                text_color: 0xFFE9F4
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x3E1930
+                border_color: 0xA0467D
+                text_color: 0xFFE9F4
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x53211B
+                border_color: 0xC45B4D
+                text_color: 0xFFEDE9
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x294428
+                border_color: 0x69B36A
+                text_color: 0xEBFFEA
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 4;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x081112
+                text_color: 0xE8FCF9
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x122326
+                border_color: 0x2D6A70
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x1A3438
+                border_color: 0x46A9B4
+                text_color: 0xE8FCF9
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x152B2E
+                border_color: 0x3A838C
+                text_color: 0xDDF4F2
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x46251C
+                border_color: 0xC56D4F
+                text_color: 0xFFF1EA
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x1C3C30
+                border_color: 0x49B18B
+                text_color: 0xE6FFF6
       - script.execute: lvgl_update_dynamic
 
   - id: open_detail_bbc
@@ -532,6 +690,32 @@ script:
       - lvgl.page.show: shortcuts_page
       - script.execute: lvgl_update_dynamic
 
+  - id: selected_light_set_kelvin
+    parameters:
+      kelvin: int
+    then:
+      - lambda: |-
+          if (kelvin < 2200) kelvin = 2200;
+          if (kelvin > 6500) kelvin = 6500;
+          id(selected_light_kelvin) = kelvin;
+      - homeassistant.action:
+          action: light.turn_on
+          data:
+            entity_id: !lambda |-
+              switch (id(selected_light)) {
+                case 0: return std::string("light.foyer_lights");
+                case 1: return std::string("light.main_vanity_lights");
+                case 2: return std::string("light.bedroom_lamp");
+                case 3: return std::string("light.hall_lights");
+                case 4: return std::string("light.office_lamps");
+                default: return std::string("light.upstairs_lights");
+              }
+            color_temp_kelvin: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", id(selected_light_kelvin));
+              return std::string(buf);
+      - script.execute: lvgl_update_dynamic
+
   - id: refresh_detail_page
     then:
       - lvgl.label.update:
@@ -569,9 +753,11 @@ script:
       - lvgl.label.update:
           id: home_status_lbl
           text: !lambda |-
-            char buf[128];
+            char buf[160];
             float sats = id(gps_satellites).state;
-            if (sats > 0.0f) {
+            if (!id(gps_data_alive).state) {
+              snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO DATA  |  Alt+K keys", id(battery_percent).state, id(wifi_signal_tdeck).state);
+            } else if (sats > 0.0f) {
               snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat  |  Alt+K keys", id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
             } else {
               snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching  |  Alt+K keys", id(battery_percent).state, id(wifi_signal_tdeck).state);
@@ -641,6 +827,24 @@ script:
             if (id(light_preset_index) == 3) return std::string("Preset: Focus");
             return std::string("Preset: Party");
       - lvgl.label.update:
+          id: lights_brightness_lbl
+          text: !lambda |-
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Brightness %d%%", id(selected_light_brightness_pct));
+            return std::string(buf);
+      - lvgl.label.update:
+          id: lights_kelvin_lbl
+          text: !lambda |-
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Color Temp %dK", id(selected_light_kelvin));
+            return std::string(buf);
+      - lvgl.slider.update:
+          id: light_brightness_slider
+          value: !lambda "return id(selected_light_brightness_pct);"
+      - lvgl.slider.update:
+          id: light_temp_slider
+          value: !lambda "return id(selected_light_kelvin);"
+      - lvgl.label.update:
           id: weather_temp_lbl
           text: !lambda |-
             if (id(wx_temp).state != id(wx_temp).state) return std::string("--");
@@ -670,6 +874,15 @@ script:
             auto clouds = (id(wx_clouds).state == id(wx_clouds).state) ? id(wx_clouds).state : 0;
             auto press = (id(wx_pressure).state == id(wx_pressure).state) ? id(wx_pressure).state : 0;
             snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f\nCloud %.0f%%  Press %.0f", hum, wind, uv, clouds, press);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: weather_gps_lbl
+          text: !lambda |-
+            if (!id(gps_data_alive).state) return std::string("GPS: no NMEA data. Verify pin mapping and baud.");
+            if (id(gps_satellites).state < 1.0f) return std::string("GPS: data alive, waiting for fix.");
+            char buf[120];
+            snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
+                     id(gps_satellites).state, id(gps_latitude).state, id(gps_longitude).state);
             return std::string(buf);
       - lvgl.label.update:
           id: reader_bbc_lbl
@@ -727,12 +940,21 @@ script:
             const char *name = "Graphite";
             if (id(theme_index) == 1) name = "Ocean";
             if (id(theme_index) == 2) name = "Amber";
-            char buf[96];
-            snprintf(buf, sizeof(buf), "Theme %s | Display %d%% | Debug %s",
+            if (id(theme_index) == 3) name = "Rose";
+            if (id(theme_index) == 4) name = "Teal";
+            char buf[160];
+            snprintf(buf, sizeof(buf), "Theme %s | Disp %d%% | KB %d%% | Debug %s",
                      name,
                      id(backlight_percent),
+                     id(kb_backlight_percent),
                      id(touch_debug) ? "ON" : "OFF");
             return std::string(buf);
+      - lvgl.slider.update:
+          id: display_brightness_slider
+          value: !lambda "return id(backlight_percent);"
+      - lvgl.slider.update:
+          id: kb_brightness_slider
+          value: !lambda "return id(kb_backlight_percent);"
       - lvgl.label.update:
           id: shortcuts_body_lbl
           text: !lambda |-
@@ -745,6 +967,7 @@ script:
               "-/+ : dim/bright        P : preset cycle\n"
               "B/N/M : keyboard light toggle/down/up\n"
               "K : start calibration   R : reset calibration\n"
+              "Cal page: Y=Save, U=Retry after point 9\n"
               "Trackball: move focus + click activate"
             );
       - lvgl.label.update:
@@ -761,15 +984,23 @@ script:
               if (id(touch_cal_step) == 7) return std::string("8/9 BOTTOM CENTER");
               return std::string("9/9 BOTTOM RIGHT");
             }
+            if (id(touch_cal_review_pending)) return std::string("Review capture. Save or Retry.");
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
-              return std::string("Done. Saved. K rerun, R reset.");
+              return std::string("Calibration saved. K rerun, R reset.");
             }
             return std::string("Press TouchCal button to start.");
       - lvgl.label.update:
           id: touch_cal_result_lbl
           text: !lambda |-
             char buf[64];
+            if (id(touch_cal_review_pending)) {
+              snprintf(buf, sizeof(buf),
+                       "new x%d-%d y%d-%d",
+                       id(touch_cal_candidate_x_min), id(touch_cal_candidate_x_max),
+                       id(touch_cal_candidate_y_min), id(touch_cal_candidate_y_max));
+              return std::string(buf);
+            }
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
               snprintf(buf, sizeof(buf),
@@ -987,7 +1218,7 @@ lvgl:
             id: home_settings_btn
             x: 12
             y: 146
-            width: 96
+            width: 146
             height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -999,9 +1230,9 @@ lvgl:
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 112
+            x: 162
             y: 146
-            width: 96
+            width: 146
             height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -1015,7 +1246,7 @@ lvgl:
             id: home_sleep_btn
             x: 12
             y: 192
-            width: 190
+            width: 296
             height: 40
             styles: [lv_style_btn_warn]
             group: nav_group
@@ -1024,34 +1255,6 @@ lvgl:
             widgets:
               - label:
                   text: "Sleep"
-                  align: CENTER
-        - button:
-            id: home_shortcuts_btn
-            x: 208
-            y: 146
-            width: 96
-            height: 40
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "Shortcuts"
-                  align: CENTER
-        - button:
-            id: home_cal_btn
-            x: 208
-            y: 192
-            width: 96
-            height: 40
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: start_touch_calibration
-            widgets:
-              - label:
-                  text: "TouchCal"
                   align: CENTER
 
     - id: lights_page
@@ -1200,7 +1403,7 @@ lvgl:
             x: 130
             y: 76
             width: 88
-            height: 30
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1213,7 +1416,7 @@ lvgl:
             x: 224
             y: 76
             width: 88
-            height: 30
+            height: 28
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1222,37 +1425,49 @@ lvgl:
               - label:
                   text: "Bright"
                   align: CENTER
-        - button:
+        - label:
+            id: lights_brightness_lbl
             x: 130
-            y: 110
-            width: 88
-            height: 30
-            styles: [lv_style_btn_soft]
+            y: 106
+            width: 182
+            text: "Brightness 60%"
+        - slider:
+            id: light_brightness_slider
+            x: 130
+            y: 124
+            width: 182
+            min_value: 1
+            max_value: 100
+            value: 60
             group: nav_group
-            on_click:
-              - script.execute: selected_light_prev
-            widgets:
-              - label:
-                  text: "< Light"
-                  align: CENTER
-        - button:
-            x: 224
-            y: 110
-            width: 88
-            height: 30
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: selected_light_next
-            widgets:
-              - label:
-                  text: "Light >"
-                  align: CENTER
-        - button:
+            on_release:
+              - script.execute:
+                  id: selected_light_set_brightness_pct
+                  pct: !lambda "return (int)x;"
+        - label:
+            id: lights_kelvin_lbl
             x: 130
             y: 144
+            width: 182
+            text: "Color Temp 4000K"
+        - slider:
+            id: light_temp_slider
+            x: 130
+            y: 162
+            width: 182
+            min_value: 2200
+            max_value: 6500
+            value: 4000
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: selected_light_set_kelvin
+                  kelvin: !lambda "return (int)x;"
+        - button:
+            x: 130
+            y: 182
             width: 88
-            height: 30
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1263,9 +1478,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 224
-            y: 144
+            y: 182
             width: 88
-            height: 30
+            height: 24
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1276,9 +1491,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 130
-            y: 178
+            y: 210
             width: 42
-            height: 28
+            height: 20
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
@@ -1291,9 +1506,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 176
-            y: 178
+            y: 210
             width: 42
-            height: 28
+            height: 20
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1306,9 +1521,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 222
-            y: 178
+            y: 210
             width: 42
-            height: 28
+            height: 20
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
@@ -1321,9 +1536,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 268
-            y: 178
+            y: 210
             width: 44
-            height: 28
+            height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1335,7 +1550,7 @@ lvgl:
         - label:
             id: lights_preset_lbl
             x: 130
-            y: 210
+            y: 228
             width: 182
             text: "Preset"
 
@@ -1382,6 +1597,12 @@ lvgl:
             y: 126
             width: 296
             text: "metrics"
+        - label:
+            id: weather_gps_lbl
+            x: 12
+            y: 206
+            width: 296
+            text: "GPS"
 
     - id: reader_page
       styles: [lv_style_screen]
@@ -1477,32 +1698,6 @@ lvgl:
               - label:
                   id: reader_quote_lbl
                   text: "Quote"
-                  align: CENTER
-        - button:
-            x: 12
-            y: 208
-            width: 146
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "Shortcuts"
-                  align: CENTER
-        - button:
-            x: 162
-            y: 208
-            width: 146
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: start_touch_calibration
-            widgets:
-              - label:
-                  text: "TouchCal"
                   align: CENTER
 
     - id: settings_page
@@ -1677,93 +1872,152 @@ lvgl:
         - button:
             x: 12
             y: 38
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
+            width: 56
+            height: 28
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: theme_prev
+              - lambda: |-
+                  id(theme_index) = 0;
+              - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Theme-"
+                  text: "G"
                   align: CENTER
         - button:
-            x: 112
+            x: 72
             y: 38
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
+            width: 56
+            height: 28
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: theme_next
+              - lambda: |-
+                  id(theme_index) = 1;
+              - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Theme+"
+                  text: "O"
                   align: CENTER
         - button:
-            x: 212
+            x: 132
             y: 38
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
+            width: 56
+            height: 28
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: display_backlight_down
+              - lambda: |-
+                  id(theme_index) = 2;
+              - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Disp-"
+                  text: "A"
                   align: CENTER
+        - button:
+            x: 192
+            y: 38
+            width: 56
+            height: 28
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: |-
+                  id(theme_index) = 3;
+              - script.execute: apply_theme
+            widgets:
+              - label:
+                  text: "R"
+                  align: CENTER
+        - button:
+            x: 252
+            y: 38
+            width: 56
+            height: 28
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: |-
+                  id(theme_index) = 4;
+              - script.execute: apply_theme
+            widgets:
+              - label:
+                  text: "T"
+                  align: CENTER
+        - label:
+            x: 12
+            y: 72
+            width: 296
+            text: "Display Brightness"
+        - slider:
+            id: display_brightness_slider
+            x: 12
+            y: 90
+            width: 296
+            min_value: 10
+            max_value: 100
+            value: 80
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: set_display_backlight
+                  pct: !lambda "return (int)x;"
+        - label:
+            x: 12
+            y: 112
+            width: 296
+            text: "Keyboard Backlight"
+        - slider:
+            id: kb_brightness_slider
+            x: 12
+            y: 130
+            width: 296
+            min_value: 0
+            max_value: 100
+            value: 70
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: set_kb_backlight
+                  pct: !lambda "return (int)x;"
         - button:
             x: 12
-            y: 96
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: display_backlight_up
-            widgets:
-              - label:
-                  text: "Disp+"
-                  align: CENTER
-        - button:
-            x: 112
-            y: 96
-            width: 96
-            height: 52
+            y: 160
+            width: 146
+            height: 32
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: toggle_touch_debug
             widgets:
               - label:
-                  text: "Debug"
+                  text: "Touch Debug"
                   align: CENTER
         - button:
-            x: 212
-            y: 96
-            width: 96
-            height: 52
+            x: 162
+            y: 160
+            width: 146
+            height: 32
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: open_shortcuts
+              - script.execute: theme_prev
             widgets:
               - label:
-                  text: "Shortcuts"
+                  text: "Prev Theme"
                   align: CENTER
         - button:
             x: 12
-            y: 154
+            y: 196
             width: 296
-            height: 34
+            height: 32
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: start_touch_calibration
+              - script.execute: theme_next
             widgets:
               - label:
-                  text: "Start Full Touch Calibration"
+                  text: "Next Theme"
                   align: CENTER
         - label:
             id: theme_status_lbl
@@ -1779,61 +2033,87 @@ lvgl:
             x: 12
             y: 6
             text: "Touch Calibration 9-Point"
+        - button:
+            x: 214
+            y: 4
+            width: 48
+            height: 22
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: touch_cal_save
+            widgets:
+              - label:
+                  text: "Save"
+                  align: CENTER
+        - button:
+            x: 266
+            y: 4
+            width: 48
+            height: 22
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute: touch_cal_retry
+            widgets:
+              - label:
+                  text: "Retry"
+                  align: CENTER
         - label:
             id: touch_cal_result_lbl
-            x: 214
-            y: 8
-            width: 100
+            x: 12
+            y: 28
+            width: 302
             text: "raw"
         - label:
             id: touch_cal_p0_lbl
             x: 16
-            y: 32
+            y: 44
             text: "+"
         - label:
             id: touch_cal_p1_lbl
             x: 158
-            y: 32
+            y: 44
             text: "+"
         - label:
             id: touch_cal_p2_lbl
             x: 300
-            y: 32
+            y: 44
             text: "+"
         - label:
             id: touch_cal_p3_lbl
             x: 16
-            y: 118
+            y: 122
             text: "+"
         - label:
             id: touch_cal_p4_lbl
             x: 158
-            y: 118
+            y: 122
             text: "+"
         - label:
             id: touch_cal_p5_lbl
             x: 300
-            y: 118
+            y: 122
             text: "+"
         - label:
             id: touch_cal_p6_lbl
             x: 16
-            y: 204
+            y: 200
             text: "+"
         - label:
             id: touch_cal_p7_lbl
             x: 158
-            y: 204
+            y: 200
             text: "+"
         - label:
             id: touch_cal_p8_lbl
             x: 300
-            y: 204
+            y: 200
             text: "+"
         - label:
             id: touch_cal_step_lbl
             x: 12
-            y: 222
+            y: 220
             width: 308
             text: "1/9 TOP LEFT"
 

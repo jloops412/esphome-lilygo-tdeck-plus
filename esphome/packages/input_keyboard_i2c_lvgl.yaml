@@ -187,6 +187,16 @@ interval:
                   - script.execute: start_touch_calibration
             - if:
                 condition:
+                  lambda: "return id(kb_last_raw) == 'y' || id(kb_last_raw) == 'Y';"
+                then:
+                  - script.execute: touch_cal_save
+            - if:
+                condition:
+                  lambda: "return id(kb_last_raw) == 'u' || id(kb_last_raw) == 'U';"
+                then:
+                  - script.execute: touch_cal_retry
+            - if:
+                condition:
                   lambda: "return id(kb_last_raw) == 0x09 || id(kb_last_raw) == 'd' || id(kb_last_raw) == 'D' || id(kb_last_raw) == 's' || id(kb_last_raw) == 'S';"
                 then:
                   - lvgl.widget.focus:

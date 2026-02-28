@@ -2,28 +2,88 @@ uart:
   id: gps_uart
   rx_pin: ${gps_rx_pin}
   tx_pin: ${gps_tx_pin}
-  baud_rate: 9600
+  baud_rate: ${gps_baud_rate}
+  rx_buffer_size: 1024
 
 gps:
   latitude:
     name: "${friendly_name} GPS Latitude"
     id: gps_latitude
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   longitude:
     name: "${friendly_name} GPS Longitude"
     id: gps_longitude
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   altitude:
     name: "${friendly_name} GPS Altitude"
     id: gps_altitude
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   speed:
     name: "${friendly_name} GPS Speed"
     id: gps_speed
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   course:
     name: "${friendly_name} GPS Course"
     id: gps_course
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   satellites:
     name: "${friendly_name} GPS Satellites"
     id: gps_satellites
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
   hdop:
     name: "${friendly_name} GPS HDOP"
     id: gps_hdop
-  update_interval: 5s
+    on_value:
+      then:
+        - lambda: |-
+            id(gps_last_update_ms) = esphome::millis();
+  update_interval: 2s
+
+sensor:
+  - platform: template
+    name: "${friendly_name} GPS Last Data Age"
+    id: gps_data_age_s
+    unit_of_measurement: "s"
+    accuracy_decimals: 0
+    update_interval: 1s
+    lambda: |-
+      uint32_t age_ms = esphome::millis() - id(gps_last_update_ms);
+      return age_ms / 1000.0f;
+
+binary_sensor:
+  - platform: template
+    name: "${friendly_name} GPS Data Alive"
+    id: gps_data_alive
+    lambda: |-
+      uint32_t age_ms = esphome::millis() - id(gps_last_update_ms);
+      return age_ms < 15000;
+    update_interval: 1s
+
+text_sensor:
+  - platform: template
+    name: "${friendly_name} GPS Status"
+    id: gps_status_text
+    update_interval: 1s
+    lambda: |-
+      uint32_t age_ms = esphome::millis() - id(gps_last_update_ms);
+      if (age_ms >= 15000) return std::string("No NMEA data (check pin/baud/power)");
+      if (id(gps_satellites).state < 1.0f) return std::string("Data OK, searching for fix");
+      return std::string("Fix with ") + std::to_string((int) id(gps_satellites).state) + " sat";

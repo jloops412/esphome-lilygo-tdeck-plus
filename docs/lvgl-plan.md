@@ -39,7 +39,7 @@ If LVGL regressions appear, continue using the stable install YAML:
 LVGL testing target:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
-## Current status (after v0.8.0-lvgl-groundup-ui2)
+## Current status (after v0.9.0-lvgl-controls-calreview-gpsdiag)
 1. Parallel LVGL packages and install YAML are in place.
 2. Core LVGL pages are implemented and wired to existing HA actions/scripts.
 3. Compile blocker was found in HA and patched in hotfix:
@@ -58,7 +58,15 @@ LVGL testing target:
    - denser two-zone lights controller flow
    - reader source rows with live snippets
 10. Touch calibration fit now uses averaged 9-point edge regression for better small-target accuracy.
-11. Next validation:
-   - compile/flash with latest LVGL tag and verify edge-touch accuracy on Home/Back controls
-   - confirm trackball focus/click behavior on redesigned pages
-   - validate reader snippet readability and detail page routing
+11. Added calibration review UX:
+   - end-of-9-point now requires explicit `Save` or `Retry` confirmation.
+12. Added richer LVGL controls:
+   - lights brightness + kelvin sliders
+   - theme page display/keyboard backlight sliders
+13. Added GPS diagnostics:
+   - `gps_baud_rate` substitution
+   - `GPS Data Alive`, data age, and status entities
+14. Next validation:
+   - compile/flash with latest LVGL tag and verify slider interactions and HA light actions
+   - verify calibration review (`Save`/`Retry`) behavior on intentional bad taps
+   - verify GPS diagnostics distinguish no-data vs searching vs fix

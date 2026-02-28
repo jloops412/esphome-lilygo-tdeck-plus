@@ -84,7 +84,7 @@ touchscreen:
                     // 9-point fit reduced to 3 averaged columns/rows for better edge stability.
                     // Targets are intentionally near the usable edges, not bezel limits.
                     const double tx0 = 18.0, tx1 = 160.0, tx2 = 302.0;
-                    const double ty0 = 34.0, ty1 = 120.0, ty2 = 206.0;
+                    const double ty0 = 44.0, ty1 = 122.0, ty2 = 200.0;
 
                     const double rx0 = ((double) id(cal9_raw_tl_x) + (double) id(cal9_raw_ml_x) + (double) id(cal9_raw_bl_x)) / 3.0;
                     const double rx1 = ((double) id(cal9_raw_tc_x) + (double) id(cal9_raw_mc_x) + (double) id(cal9_raw_bc_x)) / 3.0;
@@ -149,22 +149,18 @@ touchscreen:
 
                     if (x_max - x_min < 32 || y_max - y_min < 32) {
                       ESP_LOGW("touch_cal", "Rejected calibration: invalid span x=%d y=%d", x_max - x_min, y_max - y_min);
+                      id(touch_cal_review_pending) = false;
                     } else {
-                      id(touch_cal_suggest_x_min) = x_min;
-                      id(touch_cal_suggest_x_max) = x_max;
-                      id(touch_cal_suggest_y_min) = y_min;
-                      id(touch_cal_suggest_y_max) = y_max;
-                      id(tdeck_touch).set_calibration(
-                        id(touch_cal_suggest_x_min),
-                        id(touch_cal_suggest_x_max),
-                        id(touch_cal_suggest_y_min),
-                        id(touch_cal_suggest_y_max)
-                      );
-                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d (9-point edge fit)",
-                               id(touch_cal_suggest_x_min),
-                               id(touch_cal_suggest_x_max),
-                               id(touch_cal_suggest_y_min),
-                               id(touch_cal_suggest_y_max));
+                      id(touch_cal_candidate_x_min) = x_min;
+                      id(touch_cal_candidate_x_max) = x_max;
+                      id(touch_cal_candidate_y_min) = y_min;
+                      id(touch_cal_candidate_y_max) = y_max;
+                      id(touch_cal_review_pending) = true;
+                      ESP_LOGI("touch_cal", "Captured candidate calibration x_min=%d x_max=%d y_min=%d y_max=%d (save/retry pending)",
+                               id(touch_cal_candidate_x_min),
+                               id(touch_cal_candidate_x_max),
+                               id(touch_cal_candidate_y_min),
+                               id(touch_cal_candidate_y_max));
                     }
 
                     id(touch_cal_mode) = false;
@@ -172,11 +168,6 @@ touchscreen:
                   } else {
                     id(touch_cal_step) += 1;
                   }
-              - if:
-                  condition:
-                    lambda: "return !id(touch_cal_mode);"
-                  then:
-                    - lvgl.page.show: theme_page
               - script.execute: lvgl_update_dynamic
         - lambda: |-
             id(touch_active) = false;

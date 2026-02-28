@@ -3,6 +3,7 @@ substitutions:
   friendly_name: "LilyGO T-Deck Plus"
   gps_rx_pin: "44"
   gps_tx_pin: "43"
+  gps_baud_rate: "9600"
   touch_x_min: "0"
   touch_x_max: "238"
   touch_y_min: "16"
@@ -11,7 +12,7 @@ substitutions:
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.8.0-lvgl-groundup-ui2
+    ref: v0.9.0-lvgl-controls-calreview-gpsdiag
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

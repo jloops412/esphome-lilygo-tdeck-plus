@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.8.0-lvgl-groundup-ui2`
-3. Previous LVGL tag: `v0.7.0-lvgl-cal9-controller-ui` (`f6f4d22`)
-4. Previous LVGL tag: `v0.6.3-lvgl-calibration-overrides` (`58aed5a`)
+2. Latest LVGL tag: `v0.9.0-lvgl-controls-calreview-gpsdiag`
+3. Previous LVGL tag: `v0.8.0-lvgl-groundup-ui2` (`12bd551`)
+4. Previous LVGL tag: `v0.7.1-lvgl-modern-ui-shortcuts` (`b1f290b`)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -105,12 +105,34 @@
    - README and release docs updated in same pass.
    - Handoff context updated in same pass (this file).
 
+## Controls + calibration review + GPS diagnostics in `v0.9.0-lvgl-controls-calreview-gpsdiag`
+1. Calibration:
+   - 9-point flow now ends with explicit `Save` or `Retry` prompt.
+   - Prevents accidental bad capture from being auto-committed.
+   - Keyboard shortcuts added for review step: `Y=Save`, `U=Retry`.
+2. Lights page:
+   - Added LVGL sliders for selected-light brightness and color temperature.
+   - Preserved quick action keys/buttons for fast control.
+3. UI cleanup:
+   - Reduced duplicate utility buttons on Home and Reader.
+   - Kept utility actions in Settings/Theme/Shortcuts where they are easier to find.
+4. Theme controls:
+   - Expanded palette set from 3 to 5 (`Graphite`, `Ocean`, `Amber`, `Rose`, `Teal`).
+   - Added display and keyboard backlight sliders on Theme page.
+5. GPS diagnostics:
+   - Added `gps_baud_rate` substitution to install/profile entrypoints.
+   - Added telemetry entities: GPS data age, GPS data alive, GPS status text.
+   - Updated Home/Weather status messaging to differentiate no-data vs searching vs fix.
+6. Docs/process:
+   - README, release, LVGL plan, and handoff docs updated in same pass.
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.8.0-lvgl-groundup-ui2`.
+1. Flash LVGL install YAML pinned to `v0.9.0-lvgl-controls-calreview-gpsdiag`.
 2. Verify:
-   - touch accuracy specifically on Home/Back and top-edge controls after fresh calibration
-   - lights page workflow feels faster (select + act without page hopping)
-   - reader snippets are readable and open the correct details
+   - calibration flow ends with `Save`/`Retry` and does not auto-save bad captures
+   - lights sliders apply correctly to selected entity (`brightness_pct` and `color_temp_kelvin`)
+   - reduced utility-button duplication still keeps navigation discoverable
+   - GPS diagnostic entities update (`GPS Data Alive`, `GPS Last Data Age`, `GPS Status`)
    - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`, `/`, `Alt+K`)
    - trackball focus movement and click activation
    - calibration persistence across reboot

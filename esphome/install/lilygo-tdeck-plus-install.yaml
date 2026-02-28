@@ -3,6 +3,7 @@ substitutions:
   friendly_name: "LilyGO T-Deck Plus"
   gps_rx_pin: "44"
   gps_tx_pin: "43"
+  gps_baud_rate: "9600"
 
 packages:
   board_base:
