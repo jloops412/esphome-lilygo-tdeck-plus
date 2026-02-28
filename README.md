@@ -47,23 +47,28 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 
 ## Current UI flow
 
-1. `Home`: launcher-first layout with icon-only actions and a large primary lights control target.
+1. `Home`: balanced icon-grid launcher with fast one-tap access to Lights/Weather/Climate/Reader/Settings/Theme plus compact Sleep action.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - quick actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Colors`, `Preset`)
    - bottom quick row (`Colors`, `Preset`, `Off`) for faster one-handed control
    - LVGL sliders for per-light brightness and color temperature
+   - two direct scene actions (`Relax`, `Focus`) and shortcut support
    - dedicated `Color Chooser` page with expanded preset palette
 3. `Weather`: glance dashboard with large temperature, readable condition, split metrics rows (readable at a glance), `weather.openweathermap` source line, and explicit GPS diagnostic state.
-4. `Climate`: dedicated Sensi control page with:
+4. `Climate`: simplified primary control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
    - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
+   - preset actions (`Eco`, `Comfort`)
+   - fast entry into `Climate Tools` for advanced controls
+5. `Climate Tools`: dedicated advanced Sensi controls:
    - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)
    - direct toggles for Sensi feature switches (aux heat, display humidity/time, fan support, humidification, keypad lockout)
-5. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
-6. `Settings`: wake behavior, saver timing, keyboard backlight, calibration, and direct reboot action.
-7. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`), accent color chooser, icon color mode (`White`/`Accent`), LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
-8. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
-9. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
+   - compact live feature-state line (`Aux/Hum/Time/Fan/Humid/Lock`)
+6. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
+7. `Settings`: wake behavior, saver timing, keyboard backlight, calibration, and reboot confirmation flow.
+8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), LVGL sliders for display + keyboard backlight, and shape controls (button/card border width + corner radius).
+9. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
+10. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
 
 ## Quick keyboard shortcuts
 
@@ -75,13 +80,16 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 6. `Alt+G`: toggle selected light.
 7. `Alt+Z/X`: dim/brighten selected light.
 8. `Alt+P`: cycle light preset.
-9. `Alt+0`: all mapped lights off.
-10. `Alt+B/N/M`: keyboard backlight toggle/down/up.
-11. `Alt+Y`: start touch calibration.
-12. `Alt+V`: reset stored calibration values.
-13. `Alt+J`: save calibration after 9-point capture.
-14. `Alt+U`: retry calibration after 9-point capture.
-15. `Alt+O`: toggle touch debug.
+9. `Alt+3/4`: selected-light `Relax/Focus` scenes.
+10. `Alt+0`: all mapped lights off.
+11. `Alt+1/2`: climate `Eco/Comfort` presets.
+12. `Alt+B/N/M`: keyboard backlight toggle/down/up.
+13. `Alt+Y`: start touch calibration.
+14. `Alt+V`: reset stored calibration values.
+15. `Alt+J`: save calibration after 9-point capture.
+16. `Alt+U`: retry calibration after 9-point capture.
+17. `Alt+I`: toggle icon color mode (`White`/`Accent`).
+18. `Alt+O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.

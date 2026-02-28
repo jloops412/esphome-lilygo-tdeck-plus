@@ -24,6 +24,7 @@
 - `v0.13.0-lvgl-icons-climate-theme2`: package-safe MDI icon system, fully ALT-only shortcuts, slider-free climate +/- controls, and expanded theme shape controls.
 - `v0.13.1-lvgl-image-type-hotfix`: ESPHome 2026.2.2 image parser fix (`image.type` required for MDI icons).
 - `v0.14.0-lvgl-icon-theme-weather-polish`: theme-colored icons, weather readability pass, faster lights actions, and settings reboot action.
+- `v0.15.0-lvgl-system-review-pass1`: comprehensive system polish pass with icon recolor controls, safer reboot flow, weather readability refinement, climate UX split (`main + tools`), and extended shortcut/help updates.
 
 Unreleased on `main` (candidate next tag):
 
@@ -35,7 +36,7 @@ Unreleased on `main` (candidate next tag):
 - ESPHome config compatibility fix: `long_press_repeat_time` now uses valid max duration (`65535ms`) instead of invalid `never`.
 - Package cache hotfix: install YAMLs now include `packages.refresh: 1min` to force timely Git package updates in HA.
 - Image parser hotfix:
-  - Added required `type: BINARY` on every `image:` entry in `esphome/packages/board_base.yaml`.
+  - Added required `type` on every `image:` entry in `esphome/packages/board_base.yaml`.
   - Fixes ESPHome 2026.2.2 error: `'type' is a required option for [image]`.
 - Home/navigation UI pass:
   - removed top title and keys button from home
@@ -254,6 +255,41 @@ Post-tag note:
    - Replaced bottom-center utility action with direct `Reboot` control.
 6. Docs/process:
    - Updated README + handoff in the same pass.
+
+`v0.15.0-lvgl-system-review-pass1` highlights:
+
+1. Icon color correctness:
+   - Converted MDI icons to `GRAYSCALE` + `alpha_channel` assets for robust recolor behavior.
+   - Added `lv_style_icon` and applied it consistently to all launcher/nav icon widgets.
+   - Added icon mode toggle (`White`/`Accent`) with live theme integration.
+2. Safer settings flow:
+   - Replaced one-tap reboot with a dedicated confirmation page (`Cancel`/`Restart`).
+3. Weather readability:
+   - Split weather metrics into two concise rows for easier glance parsing.
+   - Kept weather source and GPS lines visible with better spacing.
+4. Lights workflow:
+   - Adjusted bottom action row to `Colors`, `Preset`, `Off` for faster control access.
+5. Keyboard/help updates:
+   - Added `Alt+I` shortcut for icon-mode toggle.
+   - Updated shortcut text and surfaced Help access in Theme.
+6. Home UX redesign:
+   - Reworked launcher to a balanced icon grid with a compact top sleep action.
+   - Preserves icon-first navigation while improving tap ergonomics and visual hierarchy.
+7. Climate UX redesign:
+   - Split climate into two pages:
+     - primary climate control (`mode`, `heat/cool +/-`, `Eco`, `Comfort`)
+     - advanced climate tools (`offsets`, feature toggles, compact state line)
+   - Reduced page clutter while preserving full Sensi entity coverage.
+8. Theme + style expansion:
+   - Expanded theme set from 5 to 7 palettes (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`).
+   - Added quick theme cycling action in Theme page while keeping explicit accent buttons.
+9. Lights and keyboard workflow:
+   - Added direct light scenes (`Relax`, `Focus`) and integrated them into preset cycle.
+   - Added keyboard shortcuts:
+     - `Alt+3/4` for light scenes
+     - `Alt+1/2` for climate `Eco/Comfort`
+10. Input robustness:
+   - Tightened trackball GPIO filtering (`delayed_on`, `delayed_off`, `settle`) to reduce noisy repeated directional pulses.
 
 ## Checklist per release
 

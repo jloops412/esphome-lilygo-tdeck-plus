@@ -2,15 +2,41 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
-3. Previous LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
-4. Previous LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
+2. Latest pushed LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
+3. Current candidate tag from this working tree: `v0.15.0-lvgl-system-review-pass1`
+4. Previous LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
+
+## Current pass summary (candidate `v0.15.0-lvgl-system-review-pass1`)
+1. Icon and theme reliability:
+   - Standardized MDI package icons to `GRAYSCALE` + `alpha_channel`.
+   - Added explicit LVGL icon recolor style usage across launcher/navigation images.
+2. Home UX redesign:
+   - Replaced asymmetrical launcher with balanced icon-grid layout.
+   - Added compact top sleep action while retaining fast one-tap navigation.
+3. Climate UX redesign:
+   - Split climate controls into:
+     - `climate_page` (mode, heat/cool setpoint controls, `Eco`, `Comfort`)
+     - `climate_tools_page` (offset controls + feature toggles + compact state line)
+   - Reduced clutter on the primary climate screen.
+4. Theme expansion:
+   - Expanded to 7 themes (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`).
+   - Added theme quick-cycle action in theme utility row.
+5. Lights workflow upgrades:
+   - Added direct scene scripts (`Relax`, `Focus`) and wired them into preset cycle.
+   - Added keyboard shortcuts:
+     - `Alt+3/4` -> light `Relax/Focus`
+     - `Alt+1/2` -> climate `Eco/Comfort`
+6. Input hardening:
+   - Tightened trackball GPIO filters to reduce noisy repeated navigation events.
+7. Safety and help:
+   - Kept reboot confirmation flow.
+   - Updated shortcuts text/help to include new command mappings.
 
 ## Unreleased Main Pass (post `v0.11.0`)
 1. Entity mapping restore + templates:
@@ -290,9 +316,17 @@
    - Updated home status line to include indoor temperature when available.
    - Improved lights quick-action row (`Colors`, `Preset`, `Off`).
    - Replaced settings bottom-center action with direct `Reboot`.
+8. Comprehensive review pass:
+   - Adjusted icon asset format to `GRAYSCALE` + `alpha_channel` for stable recolor in LVGL.
+   - Added reusable icon style (`lv_style_icon`) and applied to all home/nav icons.
+   - Added icon color mode control (`White` / `Accent`) in Theme page and status.
+   - Added safe reboot confirmation page instead of single-tap reboot.
+   - Refined weather metric layout into two compact rows for improved readability.
+   - Added `Alt+I` shortcut to toggle icon color mode.
+   - Swapped Theme utility button from debug to Help to improve discoverability.
 
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.14.0-lvgl-icon-theme-weather-polish`.
+1. Flash LVGL install YAML from `main` for this pass (pin to `v0.15.0-lvgl-system-review-pass1` immediately after tag creation).
 2. Verify:
    - config parse succeeds
    - restored entity IDs drive the intended HA entities again

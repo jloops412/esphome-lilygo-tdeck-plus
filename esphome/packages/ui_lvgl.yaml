@@ -505,6 +505,26 @@ script:
             color_name: !lambda "return cname;"
       - script.execute: lvgl_update_dynamic
 
+  - id: selected_light_scene_relax
+    then:
+      - script.execute:
+          id: selected_light_set_brightness_pct
+          pct: 45
+      - script.execute:
+          id: selected_light_set_kelvin
+          kelvin: 3200
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_scene_focus
+    then:
+      - script.execute:
+          id: selected_light_set_brightness_pct
+          pct: 90
+      - script.execute:
+          id: selected_light_set_kelvin
+          kelvin: 5200
+      - script.execute: lvgl_update_dynamic
+
   - id: selected_light_preset_cycle
     then:
       - lambda: |-
@@ -523,23 +543,19 @@ script:
           condition:
             lambda: "return id(light_preset_index) == 2;"
           then:
-            - script.execute:
-                id: selected_light_color
-                cname: "orange"
+            - script.execute: selected_light_scene_relax
       - if:
           condition:
             lambda: "return id(light_preset_index) == 3;"
           then:
-            - script.execute:
-                id: selected_light_color
-                cname: "white"
+            - script.execute: selected_light_scene_focus
       - if:
           condition:
             lambda: "return id(light_preset_index) == 4;"
           then:
             - script.execute:
                 id: selected_light_color
-                cname: "purple"
+                cname: "amber"
       - script.execute: lvgl_update_dynamic
 
   - id: all_lights_off
@@ -573,13 +589,13 @@ script:
   - id: theme_prev
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 4) % 5;
+          id(theme_index) = (id(theme_index) + 6) % 7;
       - script.execute: apply_theme
 
   - id: theme_next
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 1) % 5;
+          id(theme_index) = (id(theme_index) + 1) % 7;
       - script.execute: apply_theme
 
   - id: theme_accent_set
@@ -878,6 +894,70 @@ script:
                 bg_color: 0x213126
                 border_color: 0x59806B
                 text_color: 0xE8F6EE
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 5;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x0E0B10
+                text_color: 0xF7F0FF
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x1A1520
+                border_color: 0x4D3B5E
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x261D30
+                border_color: 0x8A67A8
+                text_color: 0xF7F0FF
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x21192A
+                border_color: 0x634B78
+                text_color: 0xEADDF8
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x3C2126
+                border_color: 0x9A4C5A
+                text_color: 0xFFECEF
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x1D2F2A
+                border_color: 0x4F8E7D
+                text_color: 0xEAFBF6
+      - if:
+          condition:
+            lambda: "return id(theme_index) == 6;"
+          then:
+            - lvgl.style.update:
+                id: lv_style_screen
+                bg_color: 0x071116
+                text_color: 0xEAF9FF
+            - lvgl.style.update:
+                id: lv_style_card
+                bg_color: 0x0D222B
+                border_color: 0x2E5C70
+            - lvgl.style.update:
+                id: lv_style_btn
+                bg_color: 0x12313F
+                border_color: 0x3F88A8
+                text_color: 0xEAF9FF
+            - lvgl.style.update:
+                id: lv_style_btn_soft
+                bg_color: 0x102933
+                border_color: 0x2E637A
+                text_color: 0xDDF1FA
+            - lvgl.style.update:
+                id: lv_style_btn_warn
+                bg_color: 0x362723
+                border_color: 0x8B5E52
+                text_color: 0xFBF0EC
+            - lvgl.style.update:
+                id: lv_style_btn_ok
+                bg_color: 0x16342F
+                border_color: 0x3E8B7D
+                text_color: 0xE5F9F5
       - script.execute: apply_theme_accent
       - script.execute: apply_theme_shape
       - script.execute: lvgl_update_dynamic
@@ -1042,6 +1122,11 @@ script:
       - lvgl.page.show: shortcuts_page
       - script.execute: lvgl_update_dynamic
 
+  - id: open_reboot_confirm
+    then:
+      - lvgl.page.show: reboot_confirm_page
+      - script.execute: lvgl_update_dynamic
+
   - id: selected_light_set_kelvin
     parameters:
       kelvin: int
@@ -1075,6 +1160,11 @@ script:
   - id: open_climate
     then:
       - lvgl.page.show: climate_page
+      - script.execute: lvgl_update_dynamic
+
+  - id: open_climate_tools
+    then:
+      - lvgl.page.show: climate_tools_page
       - script.execute: lvgl_update_dynamic
 
   - id: open_light_colors
@@ -1116,6 +1206,28 @@ script:
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "auto"
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_preset_eco
+    then:
+      - script.execute:
+          id: sensi_set_heat_target
+          val: 66
+      - script.execute:
+          id: sensi_set_cool_target
+          val: 78
+      - script.execute: sensi_hvac_mode_auto
+      - script.execute: lvgl_update_dynamic
+
+  - id: sensi_preset_comfort
+    then:
+      - script.execute:
+          id: sensi_set_heat_target
+          val: 70
+      - script.execute:
+          id: sensi_set_cool_target
+          val: 74
+      - script.execute: sensi_hvac_mode_auto
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_aux_heat
@@ -1437,7 +1549,7 @@ script:
             if (id(light_preset_index) == 1) return std::string("Preset: Cool");
             if (id(light_preset_index) == 2) return std::string("Preset: Relax");
             if (id(light_preset_index) == 3) return std::string("Preset: Focus");
-            return std::string("Preset: Party");
+            return std::string("Preset: Amber");
       - lvgl.label.update:
           id: lights_brightness_lbl
           text: !lambda |-
@@ -1498,8 +1610,16 @@ script:
             if (clouds != clouds) clouds = 0;
             float bearing = id(wx_entity_wind_bearing).state;
             if (bearing != bearing) bearing = 0;
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f@%.0f  UV %.1f  Cloud %.0f%%",
-                     hum, wind, bearing, uv, clouds);
+            const char *dir = "N";
+            if (bearing >= 22.5f && bearing < 67.5f) dir = "NE";
+            else if (bearing >= 67.5f && bearing < 112.5f) dir = "E";
+            else if (bearing >= 112.5f && bearing < 157.5f) dir = "SE";
+            else if (bearing >= 157.5f && bearing < 202.5f) dir = "S";
+            else if (bearing >= 202.5f && bearing < 247.5f) dir = "SW";
+            else if (bearing >= 247.5f && bearing < 292.5f) dir = "W";
+            else if (bearing >= 292.5f && bearing < 337.5f) dir = "NW";
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f %s  UV %.1f  Cloud %.0f%%",
+                     hum, wind, dir, uv, clouds);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_metrics_bottom_lbl
@@ -1572,6 +1692,18 @@ script:
             snprintf(buf, sizeof(buf), "TempOff %d", v);
             return std::string(buf);
       - lvgl.label.update:
+          id: climate_features_lbl
+          text: !lambda |-
+            char buf[180];
+            snprintf(buf, sizeof(buf), "Aux %s  Hum %s  Time %s  Fan %s  Humid %s  Lock %s",
+                     id(sensi_aux_heat_state).state ? "ON" : "OFF",
+                     id(sensi_display_humidity_state).state ? "ON" : "OFF",
+                     id(sensi_display_time_state).state ? "ON" : "OFF",
+                     id(sensi_fan_support_state).state ? "ON" : "OFF",
+                     id(sensi_humidification_state).state ? "ON" : "OFF",
+                     id(sensi_keypad_lockout_state).state ? "ON" : "OFF");
+            return std::string(buf);
+      - lvgl.label.update:
           id: reader_bbc_lbl
           text: !lambda |-
             std::string t = "latest";
@@ -1638,6 +1770,8 @@ script:
             if (id(theme_index) == 2) name = "Ember";
             if (id(theme_index) == 3) name = "Moss";
             if (id(theme_index) == 4) name = "Mono";
+            if (id(theme_index) == 5) name = "Dusk";
+            if (id(theme_index) == 6) name = "Ocean";
             const char *accent = "Blue";
             if (id(theme_accent_index) == 1) accent = "Green";
             if (id(theme_accent_index) == 2) accent = "Amber";
@@ -1679,11 +1813,12 @@ script:
               "Alt+Q/E : prev/next page     Alt+K : this page\n"
               "Alt+D/F : prev/next light    Alt+G : light toggle\n"
               "Alt+Z/X : dim/bright         Alt+P : preset cycle\n"
-              "Alt+0 : all lights off\n"
+              "Alt+3/4 : Relax/Focus scene  Alt+0 : all lights off\n"
               "Alt+B/N/M : keyboard light toggle/down/up\n"
+              "Alt+1/2 : Climate Eco/Comfort presets\n"
               "Alt+Y : start calibration    Alt+V : reset calibration\n"
               "Cal page: Alt+J Save, Alt+U Retry\n"
-              "Alt+O : touch debug toggle\n"
+              "Alt+I : icon color mode      Alt+O : touch debug\n"
               "Trackball: move focus + click activate"
             );
       - lvgl.label.update:
@@ -1873,14 +2008,29 @@ lvgl:
             id: home_status_lbl
             x: 12
             y: 8
-            width: 296
+            width: 240
             text: "Status"
+        - button:
+            id: home_sleep_btn
+            x: 258
+            y: 6
+            width: 54
+            height: 26
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute: sleep_display
+            widgets:
+              - image:
+                  src: icon_sleep_18
+                  styles: [lv_style_icon]
+                  align: CENTER
         - button:
             id: home_lights_btn
             x: 12
-            y: 34
-            width: 144
-            height: 196
+            y: 40
+            width: 96
+            height: 92
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
@@ -1892,10 +2042,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_weather_btn
-            x: 162
-            y: 34
-            width: 70
-            height: 60
+            x: 112
+            y: 40
+            width: 96
+            height: 92
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1907,10 +2057,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_climate_btn
-            x: 238
-            y: 34
-            width: 70
-            height: 60
+            x: 212
+            y: 40
+            width: 96
+            height: 92
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
@@ -1922,10 +2072,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_reader_btn
-            x: 162
-            y: 100
-            width: 70
-            height: 60
+            x: 12
+            y: 138
+            width: 96
+            height: 92
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1937,10 +2087,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_settings_btn
-            x: 238
-            y: 100
-            width: 70
-            height: 60
+            x: 112
+            y: 138
+            width: 96
+            height: 92
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1952,10 +2102,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 162
-            y: 170
-            width: 70
-            height: 60
+            x: 212
+            y: 138
+            width: 96
+            height: 92
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1963,21 +2113,6 @@ lvgl:
             widgets:
               - image:
                   src: icon_theme_30
-                  styles: [lv_style_icon]
-                  align: CENTER
-        - button:
-            id: home_sleep_btn
-            x: 238
-            y: 170
-            width: 70
-            height: 60
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute: sleep_display
-            widgets:
-              - image:
-                  src: icon_sleep_30
                   styles: [lv_style_icon]
                   align: CENTER
 
@@ -2619,7 +2754,7 @@ lvgl:
         - button:
             x: 12
             y: 40
-            width: 68
+            width: 70
             height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2630,9 +2765,9 @@ lvgl:
                   text: "Off"
                   align: CENTER
         - button:
-            x: 84
+            x: 86
             y: 40
-            width: 68
+            width: 70
             height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2643,9 +2778,9 @@ lvgl:
                   text: "Heat"
                   align: CENTER
         - button:
-            x: 156
+            x: 160
             y: 40
-            width: 68
+            width: 70
             height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2656,9 +2791,9 @@ lvgl:
                   text: "Cool"
                   align: CENTER
         - button:
-            x: 228
+            x: 234
             y: 40
-            width: 68
+            width: 70
             height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2675,17 +2810,43 @@ lvgl:
             width: 296
             height: 32
             text: "mode/action/status"
+        - button:
+            x: 224
+            y: 100
+            width: 84
+            height: 42
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_preset_eco
+            widgets:
+              - label:
+                  text: "Eco"
+                  align: CENTER
+        - button:
+            x: 224
+            y: 148
+            width: 84
+            height: 42
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_preset_comfort
+            widgets:
+              - label:
+                  text: "Comfort"
+                  align: CENTER
         - label:
             id: climate_heat_lbl
             x: 12
             y: 104
-            width: 80
+            width: 112
             text: "Heat Set 68"
         - button:
-            x: 96
-            y: 94
-            width: 34
-            height: 34
+            x: 122
+            y: 96
+            width: 44
+            height: 44
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2695,10 +2856,10 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 132
-            y: 94
-            width: 34
-            height: 34
+            x: 172
+            y: 96
+            width: 44
+            height: 44
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2709,15 +2870,15 @@ lvgl:
                   align: CENTER
         - label:
             id: climate_cool_lbl
-            x: 166
-            y: 104
-            width: 80
+            x: 12
+            y: 152
+            width: 112
             text: "Cool Set 74"
         - button:
-            x: 250
-            y: 94
-            width: 34
-            height: 34
+            x: 122
+            y: 144
+            width: 44
+            height: 44
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2727,10 +2888,10 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 286
-            y: 94
-            width: 34
-            height: 34
+            x: 172
+            y: 144
+            width: 44
+            height: 44
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2739,17 +2900,79 @@ lvgl:
               - label:
                   text: "+"
                   align: CENTER
+        - button:
+            x: 12
+            y: 196
+            width: 144
+            height: 34
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_climate_tools
+            widgets:
+              - label:
+                  text: "Climate Tools"
+                  align: CENTER
+        - button:
+            x: 162
+            y: 196
+            width: 146
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: sensi_toggle_aux_heat
+            widgets:
+              - label:
+                  text: "Aux"
+                  align: CENTER
+
+    - id: climate_tools_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 54
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - image:
+                  src: icon_home_18
+                  styles: [lv_style_icon]
+                  align: CENTER
+        - label:
+            x: 72
+            y: 10
+            text: "Climate Tools"
+        - button:
+            x: 256
+            y: 6
+            width: 52
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_climate
+            widgets:
+              - image:
+                  src: icon_climate_18
+                  styles: [lv_style_icon]
+                  align: CENTER
         - label:
             id: climate_hum_offset_lbl
             x: 12
-            y: 140
-            width: 80
-            text: "Hum Off 0"
+            y: 44
+            width: 92
+            text: "HumOff 0"
         - button:
-            x: 96
-            y: 130
-            width: 34
-            height: 34
+            x: 108
+            y: 36
+            width: 42
+            height: 38
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2759,10 +2982,10 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 132
-            y: 130
-            width: 34
-            height: 34
+            x: 154
+            y: 36
+            width: 42
+            height: 38
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2773,15 +2996,15 @@ lvgl:
                   align: CENTER
         - label:
             id: climate_temp_offset_lbl
-            x: 166
-            y: 140
-            width: 80
-            text: "Temp Off 0"
+            x: 12
+            y: 92
+            width: 92
+            text: "TempOff 0"
         - button:
-            x: 250
-            y: 130
-            width: 34
-            height: 34
+            x: 108
+            y: 84
+            width: 42
+            height: 38
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2791,10 +3014,10 @@ lvgl:
                   text: "-"
                   align: CENTER
         - button:
-            x: 286
-            y: 130
-            width: 34
-            height: 34
+            x: 154
+            y: 84
+            width: 42
+            height: 38
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2804,10 +3027,10 @@ lvgl:
                   text: "+"
                   align: CENTER
         - button:
-            x: 12
-            y: 168
-            width: 96
-            height: 30
+            x: 202
+            y: 36
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2817,36 +3040,36 @@ lvgl:
                   text: "Aux"
                   align: CENTER
         - button:
-            x: 112
-            y: 168
-            width: 96
-            height: 30
+            x: 202
+            y: 66
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_humidity
             widgets:
               - label:
-                  text: "Hum"
+                  text: "DispHum"
                   align: CENTER
         - button:
-            x: 212
-            y: 168
-            width: 96
-            height: 30
+            x: 202
+            y: 96
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_display_time
             widgets:
               - label:
-                  text: "Time"
+                  text: "DispTime"
                   align: CENTER
         - button:
-            x: 12
-            y: 204
-            width: 96
-            height: 30
+            x: 202
+            y: 126
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2856,10 +3079,10 @@ lvgl:
                   text: "Fan"
                   align: CENTER
         - button:
-            x: 112
-            y: 204
-            width: 96
-            height: 30
+            x: 202
+            y: 156
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2869,10 +3092,10 @@ lvgl:
                   text: "Humid"
                   align: CENTER
         - button:
-            x: 212
-            y: 204
-            width: 96
-            height: 30
+            x: 202
+            y: 186
+            width: 106
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2881,6 +3104,12 @@ lvgl:
               - label:
                   text: "Lock"
                   align: CENTER
+        - label:
+            id: climate_features_lbl
+            x: 12
+            y: 216
+            width: 296
+            text: "feature states"
 
     - id: reader_page
       styles: [lv_style_screen]
@@ -3118,7 +3347,7 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - button.press: restart_device_button
+              - script.execute: open_reboot_confirm
             widgets:
               - label:
                   text: "Reboot"
@@ -3166,10 +3395,10 @@ lvgl:
             y: 10
             text: "Theme"
         - button:
-            x: 12
+            x: 6
             y: 38
-            width: 56
-            height: 28
+            width: 42
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3178,13 +3407,13 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Night"
+                  text: "Ngt"
                   align: CENTER
         - button:
-            x: 72
+            x: 50
             y: 38
-            width: 56
-            height: 28
+            width: 42
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3193,13 +3422,13 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Slate"
+                  text: "Slt"
                   align: CENTER
         - button:
-            x: 132
+            x: 94
             y: 38
-            width: 56
-            height: 28
+            width: 42
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3208,13 +3437,13 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Ember"
+                  text: "Emr"
                   align: CENTER
         - button:
-            x: 192
+            x: 138
             y: 38
-            width: 56
-            height: 28
+            width: 42
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3223,13 +3452,13 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "Moss"
+                  text: "Mss"
                   align: CENTER
         - button:
-            x: 252
+            x: 182
             y: 38
-            width: 56
-            height: 28
+            width: 42
+            height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -3239,6 +3468,36 @@ lvgl:
             widgets:
               - label:
                   text: "Mono"
+                  align: CENTER
+        - button:
+            x: 226
+            y: 38
+            width: 42
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: |-
+                  id(theme_index) = 5;
+              - script.execute: apply_theme
+            widgets:
+              - label:
+                  text: "Dsk"
+                  align: CENTER
+        - button:
+            x: 270
+            y: 38
+            width: 42
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: |-
+                  id(theme_index) = 6;
+              - script.execute: apply_theme
+            widgets:
+              - label:
+                  text: "Ocn"
                   align: CENTER
         - label:
             x: 12
@@ -3400,10 +3659,10 @@ lvgl:
             styles: [lv_style_btn]
             group: nav_group
             on_click:
-              - script.execute: toggle_touch_debug
+              - script.execute: open_shortcuts
             widgets:
               - label:
-                  text: "Debug"
+                  text: "Help"
                   align: CENTER
         - button:
             x: 86
@@ -3439,10 +3698,10 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: theme_accent_next
+              - script.execute: theme_next
             widgets:
               - label:
-                  text: "Accent+"
+                  text: "Theme+"
                   align: CENTER
         - label:
             id: theme_status_lbl
@@ -3541,6 +3800,46 @@ lvgl:
             y: 220
             width: 308
             text: "1/9 TOP LEFT"
+
+    - id: reboot_confirm_page
+      styles: [lv_style_screen]
+      widgets:
+        - label:
+            x: 12
+            y: 40
+            width: 296
+            text: "Restart device now?"
+        - label:
+            x: 12
+            y: 70
+            width: 296
+            text: "This drops WiFi/API briefly."
+        - button:
+            x: 12
+            y: 118
+            width: 144
+            height: 54
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: settings_page
+            widgets:
+              - label:
+                  text: "Cancel"
+                  align: CENTER
+        - button:
+            x: 164
+            y: 118
+            width: 144
+            height: 54
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - button.press: restart_device_button
+            widgets:
+              - label:
+                  text: "Restart"
+                  align: CENTER
 
     - id: shortcuts_page
       styles: [lv_style_screen]

@@ -170,6 +170,16 @@ interval:
                   lambda: "return id(kb_last_alt) && id(kb_last_raw) == '0';"
                 then:
                   - script.execute: all_lights_off
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '3';"
+                then:
+                  - script.execute: selected_light_scene_relax
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '4';"
+                then:
+                  - script.execute: selected_light_scene_focus
 
             - if:
                 condition:
@@ -207,6 +217,21 @@ interval:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'u' || id(kb_last_raw) == 'U');"
                 then:
                   - script.execute: touch_cal_retry
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'i' || id(kb_last_raw) == 'I');"
+                then:
+                  - script.execute: theme_icon_mode_toggle
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '1';"
+                then:
+                  - script.execute: sensi_preset_eco
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '2';"
+                then:
+                  - script.execute: sensi_preset_comfort
             - if:
                 condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'o' || id(kb_last_raw) == 'O');"

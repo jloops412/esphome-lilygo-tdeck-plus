@@ -8,8 +8,9 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on_off: 20ms
-      - settle: 25ms
+      - delayed_on: 12ms
+      - delayed_off: 70ms
+      - settle: 40ms
     on_press:
       then:
         - if:
@@ -28,8 +29,9 @@ binary_sensor:
       inverted: true
       ignore_strapping_warning: true
     filters:
-      - delayed_on_off: 20ms
-      - settle: 25ms
+      - delayed_on: 12ms
+      - delayed_off: 70ms
+      - settle: 40ms
     on_press:
       then:
         - if:
@@ -47,8 +49,9 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on_off: 20ms
-      - settle: 25ms
+      - delayed_on: 12ms
+      - delayed_off: 70ms
+      - settle: 40ms
     on_press:
       then:
         - if:
@@ -66,8 +69,9 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on_off: 20ms
-      - settle: 25ms
+      - delayed_on: 12ms
+      - delayed_off: 70ms
+      - settle: 40ms
     on_press:
       then:
         - if:
@@ -86,8 +90,9 @@ binary_sensor:
       inverted: true
       ignore_strapping_warning: true
     filters:
-      - delayed_on_off: 20ms
-      - settle: 25ms
+      - delayed_on: 12ms
+      - delayed_off: 70ms
+      - settle: 40ms
     on_press:
       then:
         - if:
