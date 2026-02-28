@@ -23,7 +23,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: main
+    ref: "main"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

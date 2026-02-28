@@ -74,6 +74,7 @@ Hotfix after this pass:
   - added minimal local `esphome:` blocks to install entrypoints (`name`, `friendly_name`) so environments that validate before package merge do not fail with `'esphome' section missing`.
   - added minimal local `esp32:` blocks to install entrypoints (`variant: esp32s3`, `framework: esp-idf`) so pre-merge validation does not fail with `Platform missing`.
   - switched install entrypoints to list-form `packages:` syntax to avoid parser edge cases where labeled package keys are treated as components.
+  - quoted all install YAML package refs (`ref: "main"`) to prevent YAML numeric coercion when users pin commit-like refs.
 
 Post-tag note:
 
