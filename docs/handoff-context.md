@@ -2,8 +2,8 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
-3. Previous LVGL tag: `v0.12.0-lvgl-alt-shortcuts-ui-pass`
+2. Latest LVGL tag: `v0.13.1-lvgl-image-type-hotfix`
+3. Previous LVGL tag: `v0.13.0-lvgl-icons-climate-theme2`
 4. Previous LVGL tag: `v0.11.1-lvgl-ref-fix`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
@@ -279,6 +279,9 @@
    - Theme page now includes persisted shape controls (`theme_border_width`, `theme_radius`) and runtime style apply (`apply_theme_shape`).
    - Keyboard shortcuts restored to strict `Alt+key` requirement and shortcut overlay text updated accordingly.
    - Added `all_lights_off` action path and `Alt+0` shortcut.
+6. ESPHome parser hotfix:
+   - Added explicit `type: BINARY` to all `image:` entries in `esphome/packages/board_base.yaml`.
+   - Resolves ESPHome 2026.2.2 config error for image entries with only `file/id/resize`.
 
 ## Immediate validation asks
 1. Flash LVGL install YAML from `main` (current pass is not tagged yet).

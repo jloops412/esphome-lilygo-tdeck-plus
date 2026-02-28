@@ -22,6 +22,7 @@
 - `v0.11.1-lvgl-ref-fix`: package install ref hotfix for ESPHome package fetch compatibility (tag-based pinning).
 - `v0.12.0-lvgl-alt-shortcuts-ui-pass`: ALT-only shortcut system, home launcher cleanup, icon refresh, climate spacing polish, and keyboard-backlight profile testing controls.
 - `v0.13.0-lvgl-icons-climate-theme2`: package-safe MDI icon system, fully ALT-only shortcuts, slider-free climate +/- controls, and expanded theme shape controls.
+- `v0.13.1-lvgl-image-type-hotfix`: ESPHome 2026.2.2 image parser fix (`image.type` required for MDI icons).
 
 Unreleased on `main` (candidate next tag):
 
@@ -32,6 +33,9 @@ Unreleased on `main` (candidate next tag):
 - theme pass: renamed/refined palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`).
 - ESPHome config compatibility fix: `long_press_repeat_time` now uses valid max duration (`65535ms`) instead of invalid `never`.
 - Package cache hotfix: install YAMLs now include `packages.refresh: 1min` to force timely Git package updates in HA.
+- Image parser hotfix:
+  - Added required `type: BINARY` on every `image:` entry in `esphome/packages/board_base.yaml`.
+  - Fixes ESPHome 2026.2.2 error: `'type' is a required option for [image]`.
 - Home/navigation UI pass:
   - removed top title and keys button from home
   - icon-only launcher actions

@@ -109,33 +109,43 @@ font:
 image:
   - file: mdi:home
     id: icon_home_18
+    type: BINARY
     resize: 18x18
   - file: mdi:weather-rainy
     id: icon_weather_18
+    type: BINARY
     resize: 18x18
   - file: mdi:thermometer
     id: icon_climate_18
+    type: BINARY
     resize: 18x18
   - file: mdi:lightbulb
     id: icon_light_30
+    type: BINARY
     resize: 30x30
   - file: mdi:weather-rainy
     id: icon_weather_30
+    type: BINARY
     resize: 30x30
   - file: mdi:thermometer
     id: icon_climate_30
+    type: BINARY
     resize: 30x30
   - file: mdi:book-open-variant
     id: icon_reader_30
+    type: BINARY
     resize: 30x30
   - file: mdi:cog
     id: icon_settings_30
+    type: BINARY
     resize: 30x30
   - file: mdi:palette
     id: icon_theme_30
+    type: BINARY
     resize: 30x30
   - file: mdi:sleep
     id: icon_sleep_30
+    type: BINARY
     resize: 30x30
 
 color:
