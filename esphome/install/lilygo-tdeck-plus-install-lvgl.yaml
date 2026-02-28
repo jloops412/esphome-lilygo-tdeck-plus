@@ -11,7 +11,7 @@ substitutions:
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.7.1-lvgl-modern-ui-shortcuts
+    ref: v0.8.0-lvgl-groundup-ui2
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

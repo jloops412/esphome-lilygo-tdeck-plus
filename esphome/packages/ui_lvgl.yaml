@@ -595,7 +595,7 @@ script:
             else if (id(selected_light) == 4 && id(office_state).has_state()) state = id(office_state).state;
             else if (id(selected_light) == 5 && id(upstairs_state).has_state()) state = id(upstairs_state).state;
 
-            return std::string("Active\n") + name + "\n" + state;
+            return std::string("Selected: ") + name + "  [" + state + "]";
       - lvgl.label.update:
           id: light_foyer_lbl
           text: !lambda |-
@@ -672,6 +672,45 @@ script:
             snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f  UV %.1f\nCloud %.0f%%  Press %.0f", hum, wind, uv, clouds, press);
             return std::string(buf);
       - lvgl.label.update:
+          id: reader_bbc_lbl
+          text: !lambda |-
+            std::string t = "latest";
+            if (id(feed_bbc_title).has_state() && !id(feed_bbc_title).state.empty()) t = id(feed_bbc_title).state;
+            else if (id(feed_bbc_message).has_state() && !id(feed_bbc_message).state.empty()) t = id(feed_bbc_message).state;
+            else if (id(feed_bbc_state).has_state() && !id(feed_bbc_state).state.empty()) t = id(feed_bbc_state).state;
+            if ((int) t.size() > 28) t = t.substr(0, 28) + "...";
+            return std::string("BBC  |  ") + t;
+      - lvgl.label.update:
+          id: reader_dc_lbl
+          text: !lambda |-
+            std::string t = "latest";
+            if (id(feed_dc_title).has_state() && !id(feed_dc_title).state.empty()) t = id(feed_dc_title).state;
+            else if (id(feed_dc_message).has_state() && !id(feed_dc_message).state.empty()) t = id(feed_dc_message).state;
+            else if (id(feed_dc_state).has_state() && !id(feed_dc_state).state.empty()) t = id(feed_dc_state).state;
+            if ((int) t.size() > 28) t = t.substr(0, 28) + "...";
+            return std::string("DC   |  ") + t;
+      - lvgl.label.update:
+          id: reader_loudoun_lbl
+          text: !lambda |-
+            std::string t = "latest";
+            if (id(feed_loudoun_title).has_state() && !id(feed_loudoun_title).state.empty()) t = id(feed_loudoun_title).state;
+            else if (id(feed_loudoun_message).has_state() && !id(feed_loudoun_message).state.empty()) t = id(feed_loudoun_message).state;
+            else if (id(feed_loudoun_state).has_state() && !id(feed_loudoun_state).state.empty()) t = id(feed_loudoun_state).state;
+            if ((int) t.size() > 24) t = t.substr(0, 24) + "...";
+            return std::string("Loudoun  |  ") + t;
+      - lvgl.label.update:
+          id: reader_word_lbl
+          text: !lambda |-
+            std::string t = id(word_of_day).has_state() ? id(word_of_day).state : std::string("word unavailable");
+            if ((int) t.size() > 30) t = t.substr(0, 30) + "...";
+            return std::string("Word  |  ") + t;
+      - lvgl.label.update:
+          id: reader_quote_lbl
+          text: !lambda |-
+            std::string t = id(quote_of_hour).has_state() ? id(quote_of_hour).state : std::string("quote unavailable");
+            if ((int) t.size() > 29) t = t.substr(0, 29) + "...";
+            return std::string("Quote |  ") + t;
+      - lvgl.label.update:
           id: settings_status_lbl
           text: !lambda |-
             char buf[160];
@@ -698,16 +737,15 @@ script:
           id: shortcuts_body_lbl
           text: !lambda |-
             return std::string(
-              "Alt+K or / : this shortcuts page\n"
+              "Alt+K or / : show this page\n"
               "1..6 : Home/Lights/Weather/Reader/Settings/Theme\n"
-              "Q/E : previous/next page\n"
-              "Tab or D/S : focus next\n"
-              "Esc or A/W : focus previous\n"
-              "[ ] : select light  -/+ : dim/bright\n"
-              "T : toggle light    P : preset cycle\n"
+              "Q/E : prev/next page    H : Home\n"
+              "Tab D S : focus next    Esc A W : focus prev\n"
+              "T : light toggle        [ ] : select light\n"
+              "-/+ : dim/bright        P : preset cycle\n"
               "B/N/M : keyboard light toggle/down/up\n"
               "K : start calibration   R : reset calibration\n"
-              "C : toggle touch debug"
+              "Trackball: move focus + click activate"
             );
       - lvgl.label.update:
           id: touch_cal_step_lbl
@@ -725,24 +763,23 @@ script:
             }
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
-              return std::string("Calibration applied and saved.");
+              return std::string("Done. Saved. K rerun, R reset.");
             }
-            return std::string("Press Start TouchCal to begin.");
+            return std::string("Press TouchCal button to start.");
       - lvgl.label.update:
           id: touch_cal_result_lbl
           text: !lambda |-
-            char buf[180];
+            char buf[64];
             if (id(touch_cal_suggest_x_max) > id(touch_cal_suggest_x_min) &&
                 id(touch_cal_suggest_y_max) > id(touch_cal_suggest_y_min)) {
               snprintf(buf, sizeof(buf),
-                       "x:%d-%d y:%d-%d raw:%d,%d",
+                       "x%d-%d y%d-%d",
                        id(touch_cal_suggest_x_min), id(touch_cal_suggest_x_max),
-                       id(touch_cal_suggest_y_min), id(touch_cal_suggest_y_max),
-                       id(touch_raw_x_last), id(touch_raw_y_last));
+                       id(touch_cal_suggest_y_min), id(touch_cal_suggest_y_max));
               return std::string(buf);
             }
             snprintf(buf, sizeof(buf),
-                     "raw:%d,%d  tap highlighted marker",
+                     "raw %d,%d",
                      id(touch_raw_x_last), id(touch_raw_y_last));
             return std::string(buf);
       - lvgl.label.update:
@@ -882,13 +919,13 @@ lvgl:
       widgets:
         - label:
             x: 12
-            y: 8
-            text: "T-Deck Controller"
+            y: 6
+            text: "T-Deck Plus"
         - button:
             id: home_keys_btn
-            x: 258
+            x: 252
             y: 6
-            width: 54
+            width: 60
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -901,43 +938,43 @@ lvgl:
         - label:
             id: home_status_lbl
             x: 12
-            y: 40
+            y: 30
             width: 296
             text: "Status"
         - button:
             id: home_lights_btn
             x: 12
-            y: 72
-            width: 146
-            height: 56
+            y: 58
+            width: 190
+            height: 82
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - lvgl.page.show: lights_page
             widgets:
               - label:
-                  text: "Lights Control"
+                  text: "Lights Controller"
                   align: CENTER
         - button:
             id: home_weather_btn
-            x: 162
-            y: 72
-            width: 146
-            height: 56
+            x: 208
+            y: 58
+            width: 100
+            height: 38
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "Weather Board"
+                  text: "Weather"
                   align: CENTER
         - button:
             id: home_reader_btn
-            x: 12
-            y: 136
-            width: 96
-            height: 56
+            x: 208
+            y: 102
+            width: 100
+            height: 38
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -948,10 +985,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_settings_btn
-            x: 112
-            y: 136
+            x: 12
+            y: 146
             width: 96
-            height: 56
+            height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -962,10 +999,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 212
-            y: 136
+            x: 112
+            y: 146
             width: 96
-            height: 56
+            height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -977,9 +1014,9 @@ lvgl:
         - button:
             id: home_sleep_btn
             x: 12
-            y: 198
-            width: 96
-            height: 34
+            y: 192
+            width: 190
+            height: 40
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
@@ -990,10 +1027,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_shortcuts_btn
-            x: 112
-            y: 198
+            x: 208
+            y: 146
             width: 96
-            height: 34
+            height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1004,10 +1041,10 @@ lvgl:
                   align: CENTER
         - button:
             id: home_cal_btn
-            x: 212
-            y: 198
+            x: 208
+            y: 192
             width: 96
-            height: 34
+            height: 40
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1024,8 +1061,8 @@ lvgl:
             id: lights_home_btn
             x: 8
             y: 6
-            width: 60
-            height: 30
+            width: 54
+            height: 26
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1035,21 +1072,21 @@ lvgl:
                   text: "Home"
                   align: CENTER
         - label:
-            x: 132
+            x: 72
             y: 10
             text: "Lights"
         - label:
             id: lights_selected_lbl
-            x: 196
-            y: 12
-            width: 116
+            x: 130
+            y: 8
+            width: 182
             text: "Selected"
         - button:
             id: light_foyer_btn
-            x: 12
-            y: 40
-            width: 86
-            height: 40
+            x: 8
+            y: 38
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1063,10 +1100,10 @@ lvgl:
                   align: CENTER
         - button:
             id: light_vanity_btn
-            x: 104
-            y: 40
-            width: 86
-            height: 40
+            x: 8
+            y: 70
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1080,10 +1117,10 @@ lvgl:
                   align: CENTER
         - button:
             id: light_bedroom_btn
-            x: 12
-            y: 86
-            width: 86
-            height: 40
+            x: 8
+            y: 102
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1097,10 +1134,10 @@ lvgl:
                   align: CENTER
         - button:
             id: light_hall_btn
-            x: 104
-            y: 86
-            width: 86
-            height: 40
+            x: 8
+            y: 134
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1114,10 +1151,10 @@ lvgl:
                   align: CENTER
         - button:
             id: light_office_btn
-            x: 12
-            y: 132
-            width: 86
-            height: 40
+            x: 8
+            y: 166
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1131,10 +1168,10 @@ lvgl:
                   align: CENTER
         - button:
             id: light_upstairs_btn
-            x: 104
-            y: 132
-            width: 86
-            height: 40
+            x: 8
+            y: 198
+            width: 116
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1147,10 +1184,10 @@ lvgl:
                   text: "Upstairs"
                   align: CENTER
         - button:
-            x: 196
-            y: 50
-            width: 116
-            height: 32
+            x: 130
+            y: 42
+            width: 182
+            height: 30
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
@@ -1160,10 +1197,10 @@ lvgl:
                   text: "Toggle"
                   align: CENTER
         - button:
-            x: 196
-            y: 88
-            width: 56
-            height: 32
+            x: 130
+            y: 76
+            width: 88
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1173,10 +1210,10 @@ lvgl:
                   text: "Dim"
                   align: CENTER
         - button:
-            x: 256
-            y: 88
-            width: 56
-            height: 32
+            x: 224
+            y: 76
+            width: 88
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1186,10 +1223,36 @@ lvgl:
                   text: "Bright"
                   align: CENTER
         - button:
-            x: 196
-            y: 126
-            width: 56
-            height: 32
+            x: 130
+            y: 110
+            width: 88
+            height: 30
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_prev
+            widgets:
+              - label:
+                  text: "< Light"
+                  align: CENTER
+        - button:
+            x: 224
+            y: 110
+            width: 88
+            height: 30
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_next
+            widgets:
+              - label:
+                  text: "Light >"
+                  align: CENTER
+        - button:
+            x: 130
+            y: 144
+            width: 88
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -1199,10 +1262,10 @@ lvgl:
                   text: "Warm"
                   align: CENTER
         - button:
-            x: 256
-            y: 126
-            width: 56
-            height: 32
+            x: 224
+            y: 144
+            width: 88
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1212,23 +1275,68 @@ lvgl:
                   text: "Cool"
                   align: CENTER
         - button:
-            x: 196
-            y: 164
-            width: 116
-            height: 32
+            x: 130
+            y: 178
+            width: 42
+            height: 28
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: selected_light_color
+                  cname: "red"
+            widgets:
+              - label:
+                  text: "R"
+                  align: CENTER
+        - button:
+            x: 176
+            y: 178
+            width: 42
+            height: 28
             styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: selected_light_color
+                  cname: "blue"
+            widgets:
+              - label:
+                  text: "B"
+                  align: CENTER
+        - button:
+            x: 222
+            y: 178
+            width: 42
+            height: 28
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: selected_light_color
+                  cname: "white"
+            widgets:
+              - label:
+                  text: "W"
+                  align: CENTER
+        - button:
+            x: 268
+            y: 178
+            width: 44
+            height: 28
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: selected_light_preset_cycle
             widgets:
               - label:
-                  text: "Preset Cycle"
+                  text: "P"
                   align: CENTER
         - label:
             id: lights_preset_lbl
-            x: 8
-            y: 204
-            width: 304
+            x: 130
+            y: 210
+            width: 182
             text: "Preset"
 
     - id: weather_page
@@ -1237,8 +1345,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 60
-            height: 30
+            width: 54
+            height: 26
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1248,31 +1356,31 @@ lvgl:
                   text: "Home"
                   align: CENTER
         - label:
-            x: 124
+            x: 72
             y: 10
-            text: "Weather"
+            text: "Weather Board"
         - label:
             id: weather_temp_lbl
-            x: 16
-            y: 44
+            x: 12
+            y: 40
             text: "--"
         - label:
             id: weather_cond_lbl
-            x: 16
-            y: 78
-            width: 288
+            x: 12
+            y: 74
+            width: 296
             text: "-"
         - label:
             id: weather_feels_lbl
-            x: 16
-            y: 100
-            width: 288
+            x: 12
+            y: 98
+            width: 296
             text: "Feels --"
         - label:
             id: weather_metrics_lbl
-            x: 16
+            x: 12
             y: 126
-            width: 288
+            width: 296
             text: "metrics"
 
     - id: reader_page
@@ -1281,8 +1389,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 60
-            height: 30
+            width: 54
+            height: 26
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1292,73 +1400,109 @@ lvgl:
                   text: "Home"
                   align: CENTER
         - label:
-            x: 132
+            x: 72
             y: 10
             text: "Reader"
         - button:
+            id: reader_bbc_btn
             x: 12
-            y: 42
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            y: 38
+            width: 296
+            height: 30
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: open_detail_bbc
             widgets:
               - label:
+                  id: reader_bbc_lbl
                   text: "BBC"
                   align: CENTER
         - button:
-            x: 113
-            y: 42
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            id: reader_dc_btn
+            x: 12
+            y: 72
+            width: 296
+            height: 30
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: open_detail_dc
             widgets:
               - label:
+                  id: reader_dc_lbl
                   text: "DC"
                   align: CENTER
         - button:
-            x: 214
-            y: 42
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            id: reader_loudoun_btn
+            x: 12
+            y: 106
+            width: 296
+            height: 30
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: open_detail_loudoun
             widgets:
               - label:
+                  id: reader_loudoun_lbl
                   text: "Loudoun"
                   align: CENTER
         - button:
+            id: reader_word_btn
             x: 12
-            y: 126
-            width: 94
-            height: 70
+            y: 140
+            width: 296
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: open_detail_word
             widgets:
               - label:
+                  id: reader_word_lbl
                   text: "Word"
                   align: CENTER
         - button:
-            x: 113
-            y: 126
-            width: 94
-            height: 70
+            id: reader_quote_btn
+            x: 12
+            y: 174
+            width: 296
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: open_detail_quote
             widgets:
               - label:
+                  id: reader_quote_lbl
                   text: "Quote"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 208
+            width: 146
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Shortcuts"
+                  align: CENTER
+        - button:
+            x: 162
+            y: 208
+            width: 146
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: start_touch_calibration
+            widgets:
+              - label:
+                  text: "TouchCal"
                   align: CENTER
 
     - id: settings_page
@@ -1367,8 +1511,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 60
-            height: 30
+            width: 54
+            height: 26
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1378,14 +1522,14 @@ lvgl:
                   text: "Home"
                   align: CENTER
         - label:
-            x: 124
+            x: 72
             y: 10
             text: "Settings"
         - button:
             x: 12
-            y: 42
-            width: 94
-            height: 70
+            y: 38
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1395,10 +1539,10 @@ lvgl:
                   text: "Saver-"
                   align: CENTER
         - button:
-            x: 113
-            y: 42
-            width: 94
-            height: 70
+            x: 112
+            y: 38
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1408,10 +1552,23 @@ lvgl:
                   text: "Saver+"
                   align: CENTER
         - button:
-            x: 214
-            y: 42
-            width: 94
-            height: 70
+            x: 212
+            y: 38
+            width: 96
+            height: 52
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: kb_backlight_toggle
+            widgets:
+              - label:
+                  text: "KB Light"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 96
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1421,10 +1578,10 @@ lvgl:
                   text: "WakeTouch"
                   align: CENTER
         - button:
-            x: 12
-            y: 126
-            width: 94
-            height: 70
+            x: 112
+            y: 96
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1434,10 +1591,10 @@ lvgl:
                   text: "WakeKeys"
                   align: CENTER
         - button:
-            x: 113
-            y: 126
-            width: 94
-            height: 70
+            x: 212
+            y: 96
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1446,23 +1603,54 @@ lvgl:
               - label:
                   text: "WakeBall"
                   align: CENTER
+        - label:
+            x: 12
+            y: 154
+            width: 296
+            text: "Quick"
         - button:
-            x: 214
-            y: 126
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 12
+            y: 176
+            width: 96
+            height: 36
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: kb_backlight_toggle
+              - script.execute: start_touch_calibration
             widgets:
               - label:
-                  text: "KB Light"
+                  text: "TouchCal"
+                  align: CENTER
+        - button:
+            x: 112
+            y: 176
+            width: 96
+            height: 36
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Shortcuts"
+                  align: CENTER
+        - button:
+            x: 212
+            y: 176
+            width: 96
+            height: 36
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: theme_page
+            widgets:
+              - label:
+                  text: "Themes"
                   align: CENTER
         - label:
             id: settings_status_lbl
             x: 12
-            y: 206
+            y: 216
             width: 296
             text: "settings"
 
@@ -1472,8 +1660,8 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 60
-            height: 30
+            width: 54
+            height: 26
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1483,14 +1671,14 @@ lvgl:
                   text: "Home"
                   align: CENTER
         - label:
-            x: 134
+            x: 72
             y: 10
             text: "Theme"
         - button:
             x: 12
-            y: 42
-            width: 94
-            height: 70
+            y: 38
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1500,10 +1688,10 @@ lvgl:
                   text: "Theme-"
                   align: CENTER
         - button:
-            x: 113
-            y: 42
-            width: 94
-            height: 70
+            x: 112
+            y: 38
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1513,10 +1701,10 @@ lvgl:
                   text: "Theme+"
                   align: CENTER
         - button:
-            x: 214
-            y: 42
-            width: 94
-            height: 70
+            x: 212
+            y: 38
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1527,9 +1715,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 12
-            y: 126
-            width: 94
-            height: 70
+            y: 96
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1539,10 +1727,10 @@ lvgl:
                   text: "Disp+"
                   align: CENTER
         - button:
-            x: 113
-            y: 126
-            width: 94
-            height: 70
+            x: 112
+            y: 96
+            width: 96
+            height: 52
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -1552,105 +1740,102 @@ lvgl:
                   text: "Debug"
                   align: CENTER
         - button:
-            x: 214
-            y: 126
-            width: 94
-            height: 70
-            styles: [lv_style_btn]
+            x: 212
+            y: 96
+            width: 96
+            height: 52
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Shortcuts"
+                  align: CENTER
+        - button:
+            x: 12
+            y: 154
+            width: 296
+            height: 34
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: start_touch_calibration
             widgets:
               - label:
-                  text: "TouchCal"
+                  text: "Start Full Touch Calibration"
                   align: CENTER
         - label:
             id: theme_status_lbl
             x: 12
-            y: 206
+            y: 216
             width: 296
             text: "theme"
 
     - id: touch_cal_page
       styles: [lv_style_screen]
       widgets:
-        - button:
-            x: 8
-            y: 6
-            width: 56
-            height: 24
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(touch_cal_mode) = false;
-              - lvgl.page.show: theme_page
-              - script.execute: lvgl_update_dynamic
-            widgets:
-              - label:
-                  text: "Back"
-                  align: CENTER
         - label:
-            x: 78
-            y: 8
+            x: 12
+            y: 6
             text: "Touch Calibration 9-Point"
         - label:
+            id: touch_cal_result_lbl
+            x: 214
+            y: 8
+            width: 100
+            text: "raw"
+        - label:
             id: touch_cal_p0_lbl
-            x: 20
-            y: 36
+            x: 16
+            y: 32
             text: "+"
         - label:
             id: touch_cal_p1_lbl
-            x: 160
-            y: 36
+            x: 158
+            y: 32
             text: "+"
         - label:
             id: touch_cal_p2_lbl
             x: 300
-            y: 36
+            y: 32
             text: "+"
         - label:
             id: touch_cal_p3_lbl
-            x: 20
-            y: 110
+            x: 16
+            y: 118
             text: "+"
         - label:
             id: touch_cal_p4_lbl
-            x: 160
-            y: 110
+            x: 158
+            y: 118
             text: "+"
         - label:
             id: touch_cal_p5_lbl
             x: 300
-            y: 110
+            y: 118
             text: "+"
         - label:
             id: touch_cal_p6_lbl
-            x: 20
-            y: 184
+            x: 16
+            y: 204
             text: "+"
         - label:
             id: touch_cal_p7_lbl
-            x: 160
-            y: 184
+            x: 158
+            y: 204
             text: "+"
         - label:
             id: touch_cal_p8_lbl
             x: 300
-            y: 184
+            y: 204
             text: "+"
         - label:
             id: touch_cal_step_lbl
             x: 12
-            y: 206
-            width: 308
-            text: "1/9 TOP LEFT"
-        - label:
-            id: touch_cal_result_lbl
-            x: 12
             y: 222
             width: 308
-            text: "Result"
+            text: "1/9 TOP LEFT"
 
     - id: shortcuts_page
       styles: [lv_style_screen]

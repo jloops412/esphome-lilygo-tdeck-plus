@@ -29,12 +29,12 @@ Each install YAML pulls modular files from this repo by release tag.
 
 ## Current UI flow
 
-1. `Home`: clean launcher page (`Lights`, `Weather`, `Reader`, `Settings`, `Themes`, `Sleep`).
-2. `Lights`: controller-first page with direct light selection and contextual actions (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, `Preset`).
-3. `Weather`: cleaner dashboard page with primary temp/condition + compact multi-metric rows.
-4. `Reader`: feed/source launcher into full detail reader.
-5. `Settings`: wake and timeout controls plus keyboard-backlight toggle.
-6. `Theme`: on-device theme presets and display brightness tuning.
+1. `Home`: launcher-first layout with a large `Lights Controller` entry and quick links to `Weather`, `Reader`, `Settings`, `Themes`, and `TouchCal`.
+2. `Lights`: two-zone controller layout with direct light target list + contextual controls (`Toggle`, `Dim`, `Bright`, `Warm`, `Cool`, quick colors, preset cycle).
+3. `Weather`: glance dashboard with large temperature, readable condition, feels-like, and compact metrics.
+4. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
+5. `Settings`: wake behavior, saver timing, keyboard backlight, plus direct shortcuts/theme/calibration access.
+6. `Theme`: theme cycling, display brightness, debug toggle, and full calibration launch.
 
 ## Quick keyboard shortcuts
 
@@ -54,8 +54,9 @@ Each install YAML pulls modular files from this repo by release tag.
 14. `R`: reset stored calibration values.
 15. `C`: toggle touch debug.
 
-Touch calibration in LVGL mode now uses a full-screen 9-point capture flow.
+Touch calibration in LVGL mode uses a full-screen 9-point capture flow.
 Captured calibration is applied live and persisted across reboot.
+The fit now uses averaged 9-point edge regression for improved real-world tap accuracy near edges and small buttons.
 Default values can still be set in one place via install YAML substitutions:
 `touch_x_min`, `touch_x_max`, `touch_y_min`, `touch_y_max`.
 

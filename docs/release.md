@@ -14,6 +14,7 @@
 - `v0.6.3-lvgl-calibration-overrides`: install-time touch calibration substitutions in one YAML.
 - `v0.7.0-lvgl-cal9-controller-ui`: persistent live 9-point calibration + controller-first lights UI redesign.
 - `v0.7.1-lvgl-modern-ui-shortcuts`: calibration regression fit, modernized home styling, and shortcuts overlay with Alt+K support.
+- `v0.8.0-lvgl-groundup-ui2`: deeper LVGL layout rewrite, upgraded lights workflow, and improved 9-point edge-fit calibration.
 
 Post-tag note:
 
@@ -58,6 +59,17 @@ Post-tag note:
 4. Added in-device shortcuts page with Home entry and keyboard access (`Alt+K` and `/`).
 5. Added Alt-key chord handling (`Esc` prefix + key) to support `Alt+K` popup behavior.
 6. Refined LVGL styles and home/lights presentation for a less primitive, more controller-focused feel.
+
+`v0.8.0-lvgl-groundup-ui2` highlights:
+
+1. Reworked LVGL page layouts to a cleaner launcher + controller structure with improved hierarchy.
+2. Redesigned lights page into a denser two-zone control surface:
+   - left: target light selection list
+   - right: contextual control pad (`Toggle`, dim/bright, prev/next light, warm/cool, quick colors, preset)
+3. Reworked reader page into full-width source rows with live snippet previews.
+4. Strengthened calibration output fit using averaged 9-point edge regression for better small-target hit accuracy.
+5. Updated calibration page target placement to better cover practical screen edges while preserving full-screen flow.
+6. Updated docs and handoff report in the same pass per repo process contract.
 
 `v0.6.0-lvgl-beta1` highlights:
 

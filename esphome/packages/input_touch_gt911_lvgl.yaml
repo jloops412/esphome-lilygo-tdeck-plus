@@ -81,36 +81,32 @@ touchscreen:
                   }
 
                   if (id(touch_cal_step) >= 8) {
-                    const double tx[9] = {20, 160, 300, 20, 160, 300, 20, 160, 300};
-                    const double ty[9] = {36, 36, 36, 110, 110, 110, 184, 184, 184};
-                    const double rx[9] = {
-                      (double) id(cal9_raw_tl_x), (double) id(cal9_raw_tc_x), (double) id(cal9_raw_tr_x),
-                      (double) id(cal9_raw_ml_x), (double) id(cal9_raw_mc_x), (double) id(cal9_raw_mr_x),
-                      (double) id(cal9_raw_bl_x), (double) id(cal9_raw_bc_x), (double) id(cal9_raw_br_x)
-                    };
-                    const double ry[9] = {
-                      (double) id(cal9_raw_tl_y), (double) id(cal9_raw_tc_y), (double) id(cal9_raw_tr_y),
-                      (double) id(cal9_raw_ml_y), (double) id(cal9_raw_mc_y), (double) id(cal9_raw_mr_y),
-                      (double) id(cal9_raw_bl_y), (double) id(cal9_raw_bc_y), (double) id(cal9_raw_br_y)
-                    };
+                    // 9-point fit reduced to 3 averaged columns/rows for better edge stability.
+                    // Targets are intentionally near the usable edges, not bezel limits.
+                    const double tx0 = 18.0, tx1 = 160.0, tx2 = 302.0;
+                    const double ty0 = 34.0, ty1 = 120.0, ty2 = 206.0;
 
-                    const double n = 9.0;
-                    double sx = 0.0, sy = 0.0, sxx = 0.0, sxy = 0.0;
-                    double tx_sum = 0.0, ty_sum = 0.0, tyy = 0.0, tyy_raw = 0.0;
-                    for (int i = 0; i < 9; i++) {
-                      sx += tx[i];
-                      sy += rx[i];
-                      sxx += tx[i] * tx[i];
-                      sxy += tx[i] * rx[i];
+                    const double rx0 = ((double) id(cal9_raw_tl_x) + (double) id(cal9_raw_ml_x) + (double) id(cal9_raw_bl_x)) / 3.0;
+                    const double rx1 = ((double) id(cal9_raw_tc_x) + (double) id(cal9_raw_mc_x) + (double) id(cal9_raw_bc_x)) / 3.0;
+                    const double rx2 = ((double) id(cal9_raw_tr_x) + (double) id(cal9_raw_mr_x) + (double) id(cal9_raw_br_x)) / 3.0;
+                    const double ry0 = ((double) id(cal9_raw_tl_y) + (double) id(cal9_raw_tc_y) + (double) id(cal9_raw_tr_y)) / 3.0;
+                    const double ry1 = ((double) id(cal9_raw_ml_y) + (double) id(cal9_raw_mc_y) + (double) id(cal9_raw_mr_y)) / 3.0;
+                    const double ry2 = ((double) id(cal9_raw_bl_y) + (double) id(cal9_raw_bc_y) + (double) id(cal9_raw_br_y)) / 3.0;
 
-                      tx_sum += ty[i];
-                      ty_sum += ry[i];
-                      tyy += ty[i] * ty[i];
-                      tyy_raw += ty[i] * ry[i];
-                    }
+                    const double tx_mean = (tx0 + tx1 + tx2) / 3.0;
+                    const double rx_mean = (rx0 + rx1 + rx2) / 3.0;
+                    const double ty_mean = (ty0 + ty1 + ty2) / 3.0;
+                    const double ry_mean = (ry0 + ry1 + ry2) / 3.0;
 
-                    double den_x = n * sxx - sx * sx;
-                    double den_y = n * tyy - tx_sum * tx_sum;
+                    const double den_x =
+                      (tx0 - tx_mean) * (tx0 - tx_mean) +
+                      (tx1 - tx_mean) * (tx1 - tx_mean) +
+                      (tx2 - tx_mean) * (tx2 - tx_mean);
+                    const double den_y =
+                      (ty0 - ty_mean) * (ty0 - ty_mean) +
+                      (ty1 - ty_mean) * (ty1 - ty_mean) +
+                      (ty2 - ty_mean) * (ty2 - ty_mean);
+
                     if ((den_x > -0.001 && den_x < 0.001) || (den_y > -0.001 && den_y < 0.001)) {
                       ESP_LOGW("touch_cal", "Rejected calibration: degenerate regression");
                       id(touch_cal_mode) = false;
@@ -118,10 +114,17 @@ touchscreen:
                       return;
                     }
 
-                    double bx = (n * sxy - sx * sy) / den_x;
-                    double ax = (sy - bx * sx) / n;
-                    double by = (n * tyy_raw - tx_sum * ty_sum) / den_y;
-                    double ay = (ty_sum - by * tx_sum) / n;
+                    const double bx =
+                      ((tx0 - tx_mean) * (rx0 - rx_mean) +
+                       (tx1 - tx_mean) * (rx1 - rx_mean) +
+                       (tx2 - tx_mean) * (rx2 - rx_mean)) / den_x;
+                    const double by =
+                      ((ty0 - ty_mean) * (ry0 - ry_mean) +
+                       (ty1 - ty_mean) * (ry1 - ry_mean) +
+                       (ty2 - ty_mean) * (ry2 - ry_mean)) / den_y;
+
+                    const double ax = rx_mean - (bx * tx_mean);
+                    const double ay = ry_mean - (by * ty_mean);
 
                     int x_min = (int) (ax + (ax >= 0.0 ? 0.5 : -0.5));
                     int x_max = (int) ((ax + bx * 319.0) + ((ax + bx * 319.0) >= 0.0 ? 0.5 : -0.5));
@@ -157,7 +160,7 @@ touchscreen:
                         id(touch_cal_suggest_y_min),
                         id(touch_cal_suggest_y_max)
                       );
-                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d (regression)",
+                      ESP_LOGI("touch_cal", "Applied GT911 calibration x_min=%d x_max=%d y_min=%d y_max=%d (9-point edge fit)",
                                id(touch_cal_suggest_x_min),
                                id(touch_cal_suggest_x_max),
                                id(touch_cal_suggest_y_min),
@@ -169,6 +172,11 @@ touchscreen:
                   } else {
                     id(touch_cal_step) += 1;
                   }
+              - if:
+                  condition:
+                    lambda: "return !id(touch_cal_mode);"
+                  then:
+                    - lvgl.page.show: theme_page
               - script.execute: lvgl_update_dynamic
         - lambda: |-
             id(touch_active) = false;

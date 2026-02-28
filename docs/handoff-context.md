@@ -2,7 +2,7 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest LVGL tag: `v0.7.1-lvgl-modern-ui-shortcuts`
+2. Latest LVGL tag: `v0.8.0-lvgl-groundup-ui2`
 3. Previous LVGL tag: `v0.7.0-lvgl-cal9-controller-ui` (`f6f4d22`)
 4. Previous LVGL tag: `v0.6.3-lvgl-calibration-overrides` (`58aed5a`)
 
@@ -87,13 +87,33 @@
 5. Process:
    - Added explicit process policy to docs to enforce docs/handoff updates every pass.
 
+## Ground-up LVGL UI pass in `v0.8.0-lvgl-groundup-ui2`
+1. Home page:
+   - Reworked to launcher-first layout with stronger control hierarchy.
+   - Lights is now a large primary action; weather/reader/settings/theme/touchcal remain one tap away.
+2. Lights page:
+   - Reworked into two-zone controller layout.
+   - Left rail: direct light target selection list.
+   - Right panel: contextual actions (`Toggle`, `Dim`, `Bright`, `< Light`, `Light >`, `Warm`, `Cool`, quick colors, `Preset`).
+3. Reader page:
+   - Converted to full-width source rows with live snippet labels for BBC/DC/Loudoun/Word/Quote.
+4. Calibration quality:
+   - Replaced single-pass 9-point regression with averaged column/row edge-fit regression.
+   - Updated calibration target geometry for edge coverage while avoiding bezel dead zones.
+   - Calibration still applies live and persists across reboot.
+5. Docs/process:
+   - README and release docs updated in same pass.
+   - Handoff context updated in same pass (this file).
+
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.7.1-lvgl-modern-ui-shortcuts`.
+1. Flash LVGL install YAML pinned to `v0.8.0-lvgl-groundup-ui2`.
 2. Verify:
-   - trackball focus movement and center click activation
+   - touch accuracy specifically on Home/Back and top-edge controls after fresh calibration
+   - lights page workflow feels faster (select + act without page hopping)
+   - reader snippets are readable and open the correct details
    - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`, `/`, `Alt+K`)
-   - touch calibration 9-point flow applies live and still works after reboot
-   - lights page direct-selection flow is responsive with touch/trackball/keyboard
+   - trackball focus movement and click activation
+   - calibration persistence across reboot
 
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.
