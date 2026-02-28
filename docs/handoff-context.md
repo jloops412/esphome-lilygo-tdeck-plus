@@ -5,11 +5,38 @@
 2. Latest LVGL tag: `v0.11.0-lvgl-privacy-ui-gps-pass`
 3. Previous LVGL tag: `v0.10.0-lvgl-climate-theme-fix`
 4. Previous LVGL tag: `v0.9.1-lvgl-gps-hotfix`
+5. Current active dev ref in install YAMLs: `main` (unreleased pass after `v0.11.0`)
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
+
+## Unreleased Main Pass (post `v0.11.0`)
+1. Entity mapping restore + templates:
+   - Restored full real-entity easy install mapping in:
+     - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+     - `esphome/install/lilygo-tdeck-plus-install.yaml`
+   - Added personal mapping file:
+     - `esphome/install/entity-overrides.jloops.yaml`
+   - Kept public-safe template path:
+     - `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
+     - `esphome/install/entity-overrides.template.yaml`
+2. Screensaver/idle hardening:
+   - Added activity pulse guard in `note_activity` to ignore noisy ultra-frequent input events.
+   - Added `last_activity_note_ms` global for debounce timing.
+3. Trackball stability:
+   - Stronger GPIO filtering (`delayed_on_off` + `settle`) in LVGL trackball package.
+   - Throttled trackball activity timestamp updates while awake.
+   - Added LVGL keypad `long_press_repeat_time: never` to reduce runaway focus drift.
+4. UI pass across all major pages:
+   - Home launcher redesigned with icon-first compact actions and larger lights entry.
+   - Weather title/metrics formatting cleanup and clearer climate jump affordance.
+   - Climate header/nav cleanup and compact metric labels.
+   - Settings gained direct timeout slider (`settings_saver_slider`) for precise autosleep control.
+   - Theme page naming refresh (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`) and palette tuning.
+5. Icon compatibility:
+   - Replaced previously failing icon codepoints with safer LVGL-compatible icon codes.
 
 ## Install entrypoints
 1. Stable install YAML:
@@ -185,22 +212,18 @@
    - Rebalanced theme palettes for smoother complementary color sets.
 
 ## Immediate validation asks
-1. Flash LVGL install YAML pinned to `v0.11.0-lvgl-privacy-ui-gps-pass`.
+1. Flash LVGL install YAML from `main` (current pass is not tagged yet).
 2. Verify:
-   - config parse succeeds (no `binary_sensor.template update_interval` error)
-   - calibration flow ends with `Save`/`Retry` and does not auto-save bad captures
-   - lights sliders apply correctly to selected entity (`brightness_pct` and `color_temp_kelvin`)
-   - display colors are no longer inverted (dark theme appears dark, amber no longer appears blue)
-   - climate page opens and all Sensi controls/actions call expected HA entities
-   - climate toggle row fits cleanly without per-toggle status badge clutter
-   - slider releases visibly snap to expected increments (5% or 100K)
-   - trackball right/left focus no longer runs away
-   - keyboard `1..7` page jumps route to expected LVGL pages
-   - reduced utility-button duplication still keeps navigation discoverable
-   - GPS diagnostic entities update (`GPS Data Alive`, `GPS Last Data Age`, `GPS Status`)
-   - keyboard shortcuts (`Q/E`, `WASD`, `Tab/Esc`, `K/R/C`, `/`, `Alt+K`)
-   - trackball focus movement and click activation
-   - calibration persistence across reboot
+   - config parse succeeds
+   - restored entity IDs drive the intended HA entities again
+   - public template install path still compiles with placeholder entities
+   - home launcher icons render (`Lights/WX/Reader/Theme/Sleep`)
+   - auto-screensaver triggers after timeout while idle
+   - settings timeout slider updates timeout value and persists
+   - trackball right/left movement no longer runs away
+   - climate page opens and Sensi actions fire correctly
+   - weather metrics and GPS diagnostics still update
+   - calibration persistence across reboot still holds
 
 ## Notes
 1. Manual-rendered stable path remains functional and is the fallback.

@@ -3,7 +3,16 @@ script:
   - id: note_activity
     then:
       - lambda: |-
-          id(last_activity_ms) = esphome::millis();
+          uint32_t now = esphome::millis();
+          if (!id(screensaver_active)) {
+            // Ignore very-frequent activity pulses to prevent noisy inputs
+            // from blocking auto-screensaver.
+            if ((now - id(last_activity_note_ms)) < 1500) {
+              return;
+            }
+          }
+          id(last_activity_note_ms) = now;
+          id(last_activity_ms) = now;
       - if:
           condition:
             lambda: "return id(screensaver_active);"
@@ -23,7 +32,10 @@ script:
   - id: wake_display
     then:
       - lambda: |-
+          uint32_t now = esphome::millis();
           id(screensaver_active) = false;
+          id(last_activity_ms) = now;
+          id(last_activity_note_ms) = now;
       - light.turn_on:
           id: tft_backlight
           brightness: !lambda "return id(backlight_percent) / 100.0f;"
@@ -110,6 +122,20 @@ script:
       - lambda: |-
           id(screensaver_timeout_s) += 5;
           if (id(screensaver_timeout_s) > 300) id(screensaver_timeout_s) = 300;
+      - script.execute: lvgl_update_dynamic
+
+  - id: set_saver_timeout
+    parameters:
+      seconds: int
+    then:
+      - lambda: |-
+          seconds = ((seconds + 2) / 5) * 5;
+          if (seconds < 10) seconds = 10;
+          if (seconds > 300) seconds = 300;
+          id(screensaver_timeout_s) = seconds;
+      - lvgl.slider.update:
+          id: settings_saver_slider
+          value: !lambda "return id(screensaver_timeout_s);"
       - script.execute: lvgl_update_dynamic
 
   - id: toggle_wake_touch
@@ -612,63 +638,63 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x140D13
-                text_color: 0xFBEFF6
+                bg_color: 0x0D120F
+                text_color: 0xEEF7F1
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x251824
-                border_color: 0x68405D
+                bg_color: 0x16201A
+                border_color: 0x3C5846
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x372337
-                border_color: 0x8F5E83
-                text_color: 0xFBEFF6
+                bg_color: 0x1C2D23
+                border_color: 0x5A8B6C
+                text_color: 0xEEF7F1
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x2E1D2E
-                border_color: 0x714864
-                text_color: 0xF3E2ED
+                bg_color: 0x19261E
+                border_color: 0x466754
+                text_color: 0xDDEDE3
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x3A2025
-                border_color: 0x885264
-                text_color: 0xFCEEF4
+                bg_color: 0x332522
+                border_color: 0x835D50
+                text_color: 0xFAEDE9
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x223025
-                border_color: 0x4B7A67
-                text_color: 0xEAF7F0
+                bg_color: 0x1A3126
+                border_color: 0x4C8768
+                text_color: 0xE7F8EE
       - if:
           condition:
             lambda: "return id(theme_index) == 4;"
           then:
             - lvgl.style.update:
                 id: lv_style_screen
-                bg_color: 0x0A0F13
-                text_color: 0xECF2F7
+                bg_color: 0x070808
+                text_color: 0xF1F3F3
             - lvgl.style.update:
                 id: lv_style_card
-                bg_color: 0x17202A
-                border_color: 0x3A4F66
+                bg_color: 0x111313
+                border_color: 0x3A3F40
             - lvgl.style.update:
                 id: lv_style_btn
-                bg_color: 0x202D3C
-                border_color: 0x56779A
-                text_color: 0xECF2F7
+                bg_color: 0x191B1C
+                border_color: 0x6A7172
+                text_color: 0xF1F3F3
             - lvgl.style.update:
                 id: lv_style_btn_soft
-                bg_color: 0x1A2634
-                border_color: 0x445D7A
-                text_color: 0xDCE7F1
+                bg_color: 0x151718
+                border_color: 0x4E5556
+                text_color: 0xDDE2E2
             - lvgl.style.update:
                 id: lv_style_btn_warn
-                bg_color: 0x332423
-                border_color: 0x835B58
-                text_color: 0xFAEEEE
+                bg_color: 0x322626
+                border_color: 0x7D5C5C
+                text_color: 0xFAF0F0
             - lvgl.style.update:
                 id: lv_style_btn_ok
-                bg_color: 0x203229
-                border_color: 0x4D7F6D
+                bg_color: 0x213126
+                border_color: 0x59806B
                 text_color: 0xE8F6EE
       - script.execute: lvgl_update_dynamic
 
@@ -1033,8 +1059,8 @@ script:
             float temp = id(wx_temp).state;
             if (temp != temp) temp = id(wx_entity_temperature).state;
             if (temp != temp) return std::string("--");
-            char buf[16];
-            snprintf(buf, sizeof(buf), "%.1f", temp);
+            char buf[24];
+            snprintf(buf, sizeof(buf), "Temp %.1f", temp);
             return std::string(buf);
       - lvgl.label.update:
           id: weather_cond_lbl
@@ -1049,7 +1075,7 @@ script:
             float feels = id(wx_feels).state;
             if (feels != feels) feels = id(wx_entity_temperature).state;
             if (feels != feels) return std::string("Feels --");
-            char buf[24];
+            char buf[28];
             snprintf(buf, sizeof(buf), "Feels %.1f", feels);
             return std::string(buf);
       - lvgl.label.update:
@@ -1077,7 +1103,7 @@ script:
             if (dew != dew) dew = 0;
             float bearing = id(wx_entity_wind_bearing).state;
             if (bearing != bearing) bearing = 0;
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f @ %.0f  UV %.1f\nCloud %.0f%%  Press %.0f  Vis %.0f  Dew %.1f",
+            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f @ %.0f deg  UV %.1f\nCloud %.0f%%  Press %.0f  Vis %.0f  Dew %.1f",
                      hum, wind, bearing, uv, clouds, press, vis, dew);
             return std::string(buf);
       - lvgl.label.update:
@@ -1133,28 +1159,28 @@ script:
           text: !lambda |-
             char buf[32];
             int v = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
-            snprintf(buf, sizeof(buf), "Heat Set %d", v);
+            snprintf(buf, sizeof(buf), "Heat %d", v);
             return std::string(buf);
       - lvgl.label.update:
           id: climate_cool_lbl
           text: !lambda |-
             char buf[32];
             int v = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
-            snprintf(buf, sizeof(buf), "Cool Set %d", v);
+            snprintf(buf, sizeof(buf), "Cool %d", v);
             return std::string(buf);
       - lvgl.label.update:
           id: climate_hum_offset_lbl
           text: !lambda |-
             char buf[32];
             int v = id(sensi_humidity_offset).state == id(sensi_humidity_offset).state ? (int) id(sensi_humidity_offset).state : 0;
-            snprintf(buf, sizeof(buf), "Hum Off %d", v);
+            snprintf(buf, sizeof(buf), "HumOff %d", v);
             return std::string(buf);
       - lvgl.label.update:
           id: climate_temp_offset_lbl
           text: !lambda |-
             char buf[32];
             int v = id(sensi_temperature_offset).state == id(sensi_temperature_offset).state ? (int) id(sensi_temperature_offset).state : 0;
-            snprintf(buf, sizeof(buf), "Temp Off %d", v);
+            snprintf(buf, sizeof(buf), "TempOff %d", v);
             return std::string(buf);
       - lvgl.label.update:
           id: reader_bbc_lbl
@@ -1196,6 +1222,15 @@ script:
             if ((int) t.size() > 29) t = t.substr(0, 29) + "...";
             return std::string("Quote |  ") + t;
       - lvgl.label.update:
+          id: settings_saver_lbl
+          text: !lambda |-
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Auto sleep timeout: %ds", id(screensaver_timeout_s));
+            return std::string(buf);
+      - lvgl.slider.update:
+          id: settings_saver_slider
+          value: !lambda "return id(screensaver_timeout_s);"
+      - lvgl.label.update:
           id: settings_status_lbl
           text: !lambda |-
             char buf[160];
@@ -1209,11 +1244,11 @@ script:
       - lvgl.label.update:
           id: theme_status_lbl
           text: !lambda |-
-            const char *name = "Graphite";
-            if (id(theme_index) == 1) name = "Ocean";
-            if (id(theme_index) == 2) name = "Amber";
-            if (id(theme_index) == 3) name = "Rose";
-            if (id(theme_index) == 4) name = "Teal";
+            const char *name = "Midnight";
+            if (id(theme_index) == 1) name = "Slate";
+            if (id(theme_index) == 2) name = "Ember";
+            if (id(theme_index) == 3) name = "Moss";
+            if (id(theme_index) == 4) name = "Mono";
             char buf[160];
             snprintf(buf, sizeof(buf), "Theme %s | Disp %d%% | KB %d%% | Debug %s",
                      name,
@@ -1354,6 +1389,8 @@ lvgl:
       up: tb_up
       down: tb_down
       enter: tb_click
+      long_press_time: 300ms
+      long_press_repeat_time: never
 
   on_boot:
     then:
@@ -1436,125 +1473,111 @@ lvgl:
               - script.execute: open_shortcuts
             widgets:
               - label:
-                  text: "\uF11C Keys"
+                  text: "\uF11C"
                   align: CENTER
         - label:
             id: home_status_lbl
             x: 12
-            y: 30
+            y: 34
             width: 296
             text: "Status"
         - button:
             id: home_lights_btn
             x: 12
-            y: 58
-            width: 190
-            height: 82
+            y: 56
+            width: 144
+            height: 174
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - lvgl.page.show: lights_page
             widgets:
               - label:
-                  text: "\uF0EB Lights"
+                  text: "\uF0E7\nLights"
                   align: CENTER
         - button:
             id: home_weather_btn
-            x: 208
-            y: 58
-            width: 100
-            height: 38
+            x: 162
+            y: 56
+            width: 70
+            height: 54
             styles: [lv_style_btn]
             group: nav_group
             on_click:
               - lvgl.page.show: weather_page
             widgets:
               - label:
-                  text: "\uF0C2 Weather"
-                  align: CENTER
-        - button:
-            id: home_reader_btn
-            x: 208
-            y: 146
-            width: 100
-            height: 38
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lvgl.page.show: reader_page
-            widgets:
-              - label:
-                  text: "\uF02D Reader"
+                  text: "\uF043\nWX"
                   align: CENTER
         - button:
             id: home_climate_btn
-            x: 208
-            y: 102
-            width: 100
-            height: 38
+            x: 238
+            y: 56
+            width: 70
+            height: 54
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: open_climate
             widgets:
               - label:
-                  text: "\uF124 Climate"
+                  text: "TEMP"
+                  align: CENTER
+        - button:
+            id: home_reader_btn
+            x: 162
+            y: 116
+            width: 70
+            height: 54
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: reader_page
+            widgets:
+              - label:
+                  text: "\uF15B\nRD"
                   align: CENTER
         - button:
             id: home_settings_btn
-            x: 12
-            y: 146
-            width: 92
-            height: 40
+            x: 238
+            y: 116
+            width: 70
+            height: 54
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: settings_page
             widgets:
               - label:
-                  text: "\uF013 Settings"
+                  text: "\uF013\nSET"
                   align: CENTER
         - button:
             id: home_theme_btn
-            x: 108
-            y: 146
-            width: 92
-            height: 40
+            x: 162
+            y: 176
+            width: 70
+            height: 54
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - lvgl.page.show: theme_page
             widgets:
               - label:
-                  text: "\uF53F Themes"
+                  text: "\uF03A\nTHE"
                   align: CENTER
         - button:
             id: home_sleep_btn
-            x: 12
-            y: 192
-            width: 188
-            height: 40
+            x: 238
+            y: 176
+            width: 70
+            height: 54
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: sleep_display
             widgets:
               - label:
-                  text: "\uF186 Sleep"
-                  align: CENTER
-        - button:
-            id: home_shortcuts_btn
-            x: 208
-            y: 192
-            width: 100
-            height: 40
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "\uF128 Help"
+                  text: "\uF011"
                   align: CENTER
 
     - id: lights_page
@@ -1572,7 +1595,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 72
@@ -1868,7 +1891,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - button:
             x: 256
@@ -1881,12 +1904,12 @@ lvgl:
               - script.execute: open_climate
             widgets:
               - label:
-                  text: "HVAC"
+                  text: "TEMP"
                   align: CENTER
         - label:
             x: 72
             y: 10
-            text: "Weather Board"
+            text: "Weather + GPS"
         - label:
             id: weather_temp_lbl
             x: 12
@@ -1937,12 +1960,25 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 72
             y: 10
-            text: "Climate Control"
+            text: "Climate"
+        - button:
+            x: 256
+            y: 6
+            width: 52
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: weather_page
+            widgets:
+              - label:
+                  text: "WX"
+                  align: CENTER
         - button:
             x: 12
             y: 40
@@ -2170,7 +2206,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 72
@@ -2266,7 +2302,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 72
@@ -2351,53 +2387,67 @@ lvgl:
                   text: "WakeBall"
                   align: CENTER
         - label:
+            id: settings_saver_lbl
             x: 12
             y: 154
             width: 296
-            text: "Quick"
+            text: "Auto sleep timeout"
+        - slider:
+            id: settings_saver_slider
+            x: 12
+            y: 170
+            width: 296
+            min_value: 10
+            max_value: 300
+            value: 45
+            group: nav_group
+            on_release:
+              - script.execute:
+                  id: set_saver_timeout
+                  seconds: !lambda "return (int)x;"
         - button:
             x: 12
-            y: 176
+            y: 194
             width: 96
-            height: 36
+            height: 32
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: start_touch_calibration
             widgets:
               - label:
-                  text: "TouchCal"
+                  text: "Cal"
                   align: CENTER
         - button:
             x: 112
-            y: 176
+            y: 194
             width: 96
-            height: 36
+            height: 32
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: open_shortcuts
             widgets:
               - label:
-                  text: "Shortcuts"
+                  text: "Keys"
                   align: CENTER
         - button:
             x: 212
-            y: 176
+            y: 194
             width: 96
-            height: 36
+            height: 32
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - lvgl.page.show: theme_page
+              - script.execute: sleep_display
             widgets:
               - label:
-                  text: "Themes"
+                  text: "\uF011"
                   align: CENTER
         - label:
             id: settings_status_lbl
             x: 12
-            y: 216
+            y: 224
             width: 296
             text: "settings"
 
@@ -2415,7 +2465,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 72
@@ -2434,7 +2484,7 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "G"
+                  text: "Night"
                   align: CENTER
         - button:
             x: 72
@@ -2449,7 +2499,7 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "O"
+                  text: "Slate"
                   align: CENTER
         - button:
             x: 132
@@ -2464,7 +2514,7 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "A"
+                  text: "Ember"
                   align: CENTER
         - button:
             x: 192
@@ -2479,7 +2529,7 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "R"
+                  text: "Moss"
                   align: CENTER
         - button:
             x: 252
@@ -2494,7 +2544,7 @@ lvgl:
               - script.execute: apply_theme
             widgets:
               - label:
-                  text: "T"
+                  text: "Mono"
                   align: CENTER
         - label:
             x: 12
@@ -2683,7 +2733,7 @@ lvgl:
               - lvgl.page.show: home_page
             widgets:
               - label:
-                  text: "\uF015 Home"
+                  text: "\uF015"
                   align: CENTER
         - label:
             x: 80
@@ -2724,5 +2774,4 @@ lvgl:
             width: 296
             height: 184
             text: ""
-
 

@@ -8,14 +8,49 @@ substitutions:
   touch_x_max: "238"
   touch_y_min: "16"
   touch_y_max: "260"
-  # Copy substitution mapping from:
+  # Personal entity map (easy install path).
+  # Public-safe template lives in:
   # esphome/install/entity-overrides.template.yaml
-  # and paste your real private entity IDs locally.
+  entity_light_foyer: "light.foyer_lights"
+  entity_light_vanity: "light.main_vanity_lights"
+  entity_light_bedroom: "light.bedroom_lamp"
+  entity_light_hall: "light.hall_lights"
+  entity_light_office: "light.office_lamps"
+  entity_light_upstairs: "light.upstairs_lights"
+  entity_wx_main: "weather.openweathermap"
+  entity_wx_condition_sensor: "sensor.openweathermap_condition"
+  entity_wx_weather_sensor: "sensor.openweathermap_weather"
+  entity_wx_temp_sensor: "sensor.openweathermap_temperature"
+  entity_wx_feels_sensor: "sensor.openweathermap_apparent_temperature"
+  entity_wx_humidity_sensor: "sensor.openweathermap_humidity"
+  entity_wx_clouds_sensor: "sensor.openweathermap_cloud_coverage"
+  entity_wx_pressure_sensor: "sensor.openweathermap_pressure"
+  entity_wx_uv_sensor: "sensor.openweathermap_uv_index"
+  entity_wx_visibility_sensor: "sensor.openweathermap_visibility"
+  entity_wx_wind_speed_sensor: "sensor.openweathermap_wind_speed"
+  entity_word_of_day_sensor: "sensor.word_of_the_day"
+  entity_quote_of_hour_sensor: "sensor.quote_of_the_hour"
+  entity_feed_bbc: "event.bbc_news"
+  entity_feed_dc: "event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live"
+  entity_feed_loudoun: "event.loudoun_county_va_news_flash"
+  entity_sensi_climate: "climate.sensi_sensi"
+  entity_sensi_temperature_sensor: "sensor.sensi_sensi_temperature"
+  entity_sensi_humidity_sensor: "sensor.sensi_sensi_humidity"
+  entity_sensi_auto_cool_number: "number.sensi_sensi_auto_current_cool_temp"
+  entity_sensi_auto_heat_number: "number.sensi_sensi_auto_current_heat_temp"
+  entity_sensi_humidity_offset_number: "number.sensi_sensi_humidity_offset"
+  entity_sensi_temperature_offset_number: "number.sensi_sensi_temperature_offset"
+  entity_sensi_aux_heat_switch: "switch.sensi_sensi_aux_heat"
+  entity_sensi_display_humidity_switch: "switch.sensi_sensi_display_humidity"
+  entity_sensi_display_time_switch: "switch.sensi_sensi_display_time"
+  entity_sensi_fan_support_switch: "switch.sensi_sensi_fan_support"
+  entity_sensi_humidification_switch: "switch.sensi_sensi_humidification"
+  entity_sensi_keypad_lockout_switch: "switch.sensi_sensi_keypad_lockout"
 
 packages:
   board_base:
     url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: v0.11.0-lvgl-privacy-ui-gps-pass
+    ref: main
     files:
       - esphome/packages/board_base.yaml
       - esphome/packages/persistence_globals.yaml

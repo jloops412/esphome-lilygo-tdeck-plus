@@ -1,12 +1,15 @@
-# Private Entity Mapping Template
+# Entity Mapping Template
 
-Use this pattern to keep your personal Home Assistant entity IDs out of Git.
+Use this pattern to map your Home Assistant entity IDs into substitutions.
+
+If you want an easy prefilled starting point, see:
+`esphome/install/entity-overrides.jloops.yaml`
 
 ## How to use
 
-1. Keep repo files public-safe (no real entity IDs committed).
-2. In your local HA/ESPHome config, add substitution overrides.
-3. Never commit local private overrides to GitHub.
+1. Start from this tokenized template.
+2. Replace placeholder IDs with your HA entities.
+3. Paste into your install YAML (or keep as a local include file).
 
 ## Copy/Paste Block
 

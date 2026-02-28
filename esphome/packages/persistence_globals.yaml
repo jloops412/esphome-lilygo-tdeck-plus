@@ -181,6 +181,16 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: last_activity_note_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: tb_last_nav_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
   - id: detail_mode
     type: bool
     restore_value: no

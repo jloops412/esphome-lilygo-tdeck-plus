@@ -8,13 +8,13 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on: 8ms
-      - delayed_off: 8ms
+      - delayed_on_off: 12ms
+      - settle: 15ms
     on_press:
       then:
         - if:
             condition:
-              lambda: "return id(wake_on_trackball);"
+              lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
               - script.execute: note_activity
 
@@ -28,13 +28,13 @@ binary_sensor:
       inverted: true
       ignore_strapping_warning: true
     filters:
-      - delayed_on: 8ms
-      - delayed_off: 8ms
+      - delayed_on_off: 12ms
+      - settle: 15ms
     on_press:
       then:
         - if:
             condition:
-              lambda: "return id(wake_on_trackball);"
+              lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
               - script.execute: note_activity
 
@@ -47,13 +47,13 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on: 8ms
-      - delayed_off: 8ms
+      - delayed_on_off: 12ms
+      - settle: 15ms
     on_press:
       then:
         - if:
             condition:
-              lambda: "return id(wake_on_trackball);"
+              lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
               - script.execute: note_activity
 
@@ -66,13 +66,13 @@ binary_sensor:
         pullup: true
       inverted: true
     filters:
-      - delayed_on: 8ms
-      - delayed_off: 8ms
+      - delayed_on_off: 12ms
+      - settle: 15ms
     on_press:
       then:
         - if:
             condition:
-              lambda: "return id(wake_on_trackball);"
+              lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
               - script.execute: note_activity
 
@@ -86,12 +86,12 @@ binary_sensor:
       inverted: true
       ignore_strapping_warning: true
     filters:
-      - delayed_on: 12ms
-      - delayed_off: 12ms
+      - delayed_on_off: 16ms
+      - settle: 18ms
     on_press:
       then:
         - if:
             condition:
-              lambda: "return id(wake_on_trackball);"
+              lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
               - script.execute: note_activity

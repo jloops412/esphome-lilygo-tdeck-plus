@@ -20,6 +20,14 @@
 - `v0.10.0-lvgl-climate-theme-fix`: display color inversion correction, slider snapping, dedicated Sensi climate page, and weather entity-state diagnostics.
 - `v0.11.0-lvgl-privacy-ui-gps-pass`: private entity tokenization + templates, climate page cleanup, trackball debounce, weather attribute fallback, and keyboard/GPS hardening.
 
+Unreleased on `main` (candidate next tag):
+
+- entity restore + template split: personal easy-install entity mappings are back while public templates are retained.
+- LVGL icon cleanup: replaced non-rendering icon choices with safer symbol set and icon-first launcher layout.
+- screensaver reliability: added activity debounce guard and direct timeout slider in settings.
+- trackball stability: stronger debounce/filtering plus keypad repeat constraint.
+- theme pass: renamed/refined palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`).
+
 Post-tag note:
 
 - `v0.6.0-lvgl-beta1` has a compile blocker in HA when using the LVGL install YAML:

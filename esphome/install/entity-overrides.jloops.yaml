@@ -1,15 +1,11 @@
 substitutions:
-  name: lilygo-tdeck-plus
-  friendly_name: "LilyGO T-Deck Plus"
-  gps_rx_pin: "44"
-  gps_tx_pin: "43"
-  gps_baud_rate: "9600"
   entity_light_foyer: "light.foyer_lights"
   entity_light_vanity: "light.main_vanity_lights"
   entity_light_bedroom: "light.bedroom_lamp"
   entity_light_hall: "light.hall_lights"
   entity_light_office: "light.office_lamps"
   entity_light_upstairs: "light.upstairs_lights"
+
   entity_wx_main: "weather.openweathermap"
   entity_wx_condition_sensor: "sensor.openweathermap_condition"
   entity_wx_weather_sensor: "sensor.openweathermap_weather"
@@ -21,11 +17,13 @@ substitutions:
   entity_wx_uv_sensor: "sensor.openweathermap_uv_index"
   entity_wx_visibility_sensor: "sensor.openweathermap_visibility"
   entity_wx_wind_speed_sensor: "sensor.openweathermap_wind_speed"
+
   entity_word_of_day_sensor: "sensor.word_of_the_day"
   entity_quote_of_hour_sensor: "sensor.quote_of_the_hour"
   entity_feed_bbc: "event.bbc_news"
   entity_feed_dc: "event.dc_news_now_dc_virginia_maryland_news_weather_traffic_sports_live"
   entity_feed_loudoun: "event.loudoun_county_va_news_flash"
+
   entity_sensi_climate: "climate.sensi_sensi"
   entity_sensi_temperature_sensor: "sensor.sensi_sensi_temperature"
   entity_sensi_humidity_sensor: "sensor.sensi_sensi_humidity"
@@ -39,29 +37,3 @@ substitutions:
   entity_sensi_fan_support_switch: "switch.sensi_sensi_fan_support"
   entity_sensi_humidification_switch: "switch.sensi_sensi_humidification"
   entity_sensi_keypad_lockout_switch: "switch.sensi_sensi_keypad_lockout"
-
-packages:
-  board_base:
-    url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: main
-    files:
-      - esphome/packages/board_base.yaml
-      - esphome/packages/persistence_globals.yaml
-      - esphome/packages/ha_entities.yaml
-      - esphome/packages/gps_uart.yaml
-      - esphome/packages/ui_render_core.yaml
-      - esphome/packages/display_mipi_custom.yaml
-      - esphome/packages/input_touch_gt911.yaml
-      - esphome/packages/input_trackball.yaml
-      - esphome/packages/input_keyboard_i2c.yaml
-      - esphome/packages/ui_pages_lights.yaml
-      - esphome/packages/ui_pages_weather.yaml
-      - esphome/packages/ui_pages_feeds.yaml
-      - esphome/packages/ui_pages_settings.yaml
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  ap:
-    ssid: "${friendly_name} Fallback"
-    password: "esphome1234"
