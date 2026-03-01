@@ -2,9 +2,9 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest pushed LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
-3. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
-4. Previous LVGL tag: `v0.14.0-lvgl-icon-theme-weather-polish`
+2. Latest pushed LVGL tag: `v0.16.0-lvgl-focused-light-ux-pass`
+3. Previous LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
+4. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
 5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
 
 ## Process Contract
@@ -29,7 +29,21 @@
 4. Dynamic update cleanup:
    - Removed stale widget/script references that were causing compile-time ID errors after LVGL page refactors.
 5. GPS status path remains unchanged in this pass:
-   - UART/GPS package still uses `RX=44`, `TX=43`, `baud=${gps_baud_rate}` and age-based “data alive” checks.
+   - UART/GPS package still uses `RX=44`, `TX=43`, `baud=${gps_baud_rate}` and age-based "data alive" checks.
+
+## Current in-progress pass (post `v0.16.0`, not tagged yet)
+1. `+/-` reliability pass:
+   - Lights `+/-` now use explicit `selected_light_set_brightness_pct` updates instead of step-pct deltas.
+   - Climate `+/-` now send dual-path updates (`number.set_value` plus `climate.set_temperature` fallback) for broader HA integration compatibility.
+2. Climate UX depth pass:
+   - Added card sections for status/heat/cool regions.
+   - Kept HVAC mode actions on the bottom rail.
+   - Color-coded heat/cool adjust controls (`-` warn, `+` ok) for faster visual parsing.
+3. Lights/weather/theme polish:
+   - Lights action buttons now use stronger semantic styles for intensity/scene actions.
+   - Color Studio secondary bottom action is now `All Lights Off`.
+   - Weather page now uses layered cards for primary/metrics/GPS blocks.
+   - Theme utility row now favors practical actions (`Acc+`, `Th-`, icon mode, theme next) over duplicated accent shortcuts.
 
 ## Current pass summary (tagged `v0.15.1-lvgl-lighting-gps-kb-controls`)
 1. Icon and theme reliability:

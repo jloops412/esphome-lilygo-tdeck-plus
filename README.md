@@ -51,12 +51,14 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
    - power switch + direct toggle
    - LVGL arc controls for per-light brightness and color temperature
+   - reliable `+/-` controls routed through explicit brightness target updates
    - quick actions (`Dim/Bright`, `Warm/Cool`, `Palette`, `Relax`, `Focus`)
    - dedicated `Color Studio` page using LVGL roller + apply action
 3. `Weather`: glance dashboard with large temperature, readable condition, split metrics rows (readable at a glance), `weather.openweathermap` source line, and explicit GPS diagnostic state.
 4. `Climate`: simplified primary control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
    - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
+   - dual-path setpoint writes for stronger `+/-` reliability across HA integrations
    - fast entry into `Climate Tools` for advanced controls
 5. `Climate Tools`: dedicated advanced Sensi controls:
    - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)

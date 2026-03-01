@@ -316,43 +316,15 @@ script:
 
   - id: selected_light_brighter
     then:
-      - lambda: |-
-          id(selected_light_brightness_pct) += 20;
-          if (id(selected_light_brightness_pct) > 100) id(selected_light_brightness_pct) = 100;
-      - homeassistant.action:
-          action: light.turn_on
-          data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            brightness_step_pct: "20"
-      - script.execute: lvgl_update_dynamic
+      - script.execute:
+          id: selected_light_set_brightness_pct
+          pct: !lambda "return id(selected_light_brightness_pct) + 10;"
 
   - id: selected_light_dimmer
     then:
-      - lambda: |-
-          id(selected_light_brightness_pct) -= 20;
-          if (id(selected_light_brightness_pct) < 1) id(selected_light_brightness_pct) = 1;
-      - homeassistant.action:
-          action: light.turn_on
-          data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            brightness_step_pct: "-20"
-      - script.execute: lvgl_update_dynamic
+      - script.execute:
+          id: selected_light_set_brightness_pct
+          pct: !lambda "return id(selected_light_brightness_pct) - 10;"
 
   - id: selected_light_set_brightness_pct
     parameters:
@@ -1320,6 +1292,29 @@ script:
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", val);
               return std::string(buf);
+      # Auto-mode fallback path
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_sensi_climate}
+            target_temp_low: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+            target_temp_high: !lambda |-
+              int cool = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", cool);
+              return std::string(buf);
+      # Heat-mode fallback path
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_sensi_climate}
+            temperature: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_set_cool_target
@@ -1334,6 +1329,29 @@ script:
           data:
             entity_id: ${entity_sensi_auto_cool_number}
             value: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+      # Auto-mode fallback path
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_sensi_climate}
+            target_temp_low: !lambda |-
+              int heat = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", heat);
+              return std::string(buf);
+            target_temp_high: !lambda |-
+              char buf[12];
+              snprintf(buf, sizeof(buf), "%d", val);
+              return std::string(buf);
+      # Cool-mode fallback path
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_sensi_climate}
+            temperature: !lambda |-
               char buf[12];
               snprintf(buf, sizeof(buf), "%d", val);
               return std::string(buf);
@@ -2328,7 +2346,7 @@ lvgl:
             y: 182
             width: 40
             height: 24
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: selected_light_dimmer
@@ -2341,7 +2359,7 @@ lvgl:
             y: 182
             width: 40
             height: 24
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: selected_light_brighter
@@ -2393,7 +2411,7 @@ lvgl:
             y: 210
             width: 44
             height: 24
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: selected_light_scene_relax
@@ -2406,7 +2424,7 @@ lvgl:
             y: 210
             width: 44
             height: 24
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: selected_light_scene_focus
@@ -2546,10 +2564,10 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: selected_light_preset_cycle
+              - script.execute: all_lights_off
             widgets:
               - label:
-                  text: "Cycle Preset"
+                  text: "All Lights Off"
                   align: CENTER
 
     - id: weather_page
@@ -2587,6 +2605,12 @@ lvgl:
             x: 72
             y: 10
             text: "Weather + GPS"
+        - button:
+            x: 8
+            y: 36
+            width: 304
+            height: 72
+            styles: [lv_style_card]
         - label:
             id: weather_temp_lbl
             x: 12
@@ -2604,6 +2628,12 @@ lvgl:
             y: 98
             width: 296
             text: "Feels --"
+        - button:
+            x: 8
+            y: 114
+            width: 304
+            height: 46
+            styles: [lv_style_card]
         - label:
             id: weather_metrics_top_lbl
             x: 12
@@ -2616,6 +2646,12 @@ lvgl:
             y: 146
             width: 296
             text: "metrics bottom"
+        - button:
+            x: 8
+            y: 164
+            width: 304
+            height: 68
+            styles: [lv_style_card]
         - label:
             id: weather_source_lbl
             x: 12
@@ -2716,13 +2752,25 @@ lvgl:
               - label:
                   text: "Auto"
                   align: CENTER
+        - button:
+            x: 8
+            y: 42
+            width: 304
+            height: 54
+            styles: [lv_style_card]
         - label:
             id: climate_status_lbl
             x: 12
-            y: 68
+            y: 52
             width: 296
             height: 32
             text: "mode/action/status"
+        - button:
+            x: 8
+            y: 94
+            width: 236
+            height: 52
+            styles: [lv_style_card]
         - label:
             id: climate_heat_lbl
             x: 12
@@ -2734,7 +2782,7 @@ lvgl:
             y: 96
             width: 52
             height: 48
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: sensi_heat_down
@@ -2747,7 +2795,7 @@ lvgl:
             y: 96
             width: 52
             height: 48
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: sensi_heat_up
@@ -2755,6 +2803,12 @@ lvgl:
               - label:
                   text: "+"
                   align: CENTER
+        - button:
+            x: 8
+            y: 146
+            width: 236
+            height: 52
+            styles: [lv_style_card]
         - label:
             id: climate_cool_lbl
             x: 12
@@ -2766,7 +2820,7 @@ lvgl:
             y: 148
             width: 52
             height: 48
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: sensi_cool_down
@@ -2779,7 +2833,7 @@ lvgl:
             y: 148
             width: 52
             height: 48
-            styles: [lv_style_btn_soft]
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: sensi_cool_up
@@ -3528,12 +3582,10 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 0
+              - script.execute: theme_accent_next
             widgets:
               - label:
-                  text: "Blue"
+                  text: "Acc+"
                   align: CENTER
         - button:
             x: 136
@@ -3543,12 +3595,10 @@ lvgl:
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 2
+              - script.execute: theme_prev
             widgets:
               - label:
-                  text: "Amber"
+                  text: "Th-"
                   align: CENTER
         - button:
             x: 196

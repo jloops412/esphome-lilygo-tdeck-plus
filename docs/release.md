@@ -26,7 +26,7 @@
 - `v0.14.0-lvgl-icon-theme-weather-polish`: theme-colored icons, weather readability pass, faster lights actions, and settings reboot action.
 - `v0.15.0-lvgl-system-review-pass1`: comprehensive system polish pass with icon recolor controls, safer reboot flow, weather readability refinement, climate UX split (`main + tools`), and extended shortcut/help updates.
 - `v0.15.1-lvgl-lighting-gps-kb-controls`: lights quick-action redesign, climate preset removal, stronger keyboard-backlight controls, and GPS status reliability pass.
-- `v0.16.0-lvgl-focused-light-ux-pass` (next): keyboard-backlight firmware controls removed from LVGL path, light controller rebuilt around arc/switch/roller elements, and climate mode actions moved to bottom rail.
+- `v0.16.0-lvgl-focused-light-ux-pass`: keyboard-backlight firmware controls removed from LVGL path, light controller rebuilt around arc/switch/roller elements, and climate mode actions moved to bottom rail.
 
 Unreleased on `main` (candidate next tag):
 
@@ -70,6 +70,11 @@ Unreleased on `main` (candidate next tag):
   - replaced selected-light sliders with LVGL arcs and added selected-light power switch
   - rebuilt color page as `Color Studio` with LVGL roller + apply action
   - moved climate mode actions to bottom rail and enlarged climate +/- controls
+- Post-`v0.16` focused UX/function pass:
+  - fixed light `+/-` reliability by routing both controls through explicit brightness target script updates
+  - strengthened climate `+/-` reliability using dual-path HA updates (`number.set_value` + `climate.set_temperature`)
+  - added card-based weather/climate layout polish and stronger semantic button styling
+  - theme utility row now uses practical controls (`Acc+`, `Th-`, icon mode, theme next)
 - Climate control UX expansion:
   - added per-degree quick adjust buttons (`+/-`) for heat and cool targets
   - retained sliders for larger adjustments

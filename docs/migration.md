@@ -39,6 +39,9 @@
 29. Calibration fitting now uses all 9 points (regression) for better final accuracy.
 30. Added keyboard shortcuts overlay page, accessible by `Alt+K` (ESC-prefix chord) and `/`.
 31. Added persistent process policy: every code change must update docs and handoff context in the same iteration.
+32. Lights `+/-` controls now route through explicit target-brightness script updates for better reliability.
+33. Climate `+/-` controls now use dual-path HA writes (`number.set_value` + `climate.set_temperature`) to improve cross-integration behavior.
+34. Weather/climate pages received card-based LVGL layout polish for clearer hierarchy.
 
 ## Migration steps for existing HA node
 
