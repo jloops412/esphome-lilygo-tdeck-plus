@@ -24,6 +24,25 @@ substitutions:
   entity_light_office: "light.replace_me_office"
   entity_light_upstairs: "light.replace_me_upstairs"
 
+  # Modular light slots (active in LVGL lights UX).
+  light_slot_count: "6"
+  light_slot_1_name: "Foyer"
+  light_slot_2_name: "Vanity"
+  light_slot_3_name: "Bedroom"
+  light_slot_4_name: "Hall"
+  light_slot_5_name: "Office"
+  light_slot_6_name: "Upstairs"
+  light_slot_7_name: "Spare 7"
+  light_slot_8_name: "Spare 8"
+  light_slot_1_entity: "light.replace_me_slot_1"
+  light_slot_2_entity: "light.replace_me_slot_2"
+  light_slot_3_entity: "light.replace_me_slot_3"
+  light_slot_4_entity: "light.replace_me_slot_4"
+  light_slot_5_entity: "light.replace_me_slot_5"
+  light_slot_6_entity: "light.replace_me_slot_6"
+  light_slot_7_entity: "light.replace_me_slot_7"
+  light_slot_8_entity: "light.replace_me_slot_8"
+
   entity_wx_main: "weather.replace_me"
   entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
   entity_wx_weather_sensor: "sensor.replace_me_weather_text"
@@ -60,5 +79,6 @@ substitutions:
 ## Notes
 
 1. This repo now uses substitution tokens for HA entity IDs in package files.
-2. If substitutions are not overridden locally, the config will compile but controls will target placeholder entities.
-3. Keep local/private files outside Git or under ignored paths.
+2. Legacy `entity_light_*` fields are still accepted for compatibility; slot defaults can map from them.
+3. If substitutions are not overridden locally, the config will compile but controls will target placeholder entities.
+4. Keep local/private files outside Git or under ignored paths.

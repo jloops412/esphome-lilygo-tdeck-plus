@@ -42,6 +42,18 @@
 32. Lights `+/-` controls now route through explicit target-brightness script updates for better reliability.
 33. Climate `+/-` controls now use dual-path HA writes (`number.set_value` + `climate.set_temperature`) to improve cross-integration behavior.
 34. Weather/climate pages received card-based LVGL layout polish for clearer hierarchy.
+35. Lights page removed circular `arc` controls and now uses compact horizontal sliders plus quick-action chips.
+36. Selected-light mapping is now centralized (`resolve_selected_light_target` + `selected_light_entity/name`) to reduce duplicated action logic and make light customization easier.
+37. Install/template files now include per-light name substitutions (`light_name_*`) so label changes do not require package edits.
+38. Main lights controller now uses explicit `-10%` / `+10%` brightness buttons (no main-page brightness slider) and removes scene-row buttons for cleaner flow.
+39. Added modular slot-based light substitutions (`light_slot_count`, `light_slot_1..8_name/entity`) with one-release legacy compatibility bridge from `light_name_*` and `entity_light_*`.
+40. Dynamic LVGL updates are now split:
+    - `lvgl_update_labels` (labels/status only)
+    - `lvgl_sync_lights_controls` (guarded widget sync)
+    - `lvgl_update_dynamic` (coordinator)
+41. Periodic 2s refresh now runs labels only to prevent programmatic control churn.
+42. Color Studio replaced roller UX with a swatch matrix + selection indicator + apply workflow and Kelvin release-commit behavior.
+43. Removed scene/preset-cycle scripts and keyboard mappings from active lights workflow.
 
 ## Migration steps for existing HA node
 

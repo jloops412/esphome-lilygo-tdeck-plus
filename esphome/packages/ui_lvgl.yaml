@@ -212,9 +212,13 @@ script:
       idx: int
     then:
       - lambda: |-
+          int slot_count = atoi("${light_slot_count}");
+          if (slot_count < 1) slot_count = 1;
+          if (slot_count > 8) slot_count = 8;
           if (idx < 0) idx = 0;
-          if (idx > 5) idx = 5;
+          if (idx >= slot_count) return;
           id(selected_light) = idx;
+      - script.execute: resolve_selected_light_target
       - script.execute: lvgl_update_dynamic
 
   - id: display_backlight_down
@@ -257,61 +261,89 @@ script:
   - id: selected_light_prev
     then:
       - lambda: |-
-          id(selected_light) = (id(selected_light) + 5) % 6;
+          int slot_count = atoi("${light_slot_count}");
+          if (slot_count < 1) slot_count = 1;
+          if (slot_count > 8) slot_count = 8;
+          id(selected_light) = (id(selected_light) + slot_count - 1) % slot_count;
+      - script.execute: resolve_selected_light_target
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_next
     then:
       - lambda: |-
-          id(selected_light) = (id(selected_light) + 1) % 6;
+          int slot_count = atoi("${light_slot_count}");
+          if (slot_count < 1) slot_count = 1;
+          if (slot_count > 8) slot_count = 8;
+          id(selected_light) = (id(selected_light) + 1) % slot_count;
+      - script.execute: resolve_selected_light_target
       - script.execute: lvgl_update_dynamic
 
+  - id: resolve_selected_light_target
+    then:
+      - lambda: |-
+          int slot_count = atoi("${light_slot_count}");
+          if (slot_count < 1) slot_count = 1;
+          if (slot_count > 8) slot_count = 8;
+          if (id(selected_light) < 0) id(selected_light) = 0;
+          if (id(selected_light) >= slot_count) id(selected_light) = slot_count - 1;
+
+          if (id(selected_light) == 0) {
+            id(selected_light_name) = "${light_slot_1_name}";
+            id(selected_light_entity) = "${light_slot_1_entity}";
+          } else if (id(selected_light) == 1) {
+            id(selected_light_name) = "${light_slot_2_name}";
+            id(selected_light_entity) = "${light_slot_2_entity}";
+          } else if (id(selected_light) == 2) {
+            id(selected_light_name) = "${light_slot_3_name}";
+            id(selected_light_entity) = "${light_slot_3_entity}";
+          } else if (id(selected_light) == 3) {
+            id(selected_light_name) = "${light_slot_4_name}";
+            id(selected_light_entity) = "${light_slot_4_entity}";
+          } else if (id(selected_light) == 4) {
+            id(selected_light_name) = "${light_slot_5_name}";
+            id(selected_light_entity) = "${light_slot_5_entity}";
+          } else if (id(selected_light) == 5) {
+            id(selected_light_name) = "${light_slot_6_name}";
+            id(selected_light_entity) = "${light_slot_6_entity}";
+          } else if (id(selected_light) == 6) {
+            id(selected_light_name) = "${light_slot_7_name}";
+            id(selected_light_entity) = "${light_slot_7_entity}";
+          } else {
+            id(selected_light_name) = "${light_slot_8_name}";
+            id(selected_light_entity) = "${light_slot_8_entity}";
+          }
+
   - id: selected_light_toggle
+    mode: restart
     then:
       - homeassistant.action:
           action: light.toggle
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
+            entity_id: !lambda "return id(selected_light_entity);"
+      - lambda: |-
+          id(lights_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_turn_on
+    mode: restart
     then:
       - homeassistant.action:
           action: light.turn_on
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
+            entity_id: !lambda "return id(selected_light_entity);"
+      - lambda: |-
+          id(lights_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_turn_off
+    mode: restart
     then:
       - homeassistant.action:
           action: light.turn_off
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
+            entity_id: !lambda "return id(selected_light_entity);"
+      - lambda: |-
+          id(lights_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_brighter
@@ -327,90 +359,64 @@ script:
           pct: !lambda "return id(selected_light_brightness_pct) - 10;"
 
   - id: selected_light_set_brightness_pct
+    mode: restart
+    parameters:
+      pct: int
+    then:
+      - script.execute:
+          id: selected_light_set_brightness_local
+          pct: !lambda "return pct;"
+      - script.execute: selected_light_commit_brightness
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_set_brightness_local
+    mode: restart
     parameters:
       pct: int
     then:
       - lambda: |-
-          pct = ((pct + 2) / 5) * 5;
+          pct = ((pct + 5) / 10) * 10;
           if (pct < 1) pct = 1;
           if (pct > 100) pct = 100;
           id(selected_light_brightness_pct) = pct;
+
+  - id: selected_light_commit_brightness
+    mode: restart
+    then:
       - homeassistant.action:
           action: light.turn_on
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            brightness_pct: !lambda |-
-              char buf[8];
-              snprintf(buf, sizeof(buf), "%d", id(selected_light_brightness_pct));
-              return std::string(buf);
-      - lvgl.arc.update:
-          id: light_brightness_arc
-          value: !lambda "return id(selected_light_brightness_pct);"
-      - script.execute: lvgl_update_dynamic
+            entity_id: !lambda "return id(selected_light_entity);"
+            brightness_pct: !lambda "return id(selected_light_brightness_pct);"
+      - lambda: |-
+          id(lights_dirty) = true;
 
   - id: selected_light_warm
+    mode: restart
     then:
-      - lambda: |-
-          id(selected_light_kelvin) = 2700;
-      - homeassistant.action:
-          action: light.turn_on
-          data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            color_temp_kelvin: "2700"
-      - script.execute: lvgl_update_dynamic
+      - script.execute:
+          id: selected_light_set_kelvin
+          kelvin: 2700
 
   - id: selected_light_cool
+    mode: restart
     then:
-      - lambda: |-
-          id(selected_light_kelvin) = 6500;
-      - homeassistant.action:
-          action: light.turn_on
-          data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            color_temp_kelvin: "6500"
-      - script.execute: lvgl_update_dynamic
+      - script.execute:
+          id: selected_light_set_kelvin
+          kelvin: 6500
 
   - id: selected_light_color
+    mode: restart
     parameters:
       cname: string
     then:
       - homeassistant.action:
           action: light.turn_on
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
+            entity_id: !lambda "return id(selected_light_entity);"
             color_name: !lambda "return cname;"
+      - lambda: |-
+          id(lights_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: set_light_color_index
@@ -422,9 +428,9 @@ script:
           if (idx > 11) idx = 11;
           id(light_color_index) = idx;
       - script.execute: refresh_light_color_meta
-      - script.execute: lvgl_update_dynamic
 
   - id: apply_light_color_index
+    mode: restart
     then:
       - if:
           condition:
@@ -506,10 +512,17 @@ script:
             lambda: "return id(light_color_index) == 11;"
           then:
             - script.execute: selected_light_cool
-      - script.execute: lvgl_update_dynamic
 
   - id: refresh_light_color_meta
     then:
+      - lvgl.widget.update:
+          id: light_color_selector_ring
+          x: !lambda |-
+            int col = id(light_color_index) % 4;
+            return 16 + (col * 42);
+          y: !lambda |-
+            int row = id(light_color_index) / 4;
+            return 90 + (row * 36);
       - lvgl.label.update:
           id: light_color_preview_lbl
           text: !lambda |-
@@ -526,85 +539,75 @@ script:
             if (id(light_color_index) == 10) return std::string("Red");
             return std::string("Cool White");
 
-  - id: selected_light_scene_relax
-    then:
-      - script.execute:
-          id: selected_light_set_brightness_pct
-          pct: 45
-      - script.execute:
-          id: selected_light_set_kelvin
-          kelvin: 3200
-      - script.execute: lvgl_update_dynamic
-
-  - id: selected_light_scene_focus
-    then:
-      - script.execute:
-          id: selected_light_set_brightness_pct
-          pct: 90
-      - script.execute:
-          id: selected_light_set_kelvin
-          kelvin: 5200
-      - script.execute: lvgl_update_dynamic
-
-  - id: selected_light_preset_cycle
-    then:
-      - lambda: |-
-          id(light_preset_index) = (id(light_preset_index) + 1) % 5;
-      - if:
-          condition:
-            lambda: "return id(light_preset_index) == 0;"
-          then:
-            - script.execute: selected_light_warm
-      - if:
-          condition:
-            lambda: "return id(light_preset_index) == 1;"
-          then:
-            - script.execute: selected_light_cool
-      - if:
-          condition:
-            lambda: "return id(light_preset_index) == 2;"
-          then:
-            - script.execute: selected_light_scene_relax
-      - if:
-          condition:
-            lambda: "return id(light_preset_index) == 3;"
-          then:
-            - script.execute: selected_light_scene_focus
-      - if:
-          condition:
-            lambda: "return id(light_preset_index) == 4;"
-          then:
-            - script.execute:
-                id: selected_light_color
-                cname: "amber"
-      - script.execute: lvgl_update_dynamic
-
   - id: all_lights_off
+    mode: restart
     then:
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_foyer}
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_vanity}
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_bedroom}
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_hall}
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_office}
-      - homeassistant.action:
-          action: light.turn_off
-          data:
-            entity_id: ${entity_light_upstairs}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 1;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_1_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 2;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_2_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 3;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_3_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 4;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_4_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 5;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_5_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 6;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_6_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 7;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_7_entity}
+      - if:
+          condition:
+            lambda: "return atoi(\"${light_slot_count}\") >= 8;"
+          then:
+            - homeassistant.action:
+                action: light.turn_off
+                data:
+                  entity_id: ${light_slot_8_entity}
+      - lambda: |-
+          id(lights_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: theme_prev
@@ -1149,6 +1152,18 @@ script:
       - script.execute: lvgl_update_dynamic
 
   - id: selected_light_set_kelvin
+    mode: restart
+    parameters:
+      kelvin: int
+    then:
+      - script.execute:
+          id: selected_light_set_kelvin_local
+          kelvin: !lambda "return kelvin;"
+      - script.execute: selected_light_commit_kelvin
+      - script.execute: lvgl_update_dynamic
+
+  - id: selected_light_set_kelvin_local
+    mode: restart
     parameters:
       kelvin: int
     then:
@@ -1157,26 +1172,17 @@ script:
           if (kelvin < 2200) kelvin = 2200;
           if (kelvin > 6500) kelvin = 6500;
           id(selected_light_kelvin) = kelvin;
+
+  - id: selected_light_commit_kelvin
+    mode: restart
+    then:
       - homeassistant.action:
           action: light.turn_on
           data:
-            entity_id: !lambda |-
-              switch (id(selected_light)) {
-                case 0: return std::string("${entity_light_foyer}");
-                case 1: return std::string("${entity_light_vanity}");
-                case 2: return std::string("${entity_light_bedroom}");
-                case 3: return std::string("${entity_light_hall}");
-                case 4: return std::string("${entity_light_office}");
-                default: return std::string("${entity_light_upstairs}");
-              }
-            color_temp_kelvin: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", id(selected_light_kelvin));
-              return std::string(buf);
-      - lvgl.arc.update:
-          id: light_temp_arc
-          value: !lambda "return id(selected_light_kelvin);"
-      - script.execute: lvgl_update_dynamic
+            entity_id: !lambda "return id(selected_light_entity);"
+            color_temp_kelvin: !lambda "return id(selected_light_kelvin);"
+      - lambda: |-
+          id(lights_dirty) = true;
 
   - id: open_climate
     then:
@@ -1191,6 +1197,7 @@ script:
   - id: open_light_colors
     then:
       - lvgl.page.show: light_color_page
+      - script.execute: refresh_light_color_meta
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_off
@@ -1487,7 +1494,8 @@ script:
             if (id(detail_source) == 4 && id(quote_of_hour).has_state()) return id(quote_of_hour).state;
             return std::string("No readable content available.");
 
-  - id: lvgl_update_dynamic
+  - id: lvgl_update_labels
+    mode: restart
     then:
       - lvgl.label.update:
           id: home_status_lbl
@@ -1526,68 +1534,73 @@ script:
       - lvgl.label.update:
           id: lights_selected_lbl
           text: !lambda |-
-            auto name = std::string("Upstairs");
-            if (id(selected_light) == 0) name = "Foyer";
-            else if (id(selected_light) == 1) name = "Vanity";
-            else if (id(selected_light) == 2) name = "Bedroom";
-            else if (id(selected_light) == 3) name = "Hall";
-            else if (id(selected_light) == 4) name = "Office";
-
+            return std::string("Selected: ") + id(selected_light_name);
+      - lvgl.label.update:
+          id: lights_active_state_lbl
+          text: !lambda |-
             auto state = std::string("-");
-            if (id(selected_light) == 0 && id(foyer_state).has_state()) state = id(foyer_state).state;
-            else if (id(selected_light) == 1 && id(vanity_state).has_state()) state = id(vanity_state).state;
-            else if (id(selected_light) == 2 && id(bedroom_state).has_state()) state = id(bedroom_state).state;
-            else if (id(selected_light) == 3 && id(hall_state).has_state()) state = id(hall_state).state;
-            else if (id(selected_light) == 4 && id(office_state).has_state()) state = id(office_state).state;
-            else if (id(selected_light) == 5 && id(upstairs_state).has_state()) state = id(upstairs_state).state;
+            if (id(selected_light) == 0 && id(light_slot_1_state).has_state()) state = id(light_slot_1_state).state;
+            else if (id(selected_light) == 1 && id(light_slot_2_state).has_state()) state = id(light_slot_2_state).state;
+            else if (id(selected_light) == 2 && id(light_slot_3_state).has_state()) state = id(light_slot_3_state).state;
+            else if (id(selected_light) == 3 && id(light_slot_4_state).has_state()) state = id(light_slot_4_state).state;
+            else if (id(selected_light) == 4 && id(light_slot_5_state).has_state()) state = id(light_slot_5_state).state;
+            else if (id(selected_light) == 5 && id(light_slot_6_state).has_state()) state = id(light_slot_6_state).state;
+            else if (id(selected_light) == 6 && id(light_slot_7_state).has_state()) state = id(light_slot_7_state).state;
+            else if (id(selected_light) == 7 && id(light_slot_8_state).has_state()) state = id(light_slot_8_state).state;
 
-            return std::string("Selected: ") + name + "  [" + state + "]";
+            return std::string("State: ") + state;
       - lvgl.label.update:
           id: light_color_selected_lbl
           text: !lambda |-
-            auto name = std::string("Upstairs");
-            if (id(selected_light) == 0) name = "Foyer";
-            else if (id(selected_light) == 1) name = "Vanity";
-            else if (id(selected_light) == 2) name = "Bedroom";
-            else if (id(selected_light) == 3) name = "Hall";
-            else if (id(selected_light) == 4) name = "Office";
-            return std::string("Color target: ") + name;
+            return std::string("Color target: ") + id(selected_light_name);
       - lvgl.label.update:
-          id: light_foyer_lbl
+          id: light_slot_1_lbl
           text: !lambda |-
-            std::string s = id(foyer_state).has_state() ? id(foyer_state).state : "-";
+            std::string s = id(light_slot_1_state).has_state() ? id(light_slot_1_state).state : "-";
             std::string p = (id(selected_light) == 0) ? "> " : "  ";
-            return p + std::string("Foyer ") + s;
+            return p + std::string("${light_slot_1_name} ") + s;
       - lvgl.label.update:
-          id: light_vanity_lbl
+          id: light_slot_2_lbl
           text: !lambda |-
-            std::string s = id(vanity_state).has_state() ? id(vanity_state).state : "-";
+            std::string s = id(light_slot_2_state).has_state() ? id(light_slot_2_state).state : "-";
             std::string p = (id(selected_light) == 1) ? "> " : "  ";
-            return p + std::string("Vanity ") + s;
+            return p + std::string("${light_slot_2_name} ") + s;
       - lvgl.label.update:
-          id: light_bedroom_lbl
+          id: light_slot_3_lbl
           text: !lambda |-
-            std::string s = id(bedroom_state).has_state() ? id(bedroom_state).state : "-";
+            std::string s = id(light_slot_3_state).has_state() ? id(light_slot_3_state).state : "-";
             std::string p = (id(selected_light) == 2) ? "> " : "  ";
-            return p + std::string("Bed ") + s;
+            return p + std::string("${light_slot_3_name} ") + s;
       - lvgl.label.update:
-          id: light_hall_lbl
+          id: light_slot_4_lbl
           text: !lambda |-
-            std::string s = id(hall_state).has_state() ? id(hall_state).state : "-";
+            std::string s = id(light_slot_4_state).has_state() ? id(light_slot_4_state).state : "-";
             std::string p = (id(selected_light) == 3) ? "> " : "  ";
-            return p + std::string("Hall ") + s;
+            return p + std::string("${light_slot_4_name} ") + s;
       - lvgl.label.update:
-          id: light_office_lbl
+          id: light_slot_5_lbl
           text: !lambda |-
-            std::string s = id(office_state).has_state() ? id(office_state).state : "-";
+            std::string s = id(light_slot_5_state).has_state() ? id(light_slot_5_state).state : "-";
             std::string p = (id(selected_light) == 4) ? "> " : "  ";
-            return p + std::string("Office ") + s;
+            return p + std::string("${light_slot_5_name} ") + s;
       - lvgl.label.update:
-          id: light_upstairs_lbl
+          id: light_slot_6_lbl
           text: !lambda |-
-            std::string s = id(upstairs_state).has_state() ? id(upstairs_state).state : "-";
+            std::string s = id(light_slot_6_state).has_state() ? id(light_slot_6_state).state : "-";
             std::string p = (id(selected_light) == 5) ? "> " : "  ";
-            return p + std::string("Upstairs ") + s;
+            return p + std::string("${light_slot_6_name} ") + s;
+      - lvgl.label.update:
+          id: light_slot_7_lbl
+          text: !lambda |-
+            std::string s = id(light_slot_7_state).has_state() ? id(light_slot_7_state).state : "-";
+            std::string p = (id(selected_light) == 6) ? "> " : "  ";
+            return p + std::string("${light_slot_7_name} ") + s;
+      - lvgl.label.update:
+          id: light_slot_8_lbl
+          text: !lambda |-
+            std::string s = id(light_slot_8_state).has_state() ? id(light_slot_8_state).state : "-";
+            std::string p = (id(selected_light) == 7) ? "> " : "  ";
+            return p + std::string("${light_slot_8_name} ") + s;
       - lvgl.label.update:
           id: lights_brightness_lbl
           text: !lambda |-
@@ -1600,12 +1613,12 @@ script:
             char buf[32];
             snprintf(buf, sizeof(buf), "Color Temp %dK", id(selected_light_kelvin));
             return std::string(buf);
-      - lvgl.arc.update:
-          id: light_brightness_arc
-          value: !lambda "return id(selected_light_brightness_pct);"
-      - lvgl.arc.update:
-          id: light_temp_arc
-          value: !lambda "return id(selected_light_kelvin);"
+      - lvgl.label.update:
+          id: light_color_kelvin_lbl
+          text: !lambda |-
+            char buf[36];
+            snprintf(buf, sizeof(buf), "White Temp %dK", id(selected_light_kelvin));
+            return std::string(buf);
       - lvgl.label.update:
           id: weather_temp_lbl
           text: !lambda |-
@@ -1787,9 +1800,6 @@ script:
             char buf[64];
             snprintf(buf, sizeof(buf), "Auto sleep timeout: %ds", id(screensaver_timeout_s));
             return std::string(buf);
-      - lvgl.slider.update:
-          id: settings_saver_slider
-          value: !lambda "return id(screensaver_timeout_s);"
       - lvgl.label.update:
           id: settings_status_lbl
           text: !lambda |-
@@ -1825,15 +1835,6 @@ script:
                      id(theme_radius),
                      id(backlight_percent));
             return std::string(buf);
-      - lvgl.slider.update:
-          id: display_brightness_slider
-          value: !lambda "return id(backlight_percent);"
-      - lvgl.slider.update:
-          id: theme_border_slider
-          value: !lambda "return id(theme_border_width);"
-      - lvgl.slider.update:
-          id: theme_radius_slider
-          value: !lambda "return id(theme_radius);"
       - lvgl.label.update:
           id: shortcuts_body_lbl
           text: !lambda |-
@@ -1842,8 +1843,8 @@ script:
               "Alt+H/L/A/W/C/R/S/T : Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme\n"
               "Alt+Q/E : prev/next page     Alt+K : this page\n"
               "Alt+D/F : prev/next light    Alt+G : light toggle\n"
-              "Alt+Z/X : dim/bright         Alt+P : preset cycle\n"
-              "Alt+3/4 : Relax/Focus scene  Alt+0 : all lights off\n"
+              "Alt+Z/X : dim/bright         Alt+N/M : warm/cool\n"
+              "Alt+P : color studio         Alt+0 : all lights off\n"
               "Alt+Y : start calibration    Alt+V : reset calibration\n"
               "Cal page: Alt+J Save, Alt+U Retry\n"
               "Alt+I : icon color mode      Alt+O : touch debug\n"
@@ -1920,6 +1921,79 @@ script:
           id: touch_cal_p8_lbl
           text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 8) ? std::string(\"X\") : std::string(\"+\");"
 
+  - id: lvgl_sync_lights_controls
+    mode: restart
+    then:
+      - lambda: |-
+          id(ui_sync_in_progress) = true;
+      - lvgl.widget.update:
+          id: light_slot_1_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 1;"
+      - lvgl.widget.update:
+          id: light_slot_2_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 2;"
+      - lvgl.widget.update:
+          id: light_slot_3_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 3;"
+      - lvgl.widget.update:
+          id: light_slot_4_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 4;"
+      - lvgl.widget.update:
+          id: light_slot_5_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 5;"
+      - lvgl.widget.update:
+          id: light_slot_6_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 6;"
+      - lvgl.widget.update:
+          id: light_slot_7_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 7;"
+      - lvgl.widget.update:
+          id: light_slot_8_btn
+          hidden: !lambda "return atoi(\"${light_slot_count}\") < 8;"
+      - lvgl.widget.update:
+          id: lights_power_switch
+          state:
+            checked: !lambda |-
+              std::string s = "-";
+              if (id(selected_light) == 0 && id(light_slot_1_state).has_state()) s = id(light_slot_1_state).state;
+              else if (id(selected_light) == 1 && id(light_slot_2_state).has_state()) s = id(light_slot_2_state).state;
+              else if (id(selected_light) == 2 && id(light_slot_3_state).has_state()) s = id(light_slot_3_state).state;
+              else if (id(selected_light) == 3 && id(light_slot_4_state).has_state()) s = id(light_slot_4_state).state;
+              else if (id(selected_light) == 4 && id(light_slot_5_state).has_state()) s = id(light_slot_5_state).state;
+              else if (id(selected_light) == 5 && id(light_slot_6_state).has_state()) s = id(light_slot_6_state).state;
+              else if (id(selected_light) == 6 && id(light_slot_7_state).has_state()) s = id(light_slot_7_state).state;
+              else if (id(selected_light) == 7 && id(light_slot_8_state).has_state()) s = id(light_slot_8_state).state;
+              return s == "on" || s == "ON" || s == "On";
+      - lvgl.slider.update:
+          id: light_color_kelvin_slider
+          value: !lambda "return id(selected_light_kelvin);"
+      - lambda: |-
+          id(ui_sync_in_progress) = false;
+          id(lights_dirty) = false;
+
+  - id: lvgl_sync_nonlight_controls
+    mode: restart
+    then:
+      - lvgl.slider.update:
+          id: settings_saver_slider
+          value: !lambda "return id(screensaver_timeout_s);"
+      - lvgl.slider.update:
+          id: display_brightness_slider
+          value: !lambda "return id(backlight_percent);"
+      - lvgl.slider.update:
+          id: theme_border_slider
+          value: !lambda "return id(theme_border_width);"
+      - lvgl.slider.update:
+          id: theme_radius_slider
+          value: !lambda "return id(theme_radius);"
+
+  - id: lvgl_update_dynamic
+    mode: restart
+    then:
+      - script.execute: lvgl_update_labels
+      - script.execute: lvgl_sync_nonlight_controls
+      - script.execute: lvgl_sync_lights_controls
+
 interval:
   - interval: 1s
     then:
@@ -1938,7 +2012,7 @@ interval:
           condition:
             lambda: "return !id(screensaver_active);"
           then:
-            - script.execute: lvgl_update_dynamic
+            - script.execute: lvgl_update_labels
 
 lvgl:
   displays:
@@ -1968,6 +2042,7 @@ lvgl:
           }
       - script.execute: touch_cal_apply_stored
       - script.execute: apply_theme
+      - script.execute: resolve_selected_light_target
       - lvgl.widget.focus: home_lights_btn
       - script.execute: lvgl_update_dynamic
 
@@ -2160,218 +2235,259 @@ lvgl:
             text: "Lights"
         - label:
             id: lights_selected_lbl
-            x: 130
+            x: 120
             y: 8
-            width: 182
+            width: 192
             text: "Selected"
-        - button:
-            id: light_foyer_btn
-            x: 8
-            y: 38
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 0
-            widgets:
-              - label:
-                  id: light_foyer_lbl
-                  text: "Foyer"
-                  align: CENTER
-        - button:
-            id: light_vanity_btn
-            x: 8
-            y: 70
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 1
-            widgets:
-              - label:
-                  id: light_vanity_lbl
-                  text: "Vanity"
-                  align: CENTER
-        - button:
-            id: light_bedroom_btn
-            x: 8
-            y: 102
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 2
-            widgets:
-              - label:
-                  id: light_bedroom_lbl
-                  text: "Bedroom"
-                  align: CENTER
-        - button:
-            id: light_hall_btn
-            x: 8
-            y: 134
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 3
-            widgets:
-              - label:
-                  id: light_hall_lbl
-                  text: "Hall"
-                  align: CENTER
-        - button:
-            id: light_office_btn
-            x: 8
-            y: 166
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 4
-            widgets:
-              - label:
-                  id: light_office_lbl
-                  text: "Office"
-                  align: CENTER
-        - button:
-            id: light_upstairs_btn
-            x: 8
-            y: 198
-            width: 116
-            height: 28
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: select_light
-                  idx: 5
-            widgets:
-              - label:
-                  id: light_upstairs_lbl
-                  text: "Upstairs"
-                  align: CENTER
         - label:
-            x: 130
-            y: 40
-            width: 48
+            id: lights_active_state_lbl
+            x: 120
+            y: 24
+            width: 192
+            text: "State"
+        - button:
+            id: light_slot_1_btn
+            x: 8
+            y: 36
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 0 }
+            widgets:
+              - label:
+                  id: light_slot_1_lbl
+                  text: "${light_slot_1_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_2_btn
+            x: 8
+            y: 60
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 1 }
+            widgets:
+              - label:
+                  id: light_slot_2_lbl
+                  text: "${light_slot_2_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_3_btn
+            x: 8
+            y: 84
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 2 }
+            widgets:
+              - label:
+                  id: light_slot_3_lbl
+                  text: "${light_slot_3_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_4_btn
+            x: 8
+            y: 108
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 3 }
+            widgets:
+              - label:
+                  id: light_slot_4_lbl
+                  text: "${light_slot_4_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_5_btn
+            x: 8
+            y: 132
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 4 }
+            widgets:
+              - label:
+                  id: light_slot_5_lbl
+                  text: "${light_slot_5_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_6_btn
+            x: 8
+            y: 156
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 5 }
+            widgets:
+              - label:
+                  id: light_slot_6_lbl
+                  text: "${light_slot_6_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_7_btn
+            x: 8
+            y: 180
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 6 }
+            widgets:
+              - label:
+                  id: light_slot_7_lbl
+                  text: "${light_slot_7_name}"
+                  align: CENTER
+        - button:
+            id: light_slot_8_btn
+            x: 8
+            y: 204
+            width: 108
+            height: 22
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: { id: select_light, idx: 7 }
+            widgets:
+              - label:
+                  id: light_slot_8_lbl
+                  text: "${light_slot_8_name}"
+                  align: CENTER
+        - button:
+            x: 120
+            y: 36
+            width: 192
+            height: 58
+            styles: [lv_style_card]
+        - label:
+            x: 128
+            y: 44
+            width: 180
             text: "Power"
         - switch:
             id: lights_power_switch
-            x: 180
-            y: 38
-            width: 48
-            height: 24
+            x: 126
+            y: 66
+            width: 40
+            height: 20
             group: nav_group
             on_value:
               - if:
                   condition:
-                    lambda: "return x;"
+                    lambda: "return !id(ui_sync_in_progress) && x;"
                   then:
                     - script.execute: selected_light_turn_on
-                  else:
+              - if:
+                  condition:
+                    lambda: "return !id(ui_sync_in_progress) && !x;"
+                  then:
                     - script.execute: selected_light_turn_off
         - button:
-            x: 234
-            y: 36
-            width: 78
-            height: 30
+            x: 172
+            y: 64
+            width: 44
+            height: 24
             styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_turn_on
+            widgets:
+              - label:
+                  text: "On"
+                  align: CENTER
+        - button:
+            x: 220
+            y: 64
+            width: 44
+            height: 24
+            styles: [lv_style_btn]
             group: nav_group
             on_click:
               - script.execute: selected_light_toggle
             widgets:
               - label:
-                  text: "Toggle"
+                  text: "Tgl"
                   align: CENTER
-        - label:
-            id: lights_brightness_lbl
-            x: 130
-            y: 72
-            width: 84
-            text: "Brightness 60%"
-        - arc:
-            id: light_brightness_arc
-            x: 130
-            y: 90
-            width: 84
-            height: 84
-            min_value: 1
-            max_value: 100
-            value: 60
-            adjustable: true
-            group: nav_group
-            on_value:
-              - script.execute:
-                  id: selected_light_set_brightness_pct
-                  pct: !lambda "return (int)x;"
-        - label:
-            id: lights_kelvin_lbl
-            x: 220
-            y: 72
-            width: 92
-            text: "Color Temp 4000K"
-        - arc:
-            id: light_temp_arc
-            x: 222
-            y: 90
-            width: 90
-            height: 84
-            min_value: 2200
-            max_value: 6500
-            value: 4000
-            adjustable: true
-            group: nav_group
-            on_value:
-              - script.execute:
-                  id: selected_light_set_kelvin
-                  kelvin: !lambda "return (int)x;"
         - button:
-            x: 130
-            y: 182
+            x: 268
+            y: 64
             width: 40
             height: 24
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_turn_off
+            widgets:
+              - label:
+                  text: "Off"
+                  align: CENTER
+        - button:
+            x: 120
+            y: 98
+            width: 192
+            height: 64
+            styles: [lv_style_card]
+        - label:
+            id: lights_brightness_lbl
+            x: 128
+            y: 106
+            width: 180
+            text: "Brightness 60%"
+        - button:
+            x: 128
+            y: 126
+            width: 86
+            height: 30
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
               - script.execute: selected_light_dimmer
             widgets:
               - label:
-                  text: "-"
+                  text: "-10%"
                   align: CENTER
         - button:
-            x: 174
-            y: 182
-            width: 40
-            height: 24
+            x: 222
+            y: 126
+            width: 86
+            height: 30
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: selected_light_brighter
             widgets:
               - label:
-                  text: "+"
+                  text: "+10%"
                   align: CENTER
         - button:
-            x: 222
-            y: 182
-            width: 42
-            height: 24
+            x: 120
+            y: 166
+            width: 192
+            height: 64
+            styles: [lv_style_card]
+        - label:
+            id: lights_kelvin_lbl
+            x: 128
+            y: 174
+            width: 180
+            text: "Color Temp 4000K"
+        - button:
+            x: 128
+            y: 194
+            width: 56
+            height: 30
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2381,10 +2497,10 @@ lvgl:
                   text: "Warm"
                   align: CENTER
         - button:
-            x: 268
-            y: 182
-            width: 44
-            height: 24
+            x: 190
+            y: 194
+            width: 56
+            height: 30
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -2394,43 +2510,17 @@ lvgl:
                   text: "Cool"
                   align: CENTER
         - button:
-            x: 130
-            y: 210
-            width: 86
-            height: 24
-            styles: [lv_style_btn]
+            x: 252
+            y: 194
+            width: 56
+            height: 30
+            styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: open_light_colors
             widgets:
               - label:
-                  text: "Palette"
-                  align: CENTER
-        - button:
-            x: 220
-            y: 210
-            width: 44
-            height: 24
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute: selected_light_scene_relax
-            widgets:
-              - label:
-                  text: "Rlx"
-                  align: CENTER
-        - button:
-            x: 268
-            y: 210
-            width: 44
-            height: 24
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute: selected_light_scene_focus
-            widgets:
-              - label:
-                  text: "Fcs"
+                  text: "Color"
                   align: CENTER
     - id: light_color_page
       styles: [lv_style_screen]
@@ -2473,55 +2563,209 @@ lvgl:
             y: 38
             width: 296
             text: "Color target"
-        - roller:
-            id: light_color_roller
-            x: 12
-            y: 64
-            width: 144
-            height: 148
-            visible_row_count: 4
-            options:
-              - Warm White
-              - Neutral White
-              - Amber
-              - Orange
-              - Yellow
-              - Green
-              - Cyan
-              - Blue
-              - Purple
-              - Magenta
-              - Red
-              - Cool White
+        - button:
+            x: 8
+            y: 58
+            width: 178
+            height: 174
+            styles: [lv_style_card]
+        - label:
+            id: light_color_selector_ring
+            x: 16
+            y: 84
+            text: "[]"
+        - button:
+            id: color_chip_0_btn
+            x: 20
+            y: 94
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xE8D9BB
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
             group: nav_group
-            on_value:
-              - script.execute:
-                  id: set_light_color_index
-                  idx: !lambda "return (int)x;"
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 0 }
+        - button:
+            id: color_chip_1_btn
+            x: 62
+            y: 94
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xF6F7F8
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 1 }
+        - button:
+            id: color_chip_2_btn
+            x: 104
+            y: 94
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xF5A623
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 2 }
+        - button:
+            id: color_chip_3_btn
+            x: 146
+            y: 94
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xF27C2A
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 3 }
+        - button:
+            id: color_chip_4_btn
+            x: 20
+            y: 130
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xF4D03F
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 4 }
+        - button:
+            id: color_chip_5_btn
+            x: 62
+            y: 130
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0x2ECC71
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 5 }
+        - button:
+            id: color_chip_6_btn
+            x: 104
+            y: 130
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0x2EC7C9
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 6 }
+        - button:
+            id: color_chip_7_btn
+            x: 146
+            y: 130
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0x3A7BFF
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 7 }
+        - button:
+            id: color_chip_8_btn
+            x: 20
+            y: 166
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0x8E5DFF
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 8 }
+        - button:
+            id: color_chip_9_btn
+            x: 62
+            y: 166
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xD34DD9
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 9 }
+        - button:
+            id: color_chip_10_btn
+            x: 104
+            y: 166
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xEC4C47
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 10 }
+        - button:
+            id: color_chip_11_btn
+            x: 146
+            y: 166
+            width: 34
+            height: 26
+            bg_opa: cover
+            bg_color: 0xD0E5FF
+            border_width: 2
+            border_color: 0x2A3447
+            radius: 6
+            group: nav_group
+            on_click:
+              - script.execute: { id: set_light_color_index, idx: 11 }
         - label:
             id: light_color_preview_lbl
-            x: 168
-            y: 70
-            width: 144
+            x: 192
+            y: 62
+            width: 120
             text: "Warm White"
         - button:
-            x: 166
-            y: 96
-            width: 146
-            height: 34
+            x: 192
+            y: 86
+            width: 120
+            height: 28
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
               - script.execute: apply_light_color_index
             widgets:
               - label:
-                  text: "Apply Color"
+                  text: "Apply"
                   align: CENTER
         - button:
-            x: 166
-            y: 136
-            width: 70
-            height: 34
+            x: 192
+            y: 118
+            width: 56
+            height: 24
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2531,10 +2775,73 @@ lvgl:
                   text: "Warm"
                   align: CENTER
         - button:
-            x: 242
-            y: 136
-            width: 70
-            height: 34
+            x: 256
+            y: 118
+            width: 56
+            height: 24
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_cool
+            widgets:
+              - label:
+                  text: "Cool"
+                  align: CENTER
+        - label:
+            id: light_color_kelvin_lbl
+            x: 192
+            y: 148
+            width: 120
+            text: "White Temp 4000K"
+        - slider:
+            id: light_color_kelvin_slider
+            x: 192
+            y: 168
+            width: 120
+            height: 16
+            min_value: 2200
+            max_value: 6500
+            value: 4000
+            group: nav_group
+            on_change:
+              - if:
+                  condition:
+                    lambda: "return !id(ui_sync_in_progress);"
+                  then:
+                    - script.execute:
+                        id: selected_light_set_kelvin_local
+                        kelvin: !lambda "return (int)x;"
+              - lvgl.label.update:
+                  id: light_color_kelvin_lbl
+                  text: !lambda |-
+                    char buf[36];
+                    snprintf(buf, sizeof(buf), "White Temp %dK", id(selected_light_kelvin));
+                    return std::string(buf);
+            on_release:
+              - if:
+                  condition:
+                    lambda: "return !id(ui_sync_in_progress);"
+                  then:
+                    - script.execute: selected_light_commit_kelvin
+                    - script.execute: lvgl_update_dynamic
+        - button:
+            x: 8
+            y: 216
+            width: 86
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: selected_light_warm
+            widgets:
+              - label:
+                  text: "Warm"
+                  align: CENTER
+        - button:
+            x: 100
+            y: 216
+            width: 86
+            height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
@@ -2544,22 +2851,9 @@ lvgl:
                   text: "Cool"
                   align: CENTER
         - button:
-            x: 8
+            x: 192
             y: 216
-            width: 150
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: selected_light_toggle
-            widgets:
-              - label:
-                  text: "Toggle Light"
-                  align: CENTER
-        - button:
-            x: 166
-            y: 216
-            width: 150
+            width: 120
             height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2567,7 +2861,7 @@ lvgl:
               - script.execute: all_lights_off
             widgets:
               - label:
-                  text: "All Lights Off"
+                  text: "All Off"
                   align: CENTER
 
     - id: weather_page

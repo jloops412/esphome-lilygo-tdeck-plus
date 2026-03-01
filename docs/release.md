@@ -30,6 +30,28 @@
 
 Unreleased on `main` (candidate next tag):
 
+- pre-revamp safety point:
+  - local safety tag created before this pass: `v0.16.2-pre-lights-ux-reset`
+- lights UX reset + stability hardening:
+  - full lights-page rebuild to controller-first layout with 8-slot rail support
+  - added modular slot interface:
+    - `light_slot_count`
+    - `light_slot_1..8_name`
+    - `light_slot_1..8_entity`
+  - kept one-release compatibility bridge through legacy `light_name_*` and `entity_light_*`
+  - removed scenes and preset-cycle controls/scripts from active UI and keyboard mapping
+  - rebuilt Color Studio from roller UX to swatch-grid UX with selection indicator + apply button
+  - retained warm/cool quick actions and Kelvin slider with commit-on-release behavior
+- script-loop/perf hardening:
+  - split dynamic updates into:
+    - `lvgl_update_labels`
+    - `lvgl_sync_lights_controls`
+    - `lvgl_sync_nonlight_controls`
+    - `lvgl_update_dynamic` coordinator
+  - 2s periodic loop now executes labels-only updates to avoid control update loops
+  - added UI sync guard globals (`ui_sync_in_progress`, `lights_dirty`)
+  - switched light control scripts to `mode: restart` and single-commit pathways
+
 - entity restore + template split: personal easy-install entity mappings are back while public templates are retained.
 - LVGL icon cleanup: replaced non-rendering icon choices with safer symbol set and icon-first launcher layout.
 - screensaver reliability: added activity debounce guard and direct timeout slider in settings.
@@ -67,9 +89,17 @@ Unreleased on `main` (candidate next tag):
   - added `Alt+A` shortcut to open color chooser directly
 - Focused LVGL control pass:
   - removed all LVGL keyboard-backlight scripts/UI/shortcuts (`Alt+B/N/M`) from firmware path
-  - replaced selected-light sliders with LVGL arcs and added selected-light power switch
+  - introduced selected-light power switch and one-handed quick actions
   - rebuilt color page as `Color Studio` with LVGL roller + apply action
   - moved climate mode actions to bottom rail and enlarged climate +/- controls
+- Latest unreleased lights-controller pass:
+  - replaced circular light `arc` controls with compact card layout on main lights page
+  - main lights page now uses explicit `-10%` / `+10%` brightness buttons (no main-page brightness slider)
+  - removed scene buttons from main lights page (`Relax`, `Focus`) to keep core controls focused
+  - Color Studio now includes Kelvin slider with `on_change` preview and `on_release` commit
+  - hardened light `+/-` behavior to a single local-step (`10%`) + single HA commit path
+  - centralized selected light mapping (`resolve_selected_light_target`) to reduce duplicated switch logic
+  - added per-light label substitutions (`light_name_*`) to install/template flows for easier customization
 - Post-`v0.16` focused UX/function pass:
   - fixed light `+/-` reliability by routing both controls through explicit brightness target script updates
   - strengthened climate `+/-` reliability using dual-path HA updates (`number.set_value` + `climate.set_temperature`)

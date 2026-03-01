@@ -14,6 +14,26 @@ globals:
     restore_value: yes
     initial_value: "0"
 
+  - id: selected_light_name
+    type: std::string
+    restore_value: no
+    initial_value: '"${light_name_foyer}"'
+
+  - id: selected_light_entity
+    type: std::string
+    restore_value: no
+    initial_value: '"${entity_light_foyer}"'
+
+  - id: ui_sync_in_progress
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: lights_dirty
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
   - id: theme_index
     type: int
     restore_value: yes
@@ -35,11 +55,6 @@ globals:
     initial_value: "10"
 
   - id: theme_icon_mode
-    type: int
-    restore_value: yes
-    initial_value: "0"
-
-  - id: light_preset_index
     type: int
     restore_value: yes
     initial_value: "0"

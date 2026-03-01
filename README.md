@@ -49,11 +49,13 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 
 1. `Home`: balanced icon-grid launcher with fast one-tap access to Lights/Weather/Climate/Reader/Settings/Theme plus compact Sleep action.
 2. `Lights`: two-zone controller layout with direct target list + richer controls:
-   - power switch + direct toggle
-   - LVGL arc controls for per-light brightness and color temperature
-   - reliable `+/-` controls routed through explicit brightness target updates
-   - quick actions (`Dim/Bright`, `Warm/Cool`, `Palette`, `Relax`, `Focus`)
-   - dedicated `Color Studio` page using LVGL roller + apply action
+   - slot-based light model (`light_slot_count`, `light_slot_1..8_name/entity`) for easier add/remove without package edits
+   - selected-light target resolves centrally (`selected_light_name` + `selected_light_entity`) to reduce duplicated mapping logic
+   - power cluster: switch + `On` / `Tgl` / `Off`
+   - brightness cluster: explicit one-press steps only (`-10%`, `+10%`)
+   - no scenes or preset-cycle controls
+   - color cluster: `Warm`, `Cool`, and `Color Studio`
+   - `Color Studio` now uses a modern swatch matrix + selection ring + apply action + Kelvin slider (commit on release)
 3. `Weather`: glance dashboard with large temperature, readable condition, split metrics rows (readable at a glance), `weather.openweathermap` source line, and explicit GPS diagnostic state.
 4. `Climate`: simplified primary control page with:
    - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
@@ -69,6 +71,7 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), display brightness, and shape controls (button/card border width + corner radius).
 9. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
 10. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
+11. `LVGL sync hardening`: periodic UI updates are label-only; light control widgets sync through guarded scripts to avoid script-loop contention.
 
 ## Quick keyboard shortcuts
 
@@ -79,9 +82,9 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 5. `Alt+D/F`: previous/next selected light.
 6. `Alt+G`: toggle selected light.
 7. `Alt+Z/X`: dim/brighten selected light.
-8. `Alt+P`: cycle light preset.
-9. `Alt+3/4`: selected-light `Relax/Focus` scenes.
-10. `Alt+0`: all mapped lights off.
+8. `Alt+N/M`: warm/cool selected light.
+9. `Alt+P`: open Color Studio.
+10. `Alt+0`: all mapped slot lights off.
 11. `Alt+Y`: start touch calibration.
 12. `Alt+V`: reset stored calibration values.
 13. `Alt+J`: save calibration after 9-point capture.

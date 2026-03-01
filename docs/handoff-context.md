@@ -12,6 +12,71 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
+## Current in-progress pass (lights UX reset + LVGL sync hardening, not tagged yet)
+1. Safety baseline:
+   - Created local pre-revamp safety tag: `v0.16.2-pre-lights-ux-reset`.
+2. Modular light slots API:
+   - Added slot substitutions in install/template/override flows:
+     - `light_slot_count`
+     - `light_slot_1..8_name`
+     - `light_slot_1..8_entity`
+   - Added one-release compatibility bridge in `ha_entities.yaml`:
+     - slot defaults map to legacy `light_name_*` + `entity_light_*`.
+   - Added HA mirror text sensors for slot states (`light_slot_1_state` ... `light_slot_8_state`).
+3. Script-loop and contention hardening:
+   - Added globals:
+     - `ui_sync_in_progress`
+     - `lights_dirty`
+   - Split dynamic UI updates:
+     - `lvgl_update_labels` (labels/status only)
+     - `lvgl_sync_lights_controls` (guarded light widget sync)
+     - `lvgl_sync_nonlight_controls` (non-light slider sync)
+     - `lvgl_update_dynamic` (coordinator)
+   - Changed 2s interval refresh to labels-only (`lvgl_update_labels`) to avoid light-control churn loops.
+   - Reworked light scripts to single-commit pathways with `mode: restart`.
+4. Lights UX full rebuild:
+   - Replaced previous incremental lights layout with a controller-first page:
+     - left slot rail (up to 8 slots)
+     - right power cluster (`switch + On/Tgl/Off`)
+     - right brightness cluster (`-10%`, `+10%`)
+     - right color cluster (`Warm`, `Cool`, `Color`)
+   - Removed scene/preset-cycle paths from UI and runtime scripts.
+5. Color Studio rebuild:
+   - Replaced roller workflow with a swatch-matrix workflow:
+     - 12 swatches
+     - selection indicator ring
+     - preview label
+     - explicit apply action
+   - Kelvin slider now previews locally and commits on release.
+6. Keyboard shortcut alignment:
+   - Removed scene/preset mappings.
+   - Current light shortcuts:
+     - `Alt+Z/X` dim/bright
+     - `Alt+N/M` warm/cool
+     - `Alt+P` open Color Studio
+     - `Alt+0` all off
+7. Known limitations:
+   - Keyboard backlight firmware control remains out of scope (manual keyboard `Alt+B`).
+   - GPS software path unchanged in this pass; hardware verification may still be needed if no fix data.
+
+## Current in-progress pass (post latest `main`, not tagged yet)
+1. Lights controller full layout rebuild (no circular dials):
+   - Main lights page now uses card-style sections with explicit `-10%` / `+10%` brightness actions.
+   - Removed main-page scene buttons (`Relax`, `Focus`) to reduce clutter.
+   - Kept warm/cool shortcuts and `Color Studio` entry on main lights page.
+2. `+/-` reliability hardening for selected light:
+   - `selected_light_brighter/dimmer` now call one script path that updates local snapped brightness (`10%` intervals) and commits once to HA.
+   - This removes duplicate writes and reduces script contention.
+3. Light mapping modularization improvement:
+   - Added centralized target resolver script `resolve_selected_light_target`.
+   - Actions now use `selected_light_entity` and `selected_light_name` globals instead of duplicated switch blocks in each script.
+4. Install/template modularity improvement:
+   - Added per-light name substitutions (`light_name_*`) in package defaults and install/template files.
+   - This makes add/remove/rename workflows easier without touching core UI logic.
+5. Boot/dynamic updates:
+   - LVGL boot now resolves selected-light target before first dynamic render.
+   - Dynamic labels now use substitution-driven light names and only sync Color Studio Kelvin slider.
+
 ## Current in-progress pass (post `v0.15.1`, not tagged yet)
 1. Keyboard backlight controls removed from active firmware package paths:
    - Removed LVGL keyboard-backlight scripts, sliders, and UI controls.

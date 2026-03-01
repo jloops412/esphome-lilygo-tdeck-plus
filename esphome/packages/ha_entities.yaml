@@ -1,12 +1,40 @@
 substitutions:
   # Private/local entity mapping overrides.
   # Keep your real values in local install YAML, not in this repo.
+  # Legacy names/entities are still supported for one transition release.
+  light_name_foyer: "Foyer"
+  light_name_vanity: "Vanity"
+  light_name_bedroom: "Bedroom"
+  light_name_hall: "Hall"
+  light_name_office: "Office"
+  light_name_upstairs: "Upstairs"
+
   entity_light_foyer: "light.replace_me_foyer"
   entity_light_vanity: "light.replace_me_vanity"
   entity_light_bedroom: "light.replace_me_bedroom"
   entity_light_hall: "light.replace_me_hall"
   entity_light_office: "light.replace_me_office"
   entity_light_upstairs: "light.replace_me_upstairs"
+
+  # Slot model for modular light list (1..8).
+  light_slot_count: "6"
+  light_slot_1_name: "${light_name_foyer}"
+  light_slot_2_name: "${light_name_vanity}"
+  light_slot_3_name: "${light_name_bedroom}"
+  light_slot_4_name: "${light_name_hall}"
+  light_slot_5_name: "${light_name_office}"
+  light_slot_6_name: "${light_name_upstairs}"
+  light_slot_7_name: "Spare 7"
+  light_slot_8_name: "Spare 8"
+
+  light_slot_1_entity: "${entity_light_foyer}"
+  light_slot_2_entity: "${entity_light_vanity}"
+  light_slot_3_entity: "${entity_light_bedroom}"
+  light_slot_4_entity: "${entity_light_hall}"
+  light_slot_5_entity: "${entity_light_office}"
+  light_slot_6_entity: "${entity_light_upstairs}"
+  light_slot_7_entity: "light.replace_me_slot7"
+  light_slot_8_entity: "light.replace_me_slot8"
 
   entity_wx_main: "weather.replace_me"
   entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
@@ -88,6 +116,38 @@ text_sensor:
   - platform: homeassistant
     id: upstairs_state
     entity_id: ${entity_light_upstairs}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_1_state
+    entity_id: ${light_slot_1_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_2_state
+    entity_id: ${light_slot_2_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_3_state
+    entity_id: ${light_slot_3_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_4_state
+    entity_id: ${light_slot_4_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_5_state
+    entity_id: ${light_slot_5_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_6_state
+    entity_id: ${light_slot_6_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_7_state
+    entity_id: ${light_slot_7_entity}
+    internal: true
+  - platform: homeassistant
+    id: light_slot_8_state
+    entity_id: ${light_slot_8_entity}
     internal: true
 
   - platform: homeassistant

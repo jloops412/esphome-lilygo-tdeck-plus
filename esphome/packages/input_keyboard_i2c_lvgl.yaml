@@ -164,7 +164,7 @@ interval:
                 condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'p' || id(kb_last_raw) == 'P');"
                 then:
-                  - script.execute: selected_light_preset_cycle
+                  - script.execute: open_light_colors
             - if:
                 condition:
                   lambda: "return id(kb_last_alt) && id(kb_last_raw) == '0';"
@@ -172,14 +172,14 @@ interval:
                   - script.execute: all_lights_off
             - if:
                 condition:
-                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '3';"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'n' || id(kb_last_raw) == 'N');"
                 then:
-                  - script.execute: selected_light_scene_relax
+                  - script.execute: selected_light_warm
             - if:
                 condition:
-                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '4';"
+                  lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'm' || id(kb_last_raw) == 'M');"
                 then:
-                  - script.execute: selected_light_scene_focus
+                  - script.execute: selected_light_cool
 
             - if:
                 condition:
