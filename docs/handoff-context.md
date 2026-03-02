@@ -2,17 +2,17 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest pushed LVGL tag: `v0.17.0-units-weather-pass1`
+2. Latest pushed LVGL tag: `v0.18.0-settings-theme-weather-pass1`
 3. Previous LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
 4. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
-5. Current active install ref in install YAMLs: `v0.17.0-units-weather-pass1`
+5. Current active install ref in install YAMLs: `v0.18.0-settings-theme-weather-pass1`
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
-## Current in-progress pass (weather cleanup + settings/theme rebuild + climate tap reliability, not tagged yet)
+## Current released pass (`v0.18.0-settings-theme-weather-pass1`)
 1. Weather page cleanup:
    - removed visible source diagnostics text from `weather_page` and `weather_details_page`.
    - weather source remains available for diagnostics only via `Settings > Diagnostics`.
