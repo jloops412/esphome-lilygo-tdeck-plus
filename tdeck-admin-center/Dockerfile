@@ -1,10 +1,10 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base-python:3.12-alpine3.20
+ARG BUILD_FROM
 FROM ${BUILD_FROM}
 
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=1
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash python3 py3-pip
 RUN pip3 install --no-cache-dir flask requests
 
 COPY rootfs/ /

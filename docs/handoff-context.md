@@ -111,6 +111,30 @@ Behavior:
 - `docs/release.md`
 - this handoff file
 
+## Follow-up fix (post-pass): HA add-on repository/build errors
+
+Files:
+
+- `tdeck-admin-center/config.yaml`
+- `tdeck-admin-center/build.yaml`
+- `tdeck-admin-center/Dockerfile`
+- `README.md`
+- `docs/release.md`
+
+Changes:
+
+1. Add-on manifest compatibility updates:
+   - removed `map` entirely (v1 add-on is generate/export only)
+   - removed `ports` block for ingress-only add-on
+   - removed `i386` from supported arch list
+   - bumped add-on version to `0.20.1`
+2. Build compatibility updates:
+   - moved to HA `*-base:3.20` images
+   - Dockerfile now installs `python3` + `py3-pip` explicitly
+3. Added explicit README recovery steps for:
+   - “not a valid add-on repository”
+   - unknown add-on image build error
+
 ## Known constraints
 
 1. Local environment here does not include `esphome` CLI; compile/config validation was not run locally.

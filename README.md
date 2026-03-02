@@ -109,6 +109,14 @@ Home Assistant add-on (Ingress):
    - generate drop-in install YAML
    - generate overrides YAML
 
+If HA says the repo is not valid or add-on build fails:
+
+1. Remove the repo from Add-on Store repositories.
+2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
+3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
+4. Confirm add-on appears as `T-Deck Admin Center`.
+5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
+
 Companion static generator (repo):
 
 - `tools/admin-center/index.html`
