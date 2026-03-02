@@ -1,0 +1,17 @@
+# HA number.set_value action helper
+substitutions:
+  entity_example_number: "number.replace_me"
+
+script:
+  - id: example_set_number_value
+    parameters:
+      value: float
+    then:
+      - homeassistant.action:
+          action: number.set_value
+          data:
+            entity_id: ${entity_example_number}
+            value: !lambda |-
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.2f", value);
+              return std::string(buf);

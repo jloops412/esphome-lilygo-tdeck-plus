@@ -8,6 +8,10 @@ substitutions:
   touch_x_max: "238"
   touch_y_min: "16"
   touch_y_max: "260"
+  climate_temp_min_f: "50"
+  climate_temp_max_f: "90"
+  climate_auto_band_min_delta_f: "2"
+  climate_hold_repeat_ms: "180"
 
 packages:
   board_base: !include ../packages/board_base.yaml

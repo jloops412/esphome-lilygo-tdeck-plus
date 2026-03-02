@@ -54,6 +54,17 @@ substitutions:
   entity_wx_uv_sensor: "sensor.replace_me_weather_uv"
   entity_wx_visibility_sensor: "sensor.replace_me_weather_visibility"
   entity_wx_wind_speed_sensor: "sensor.replace_me_weather_wind_speed"
+  entity_wx_apparent_sensor: "sensor.replace_me_weather_apparent_temperature"
+  entity_wx_dew_point_sensor: "sensor.replace_me_weather_dew_point"
+  entity_wx_precip_kind_sensor: "sensor.replace_me_weather_precipitation_kind"
+  entity_wx_rain_intensity_sensor: "sensor.replace_me_weather_rain_intensity"
+  entity_wx_snow_intensity_sensor: "sensor.replace_me_weather_snow_intensity"
+  entity_wx_weather_code_sensor: "sensor.replace_me_weather_code"
+  entity_wx_wind_direction_sensor: "sensor.replace_me_weather_wind_direction"
+  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust_speed"
+  entity_wx_today_high_sensor: "sensor.replace_me_weather_today_high"
+  entity_wx_today_low_sensor: "sensor.replace_me_weather_today_low"
+  entity_ha_unit_system: "sensor.unit_system"
 
   entity_word_of_day_sensor: "sensor.replace_me_word_of_day"
   entity_quote_of_hour_sensor: "sensor.replace_me_quote_of_hour"
@@ -82,3 +93,4 @@ substitutions:
 2. Legacy `entity_light_*` fields are still accepted for compatibility; slot defaults can map from them.
 3. If substitutions are not overridden locally, the config will compile but controls will target placeholder entities.
 4. Keep local/private files outside Git or under ignored paths.
+5. App-wide units bootstrap from `entity_ha_unit_system` on first boot; users can then override units directly in Settings.

@@ -1186,13 +1186,567 @@ script:
 
   - id: open_climate
     then:
+      - script.execute: climate_ui_seed_from_ha
       - lvgl.page.show: climate_page
       - script.execute: lvgl_update_dynamic
 
   - id: open_climate_tools
     then:
+      - script.execute: climate_ui_seed_from_ha
       - lvgl.page.show: climate_tools_page
       - script.execute: lvgl_update_dynamic
+
+  - id: open_weather_details
+    then:
+      - lvgl.page.show: weather_details_page
+      - script.execute: weather_update_model
+      - script.execute: weather_update_icon
+      - script.execute: weather_update_labels
+
+  - id: app_units_set_metric
+    then:
+      - lambda: |-
+          id(app_units_mode) = 1;
+          id(app_units_initialized) = true;
+          id(app_units_source) = "manual";
+      - script.execute: app_units_apply
+
+  - id: app_units_set_imperial
+    then:
+      - lambda: |-
+          id(app_units_mode) = 0;
+          id(app_units_initialized) = true;
+          id(app_units_source) = "manual";
+      - script.execute: app_units_apply
+
+  - id: app_units_toggle
+    then:
+      - lambda: |-
+          if (id(app_units_mode) != 1) id(app_units_mode) = 1;
+          else id(app_units_mode) = 0;
+          id(app_units_initialized) = true;
+          id(app_units_source) = "manual";
+      - script.execute: app_units_apply
+
+  - id: app_units_init_from_ha
+    then:
+      - lambda: |-
+          if (id(app_units_initialized) && id(app_units_mode) >= 0) return;
+
+          auto lower = [](std::string s) -> std::string {
+            for (char &c : s) {
+              if (c >= 'A' && c <= 'Z') c = (char) (c - 'A' + 'a');
+            }
+            return s;
+          };
+
+          int mode = 0;
+          std::string source = "fallback-imperial";
+
+          if (id(ha_unit_system).has_state() && !id(ha_unit_system).state.empty()) {
+            std::string s = lower(id(ha_unit_system).state);
+            if (s.find("metric") != std::string::npos || s.find("si") != std::string::npos) {
+              mode = 1;
+            } else {
+              mode = 0;
+            }
+            source = std::string("ha-unit-system:") + s;
+          } else if (id(wx_temperature_unit_text).has_state() && !id(wx_temperature_unit_text).state.empty()) {
+            std::string s = lower(id(wx_temperature_unit_text).state);
+            if (s.find("c") != std::string::npos) mode = 1;
+            else mode = 0;
+            source = std::string("weather-temp-unit:") + s;
+          }
+
+          id(app_units_mode) = mode;
+          id(app_units_initialized) = true;
+          id(app_units_source) = source;
+      - script.execute: app_units_apply
+
+  - id: app_units_apply
+    mode: restart
+    then:
+      - lambda: |-
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_seed_from_ha
+      - script.execute: lvgl_update_dynamic
+
+  - id: weather_update_model
+    mode: restart
+    then:
+      - lambda: |-
+          const float NA = -10000.0f;
+
+          auto lower = [](std::string s) -> std::string {
+            for (char &c : s) {
+              if (c >= 'A' && c <= 'Z') c = (char) (c - 'A' + 'a');
+            }
+            return s;
+          };
+
+          auto clean_text = [&](const std::string &in) -> std::string {
+            std::string s = lower(in);
+            if (s.empty() || s == "unknown" || s == "unavailable" || s == "none" || s == "null" || s == "-") {
+              return std::string("");
+            }
+            return in;
+          };
+
+          auto parse_text_float = [&](const std::string &in, float fallback) -> float {
+            std::string s = lower(in);
+            if (s.empty() || s == "unknown" || s == "unavailable" || s == "none" || s == "null" || s == "-") {
+              return fallback;
+            }
+            char *end_ptr = nullptr;
+            float v = strtof(s.c_str(), &end_ptr);
+            if (end_ptr == s.c_str()) return fallback;
+            return v;
+          };
+
+          auto pick_num = [&](float a, float b) -> float {
+            return (a == a) ? a : b;
+          };
+
+          bool ha_metric = false;
+          if (id(ha_unit_system).has_state()) {
+            std::string s = lower(id(ha_unit_system).state);
+            ha_metric = (s.find("metric") != std::string::npos || s.find("si") != std::string::npos);
+          }
+
+          std::string temp_unit = id(wx_temperature_unit_text).has_state() ? lower(id(wx_temperature_unit_text).state) : std::string("");
+          std::string pressure_unit = id(wx_pressure_unit_text).has_state() ? lower(id(wx_pressure_unit_text).state) : std::string("");
+          std::string vis_unit = id(wx_visibility_unit_text).has_state() ? lower(id(wx_visibility_unit_text).state) : std::string("");
+          std::string wind_unit = id(wx_wind_speed_unit_text).has_state() ? lower(id(wx_wind_speed_unit_text).state) : std::string("");
+          std::string precip_unit = id(wx_precip_unit_text).has_state() ? lower(id(wx_precip_unit_text).state) : std::string("");
+
+          auto temp_to_c = [&](float v) -> float {
+            if (v <= -9000.0f) return v;
+            if (temp_unit.find("f") != std::string::npos) return (v - 32.0f) * (5.0f / 9.0f);
+            return v;
+          };
+
+          auto wind_to_mps = [&](float v) -> float {
+            if (v <= -9000.0f) return v;
+            if (wind_unit.find("mph") != std::string::npos || wind_unit.find("mi/") != std::string::npos) return v * 0.44704f;
+            if (wind_unit.find("km") != std::string::npos) return v / 3.6f;
+            if (wind_unit.find("knot") != std::string::npos || wind_unit == "kt") return v * 0.514444f;
+            if (wind_unit.find("m/s") != std::string::npos || wind_unit.find("mps") != std::string::npos) return v;
+            if (wind_unit.empty()) {
+              return ha_metric ? v : (v * 0.44704f);
+            }
+            return v;
+          };
+
+          auto pressure_to_hpa = [&](float v) -> float {
+            if (v <= -9000.0f) return v;
+            if (pressure_unit.find("psi") != std::string::npos) return v * 68.9476f;
+            if (pressure_unit.find("inhg") != std::string::npos) return v * 33.8639f;
+            if (pressure_unit.find("mmhg") != std::string::npos) return v * 1.33322f;
+            if (pressure_unit.find("bar") != std::string::npos && pressure_unit.find("mbar") == std::string::npos) return v * 1000.0f;
+            if (pressure_unit.find("kpa") != std::string::npos) return v * 10.0f;
+            if (pressure_unit == "pa") return v / 100.0f;
+            return v;
+          };
+
+          auto visibility_to_m = [&](float v) -> float {
+            if (v <= -9000.0f) return v;
+            if (vis_unit.find("ft") != std::string::npos) return v * 0.3048f;
+            if (vis_unit.find("mi") != std::string::npos) return v * 1609.34f;
+            if (vis_unit.find("km") != std::string::npos) return v * 1000.0f;
+            if (vis_unit.find("m") != std::string::npos) return v;
+            if (vis_unit.empty()) {
+              return ha_metric ? v : (v * 0.3048f);
+            }
+            return v;
+          };
+
+          auto precip_to_mm_h = [&](float v) -> float {
+            if (v <= -9000.0f) return v;
+            if (precip_unit.find("in") != std::string::npos) return v * 25.4f;
+            if (precip_unit.find("cm") != std::string::npos) return v * 10.0f;
+            if (precip_unit.find("mm") != std::string::npos) return v;
+            if (precip_unit.empty()) {
+              return ha_metric ? v : (v * 25.4f);
+            }
+            return v;
+          };
+
+          float raw_temp = pick_num(id(wx_temp).state, id(wx_entity_temperature).state);
+          float raw_feels = pick_num(id(wx_feels).state, id(wx_apparent).state);
+          raw_feels = pick_num(raw_feels, id(wx_entity_apparent_temperature).state);
+          float raw_dew = pick_num(id(wx_dew_point).state, id(wx_entity_dew_point).state);
+          float raw_high = id(wx_today_high).state;
+          if (!(raw_high == raw_high) && id(wx_entity_high_temperature_text).has_state()) {
+            raw_high = parse_text_float(id(wx_entity_high_temperature_text).state, NA);
+          }
+          if (!(raw_high == raw_high) && id(wx_entity_forecast_high_temperature_text).has_state()) {
+            raw_high = parse_text_float(id(wx_entity_forecast_high_temperature_text).state, NA);
+          }
+          float raw_low = id(wx_today_low).state;
+          if (!(raw_low == raw_low) && id(wx_entity_low_temperature_text).has_state()) {
+            raw_low = parse_text_float(id(wx_entity_low_temperature_text).state, NA);
+          }
+          if (!(raw_low == raw_low) && id(wx_entity_forecast_low_temperature_text).has_state()) {
+            raw_low = parse_text_float(id(wx_entity_forecast_low_temperature_text).state, NA);
+          }
+
+          float raw_hum = pick_num(id(wx_humidity).state, id(wx_entity_humidity).state);
+          float raw_cloud = pick_num(id(wx_clouds).state, id(wx_entity_cloud_coverage).state);
+          float raw_uv = id(wx_uv).state;
+          float raw_wind = pick_num(id(wx_wind_speed).state, id(wx_entity_wind_speed).state);
+          float raw_wind_gust = parse_text_float(id(wx_wind_gust_text).has_state() ? id(wx_wind_gust_text).state : std::string(""), NA);
+          if (!(raw_wind_gust == raw_wind_gust) && id(wx_entity_wind_gust_text).has_state()) {
+            raw_wind_gust = parse_text_float(id(wx_entity_wind_gust_text).state, NA);
+          }
+          float raw_wind_dir = pick_num(id(wx_wind_direction).state, id(wx_entity_wind_direction).state);
+          raw_wind_dir = pick_num(raw_wind_dir, id(wx_entity_wind_bearing).state);
+          float raw_press = pick_num(id(wx_pressure).state, id(wx_entity_pressure).state);
+          float raw_vis = pick_num(id(wx_visibility).state, id(wx_entity_visibility).state);
+          float raw_rain = parse_text_float(id(wx_rain_intensity_text).has_state() ? id(wx_rain_intensity_text).state : std::string(""), NA);
+          if (!(raw_rain == raw_rain) && id(wx_entity_rain_intensity_text).has_state()) {
+            raw_rain = parse_text_float(id(wx_entity_rain_intensity_text).state, NA);
+          }
+          float raw_snow = parse_text_float(id(wx_snow_intensity_text).has_state() ? id(wx_snow_intensity_text).state : std::string(""), NA);
+          if (!(raw_snow == raw_snow) && id(wx_entity_snow_intensity_text).has_state()) {
+            raw_snow = parse_text_float(id(wx_entity_snow_intensity_text).state, NA);
+          }
+
+          float raw_code = NA;
+          if (id(wx_weather_code_text).has_state()) {
+            raw_code = parse_text_float(id(wx_weather_code_text).state, NA);
+          }
+          if (!(raw_code == raw_code) && id(wx_entity_weather_code_text).has_state()) {
+            raw_code = parse_text_float(id(wx_entity_weather_code_text).state, NA);
+          }
+
+          std::string condition = id(wx_condition).has_state() ? id(wx_condition).state : std::string("");
+          std::string weather = id(wx_weather).has_state() ? id(wx_weather).state : std::string("");
+          std::string entity_state = id(wx_entity_state).has_state() ? id(wx_entity_state).state : std::string("");
+          std::string precip_kind = id(wx_precip_kind_text).has_state() ? id(wx_precip_kind_text).state : std::string("");
+          if (precip_kind.empty() && id(wx_entity_precip_kind_text).has_state()) precip_kind = id(wx_entity_precip_kind_text).state;
+
+          if (condition.empty()) condition = entity_state;
+          if (weather.empty()) weather = condition;
+
+          id(wx_norm_temp_c) = temp_to_c(raw_temp);
+          id(wx_norm_feels_c) = temp_to_c(raw_feels);
+          id(wx_norm_dew_c) = temp_to_c(raw_dew);
+          id(wx_norm_high_c) = temp_to_c(raw_high);
+          id(wx_norm_low_c) = temp_to_c(raw_low);
+          id(wx_norm_humidity_pct) = raw_hum;
+          id(wx_norm_cloud_pct) = raw_cloud;
+          id(wx_norm_uv) = raw_uv;
+          id(wx_norm_wind_mps) = wind_to_mps(raw_wind);
+          id(wx_norm_wind_gust_mps) = wind_to_mps(raw_wind_gust);
+          id(wx_norm_wind_dir_deg) = raw_wind_dir;
+          id(wx_norm_pressure_hpa) = pressure_to_hpa(raw_press);
+          id(wx_norm_visibility_m) = visibility_to_m(raw_vis);
+          id(wx_norm_rain_mm_h) = precip_to_mm_h(raw_rain);
+          id(wx_norm_snow_mm_h) = precip_to_mm_h(raw_snow);
+          id(wx_norm_weather_code) = (raw_code == raw_code) ? (int) raw_code : -1;
+          id(wx_norm_condition) = condition.empty() ? "-" : condition;
+          id(wx_norm_weather) = weather.empty() ? "-" : weather;
+          id(wx_norm_precip_kind) = precip_kind.empty() ? "-" : precip_kind;
+
+          int icon_bucket = 0;  // unknown
+          int code = id(wx_norm_weather_code);
+          if (code >= 200 && code <= 299) icon_bucket = 4;
+          else if (code >= 300 && code <= 599) icon_bucket = 3;
+          else if (code >= 600 && code <= 699) icon_bucket = 5;
+          else if (code >= 700 && code <= 799) icon_bucket = 6;
+          else if (code == 800) icon_bucket = 1;
+          else if (code >= 801 && code <= 804) icon_bucket = 2;
+
+          std::string icon_text = lower(id(wx_norm_weather) + std::string(" ") + id(wx_norm_condition) + std::string(" ") + id(wx_norm_precip_kind));
+          if (icon_text.find("partly") != std::string::npos) icon_bucket = 8;
+          else if (icon_text.find("thunder") != std::string::npos || icon_text.find("storm") != std::string::npos) icon_bucket = 4;
+          else if (icon_text.find("snow") != std::string::npos) icon_bucket = 5;
+          else if (icon_text.find("rain") != std::string::npos || icon_text.find("drizzle") != std::string::npos || icon_text.find("shower") != std::string::npos) icon_bucket = 3;
+          else if (icon_text.find("fog") != std::string::npos || icon_text.find("mist") != std::string::npos || icon_text.find("haze") != std::string::npos || icon_text.find("smoke") != std::string::npos) icon_bucket = 6;
+          else if (icon_text.find("wind") != std::string::npos || icon_text.find("breeze") != std::string::npos) icon_bucket = 7;
+          else if (icon_text.find("clear") != std::string::npos || icon_text.find("sun") != std::string::npos) icon_bucket = 1;
+          else if (icon_text.find("cloud") != std::string::npos) icon_bucket = 2;
+
+          id(wx_icon_bucket) = icon_bucket;
+
+  - id: weather_update_icon
+    mode: restart
+    then:
+      - lvgl.widget.update:
+          id: weather_icon_over_unknown
+          hidden: !lambda "return id(wx_icon_bucket) != 0;"
+      - lvgl.widget.update:
+          id: weather_icon_over_sunny
+          hidden: !lambda "return id(wx_icon_bucket) != 1;"
+      - lvgl.widget.update:
+          id: weather_icon_over_cloudy
+          hidden: !lambda "return id(wx_icon_bucket) != 2;"
+      - lvgl.widget.update:
+          id: weather_icon_over_rain
+          hidden: !lambda "return id(wx_icon_bucket) != 3;"
+      - lvgl.widget.update:
+          id: weather_icon_over_storm
+          hidden: !lambda "return id(wx_icon_bucket) != 4;"
+      - lvgl.widget.update:
+          id: weather_icon_over_snow
+          hidden: !lambda "return id(wx_icon_bucket) != 5;"
+      - lvgl.widget.update:
+          id: weather_icon_over_fog
+          hidden: !lambda "return id(wx_icon_bucket) != 6;"
+      - lvgl.widget.update:
+          id: weather_icon_over_windy
+          hidden: !lambda "return id(wx_icon_bucket) != 7;"
+      - lvgl.widget.update:
+          id: weather_icon_over_partly
+          hidden: !lambda "return id(wx_icon_bucket) != 8;"
+      - lvgl.widget.update:
+          id: weather_icon_det_unknown
+          hidden: !lambda "return id(wx_icon_bucket) != 0;"
+      - lvgl.widget.update:
+          id: weather_icon_det_sunny
+          hidden: !lambda "return id(wx_icon_bucket) != 1;"
+      - lvgl.widget.update:
+          id: weather_icon_det_cloudy
+          hidden: !lambda "return id(wx_icon_bucket) != 2;"
+      - lvgl.widget.update:
+          id: weather_icon_det_rain
+          hidden: !lambda "return id(wx_icon_bucket) != 3;"
+      - lvgl.widget.update:
+          id: weather_icon_det_storm
+          hidden: !lambda "return id(wx_icon_bucket) != 4;"
+      - lvgl.widget.update:
+          id: weather_icon_det_snow
+          hidden: !lambda "return id(wx_icon_bucket) != 5;"
+      - lvgl.widget.update:
+          id: weather_icon_det_fog
+          hidden: !lambda "return id(wx_icon_bucket) != 6;"
+      - lvgl.widget.update:
+          id: weather_icon_det_windy
+          hidden: !lambda "return id(wx_icon_bucket) != 7;"
+      - lvgl.widget.update:
+          id: weather_icon_det_partly
+          hidden: !lambda "return id(wx_icon_bucket) != 8;"
+
+  - id: weather_update_labels
+    mode: restart
+    then:
+      - lambda: |-
+          auto c_to_disp = [&](float c) -> float {
+            if (c <= -9000.0f) return c;
+            if (id(app_units_mode) == 1) return c;
+            return (c * (9.0f / 5.0f)) + 32.0f;
+          };
+          auto mps_to_disp = [&](float mps) -> float {
+            if (mps <= -9000.0f) return mps;
+            if (id(app_units_mode) == 1) return mps * 3.6f;
+            return mps * 2.23694f;
+          };
+          auto hpa_to_disp = [&](float hpa) -> float {
+            if (hpa <= -9000.0f) return hpa;
+            if (id(app_units_mode) == 1) return hpa;
+            return hpa / 68.9476f;
+          };
+          auto m_to_disp = [&](float m) -> float {
+            if (m <= -9000.0f) return m;
+            if (id(app_units_mode) == 1) return m / 1000.0f;
+            return m / 0.3048f;
+          };
+          auto mmh_to_disp = [&](float mmh) -> float {
+            if (mmh <= -9000.0f) return mmh;
+            if (id(app_units_mode) == 1) return mmh;
+            return mmh / 25.4f;
+          };
+
+          float t = c_to_disp(id(wx_norm_temp_c));
+          float feels = c_to_disp(id(wx_norm_feels_c));
+          float dew = c_to_disp(id(wx_norm_dew_c));
+          float high = c_to_disp(id(wx_norm_high_c));
+          float low = c_to_disp(id(wx_norm_low_c));
+          float hum = id(wx_norm_humidity_pct);
+          float cloud = id(wx_norm_cloud_pct);
+          float uv = id(wx_norm_uv);
+          float wind = mps_to_disp(id(wx_norm_wind_mps));
+          float gust = mps_to_disp(id(wx_norm_wind_gust_mps));
+          float dir = id(wx_norm_wind_dir_deg);
+          float press = hpa_to_disp(id(wx_norm_pressure_hpa));
+          float vis = m_to_disp(id(wx_norm_visibility_m));
+          float rain = mmh_to_disp(id(wx_norm_rain_mm_h));
+          float snow = mmh_to_disp(id(wx_norm_snow_mm_h));
+
+          char temp_unit[4];
+          char wind_unit[8];
+          char press_unit[6];
+          char vis_unit[4];
+          char precip_unit[8];
+          if (id(app_units_mode) == 1) {
+            snprintf(temp_unit, sizeof(temp_unit), "C");
+            snprintf(wind_unit, sizeof(wind_unit), "km/h");
+            snprintf(press_unit, sizeof(press_unit), "hPa");
+            snprintf(vis_unit, sizeof(vis_unit), "km");
+            snprintf(precip_unit, sizeof(precip_unit), "mm/h");
+          } else {
+            snprintf(temp_unit, sizeof(temp_unit), "F");
+            snprintf(wind_unit, sizeof(wind_unit), "mph");
+            snprintf(press_unit, sizeof(press_unit), "psi");
+            snprintf(vis_unit, sizeof(vis_unit), "ft");
+            snprintf(precip_unit, sizeof(precip_unit), "in/h");
+          }
+
+          char now_temp[48];
+          char now_feels[64];
+          char hilo[64];
+          char chip_h[48];
+          char chip_w[48];
+          char chip_u[48];
+          char chip_c[48];
+          char details_1[96];
+          char details_2[96];
+          char details_3[96];
+          char details_4[96];
+          char details_5[96];
+          char details_6[96];
+          char details_diag[160];
+          char units_lbl[64];
+          char source_lbl[180];
+          char gps_lbl[180];
+
+          if (t <= -9000.0f) snprintf(now_temp, sizeof(now_temp), "--");
+          else snprintf(now_temp, sizeof(now_temp), "%.1f %s", t, temp_unit);
+
+          if (feels <= -9000.0f) snprintf(now_feels, sizeof(now_feels), "Feels --");
+          else snprintf(now_feels, sizeof(now_feels), "Feels %.1f %s", feels, temp_unit);
+
+          if (high <= -9000.0f || low <= -9000.0f) snprintf(hilo, sizeof(hilo), "H/L --");
+          else snprintf(hilo, sizeof(hilo), "H %.1f%s   L %.1f%s", high, temp_unit, low, temp_unit);
+
+          if (hum <= -9000.0f) snprintf(chip_h, sizeof(chip_h), "Humidity --");
+          else snprintf(chip_h, sizeof(chip_h), "Humidity %.0f%%", hum);
+
+          if (wind <= -9000.0f) snprintf(chip_w, sizeof(chip_w), "Wind --");
+          else snprintf(chip_w, sizeof(chip_w), "Wind %.1f %s", wind, wind_unit);
+
+          if (uv <= -9000.0f) snprintf(chip_u, sizeof(chip_u), "UV --");
+          else snprintf(chip_u, sizeof(chip_u), "UV %.2f", uv);
+
+          if (cloud <= -9000.0f) snprintf(chip_c, sizeof(chip_c), "Cloud --");
+          else snprintf(chip_c, sizeof(chip_c), "Cloud %.0f%%", cloud);
+
+          if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) {
+            snprintf(source_lbl, sizeof(source_lbl), "Source ${entity_wx_main}: %s", id(wx_entity_state).state.c_str());
+          } else {
+            snprintf(source_lbl, sizeof(source_lbl), "Source ${entity_wx_main}: unavailable");
+          }
+
+          bool gps_alive = (esphome::millis() - id(gps_last_update_ms)) < 15000U;
+          if (!gps_alive) {
+            snprintf(gps_lbl, sizeof(gps_lbl), "GPS no data. Check wiring RX ${gps_rx_pin} TX ${gps_tx_pin}");
+          } else if (id(gps_satellites).state < 1.0f) {
+            snprintf(gps_lbl, sizeof(gps_lbl), "GPS data alive, waiting for fix");
+          } else {
+            snprintf(gps_lbl, sizeof(gps_lbl), "GPS %.0f sat  lat %.5f  lon %.5f",
+                     id(gps_satellites).state, id(gps_latitude).state, id(gps_longitude).state);
+          }
+
+          const char *dir_txt = "--";
+          if (dir > -9000.0f) {
+            if (dir >= 22.5f && dir < 67.5f) dir_txt = "NE";
+            else if (dir >= 67.5f && dir < 112.5f) dir_txt = "E";
+            else if (dir >= 112.5f && dir < 157.5f) dir_txt = "SE";
+            else if (dir >= 157.5f && dir < 202.5f) dir_txt = "S";
+            else if (dir >= 202.5f && dir < 247.5f) dir_txt = "SW";
+            else if (dir >= 247.5f && dir < 292.5f) dir_txt = "W";
+            else if (dir >= 292.5f && dir < 337.5f) dir_txt = "NW";
+            else dir_txt = "N";
+          }
+
+          snprintf(units_lbl, sizeof(units_lbl), "Units: %s", id(app_units_mode) == 1 ? "Metric" : "Imperial");
+          snprintf(details_1, sizeof(details_1), "Temp %s | %s", now_temp, now_feels);
+          if (dew <= -9000.0f) snprintf(details_2, sizeof(details_2), "Dew -- | %s", hilo);
+          else snprintf(details_2, sizeof(details_2), "Dew %.1f%s | %s", dew, temp_unit, hilo);
+          snprintf(details_3, sizeof(details_3), "%s | %s | %s | %s", chip_h, chip_w, chip_u, chip_c);
+          if (gust <= -9000.0f || dir <= -9000.0f) snprintf(details_4, sizeof(details_4), "Gust -- | Dir --");
+          else snprintf(details_4, sizeof(details_4), "Gust %.1f %s | Dir %.0f%c %s", gust, wind_unit, dir, 0xB0, dir_txt);
+          if (press <= -9000.0f || vis <= -9000.0f) snprintf(details_5, sizeof(details_5), "Pressure/Visibility unavailable");
+          else snprintf(details_5, sizeof(details_5), "Pressure %.2f %s | Visibility %.1f %s", press, press_unit, vis, vis_unit);
+          if (rain <= -9000.0f || snow <= -9000.0f) snprintf(details_6, sizeof(details_6), "Precip -- | Kind %s | Code %d", id(wx_norm_precip_kind).c_str(), id(wx_norm_weather_code));
+          else snprintf(details_6, sizeof(details_6), "Rain %.2f %s | Snow %.2f %s | Kind %s | Code %d", rain, precip_unit, snow, precip_unit, id(wx_norm_precip_kind).c_str(), id(wx_norm_weather_code));
+          snprintf(details_diag, sizeof(details_diag), "%s | %s", source_lbl, gps_lbl);
+
+          id(weather_now_temp_text) = std::string(now_temp);
+          id(weather_now_feels_text) = std::string(now_feels);
+          id(weather_hilo_text) = std::string(hilo);
+          id(weather_chip_humidity_text) = std::string(chip_h);
+          id(weather_chip_wind_text) = std::string(chip_w);
+          id(weather_chip_uv_text) = std::string(chip_u);
+          id(weather_chip_cloud_text) = std::string(chip_c);
+          id(weather_details_line1_text) = std::string(details_1);
+          id(weather_details_line2_text) = std::string(details_2);
+          id(weather_details_line3_text) = std::string(details_3);
+          id(weather_details_line4_text) = std::string(details_4);
+          id(weather_details_line5_text) = std::string(details_5);
+          id(weather_details_line6_text) = std::string(details_6);
+          id(weather_details_diag_text) = std::string(details_diag);
+          id(weather_units_text) = std::string(units_lbl);
+          id(weather_source_text) = std::string(source_lbl);
+          id(weather_gps_text) = std::string(gps_lbl);
+
+      - lvgl.label.update:
+          id: weather_now_temp_lbl
+          text: !lambda "return id(weather_now_temp_text);"
+      - lvgl.label.update:
+          id: weather_now_cond_lbl
+          text: !lambda "return id(wx_norm_weather);"
+      - lvgl.label.update:
+          id: weather_now_feels_lbl
+          text: !lambda "return id(weather_now_feels_text);"
+      - lvgl.label.update:
+          id: weather_hilo_lbl
+          text: !lambda "return id(weather_hilo_text);"
+      - lvgl.label.update:
+          id: weather_chip_humidity_lbl
+          text: !lambda "return id(weather_chip_humidity_text);"
+      - lvgl.label.update:
+          id: weather_chip_wind_lbl
+          text: !lambda "return id(weather_chip_wind_text);"
+      - lvgl.label.update:
+          id: weather_chip_uv_lbl
+          text: !lambda "return id(weather_chip_uv_text);"
+      - lvgl.label.update:
+          id: weather_chip_cloud_lbl
+          text: !lambda "return id(weather_chip_cloud_text);"
+      - lvgl.label.update:
+          id: weather_units_lbl
+          text: !lambda "return id(weather_units_text);"
+      - lvgl.label.update:
+          id: weather_source_lbl
+          text: !lambda "return id(weather_source_text);"
+      - lvgl.label.update:
+          id: weather_gps_lbl
+          text: !lambda "return id(weather_gps_text);"
+      - lvgl.label.update:
+          id: weather_details_title_lbl
+          text: !lambda "return id(wx_norm_condition);"
+      - lvgl.label.update:
+          id: weather_details_line1_lbl
+          text: !lambda "return id(weather_details_line1_text);"
+      - lvgl.label.update:
+          id: weather_details_line2_lbl
+          text: !lambda "return id(weather_details_line2_text);"
+      - lvgl.label.update:
+          id: weather_details_line3_lbl
+          text: !lambda "return id(weather_details_line3_text);"
+      - lvgl.label.update:
+          id: weather_details_line4_lbl
+          text: !lambda "return id(weather_details_line4_text);"
+      - lvgl.label.update:
+          id: weather_details_line5_lbl
+          text: !lambda "return id(weather_details_line5_text);"
+      - lvgl.label.update:
+          id: weather_details_line6_lbl
+          text: !lambda "return id(weather_details_line6_text);"
+      - lvgl.label.update:
+          id: weather_details_diag_lbl
+          text: !lambda "return id(weather_details_diag_text);"
 
   - id: open_light_colors
     then:
@@ -1207,6 +1761,8 @@ script:
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "off"
+      - lambda: |-
+          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_heat
@@ -1216,6 +1772,8 @@ script:
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "heat"
+      - lambda: |-
+          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_cool
@@ -1225,6 +1783,8 @@ script:
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "cool"
+      - lambda: |-
+          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_auto
@@ -1234,6 +1794,8 @@ script:
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "auto"
+      - lambda: |-
+          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_aux_heat
@@ -1284,117 +1846,403 @@ script:
             entity_id: ${entity_sensi_keypad_lockout_switch}
       - script.execute: lvgl_update_dynamic
 
-  - id: sensi_set_heat_target
-    parameters:
-      val: int
+  - id: climate_ui_seed_from_ha
+    mode: restart
     then:
       - lambda: |-
-          if (val < 50) val = 50;
-          if (val > 90) val = 90;
+          int heat = id(climate_ui_target_heat_f);
+          int cool = id(climate_ui_target_cool_f);
+
+          bool app_metric = id(app_units_mode) == 1;
+          bool native_metric = false;
+          if (id(sensi_climate_temperature_unit).has_state()) {
+            std::string tu = id(sensi_climate_temperature_unit).state;
+            native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+          }
+
+          auto native_to_app = [&](float v) -> int {
+            if (!(v == v)) return 0;
+            if (app_metric && !native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+            else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+            return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
+          };
+
+          if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+            heat = native_to_app(id(sensi_auto_heat_temp).state);
+          }
+          if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+            cool = native_to_app(id(sensi_auto_cool_temp).state);
+          }
+
+          id(climate_ui_target_heat_f) = heat;
+          id(climate_ui_target_cool_f) = cool;
+
+          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("auto");
+          if (mode == "heat") id(climate_ui_target_single_f) = heat;
+          else if (mode == "cool") id(climate_ui_target_single_f) = cool;
+          else id(climate_ui_target_single_f) = (heat + cool) / 2;
+
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+
+  - id: climate_ui_clamp_targets
+    mode: restart
+    then:
+      - lambda: |-
+          int min_v = atoi("${climate_temp_min_f}");
+          int max_v = atoi("${climate_temp_max_f}");
+          int band_v = atoi("${climate_auto_band_min_delta_f}");
+
+          if (id(app_units_mode) == 1) {
+            min_v = (int) (((min_v - 32.0f) * (5.0f / 9.0f)) + 0.5f);
+            max_v = (int) (((max_v - 32.0f) * (5.0f / 9.0f)) + 0.5f);
+            band_v = (int) (((float) band_v * (5.0f / 9.0f)) + 0.5f);
+          }
+
+          if (min_v < -20) min_v = -20;
+          if (max_v > 120) max_v = 120;
+          if (max_v <= min_v) max_v = min_v + 1;
+          if (band_v < 1) band_v = 1;
+
+          if (id(climate_ui_target_single_f) < min_v) id(climate_ui_target_single_f) = min_v;
+          if (id(climate_ui_target_single_f) > max_v) id(climate_ui_target_single_f) = max_v;
+          if (id(climate_ui_target_heat_f) < min_v) id(climate_ui_target_heat_f) = min_v;
+          if (id(climate_ui_target_heat_f) > max_v) id(climate_ui_target_heat_f) = max_v;
+          if (id(climate_ui_target_cool_f) < min_v) id(climate_ui_target_cool_f) = min_v;
+          if (id(climate_ui_target_cool_f) > max_v) id(climate_ui_target_cool_f) = max_v;
+
+          if (id(climate_ui_target_cool_f) < id(climate_ui_target_heat_f) + band_v) {
+            id(climate_ui_target_cool_f) = id(climate_ui_target_heat_f) + band_v;
+            if (id(climate_ui_target_cool_f) > max_v) {
+              id(climate_ui_target_cool_f) = max_v;
+              id(climate_ui_target_heat_f) = id(climate_ui_target_cool_f) - band_v;
+              if (id(climate_ui_target_heat_f) < min_v) id(climate_ui_target_heat_f) = min_v;
+            }
+          }
+
+  - id: climate_commit_single_target
+    mode: restart
+    then:
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_sensi_climate}
+            temperature: !lambda |-
+              float v = (float) id(climate_ui_target_single_f);
+              bool app_metric = id(app_units_mode) == 1;
+              bool native_metric = false;
+              if (id(sensi_climate_temperature_unit).has_state()) {
+                std::string tu = id(sensi_climate_temperature_unit).state;
+                native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+              }
+              if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", v);
+              return std::string(buf);
+      - if:
+          condition:
+            lambda: |-
+              if (!id(sensi_climate_state).has_state()) return false;
+              std::string mode = id(sensi_climate_state).state;
+              return mode == "heat";
+          then:
+            - homeassistant.action:
+                action: number.set_value
+                data:
+                  entity_id: ${entity_sensi_auto_heat_number}
+                  value: !lambda |-
+                    float v = (float) id(climate_ui_target_single_f);
+                    bool app_metric = id(app_units_mode) == 1;
+                    bool native_metric = false;
+                    if (id(sensi_climate_temperature_unit).has_state()) {
+                      std::string tu = id(sensi_climate_temperature_unit).state;
+                      native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+                    }
+                    if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+                    else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+                    char buf[16];
+                    snprintf(buf, sizeof(buf), "%.1f", v);
+                    return std::string(buf);
+      - if:
+          condition:
+            lambda: |-
+              if (!id(sensi_climate_state).has_state()) return false;
+              std::string mode = id(sensi_climate_state).state;
+              return mode == "cool";
+          then:
+            - homeassistant.action:
+                action: number.set_value
+                data:
+                  entity_id: ${entity_sensi_auto_cool_number}
+                  value: !lambda |-
+                    float v = (float) id(climate_ui_target_single_f);
+                    bool app_metric = id(app_units_mode) == 1;
+                    bool native_metric = false;
+                    if (id(sensi_climate_temperature_unit).has_state()) {
+                      std::string tu = id(sensi_climate_temperature_unit).state;
+                      native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+                    }
+                    if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+                    else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+                    char buf[16];
+                    snprintf(buf, sizeof(buf), "%.1f", v);
+                    return std::string(buf);
+
+  - id: climate_commit_auto_band
+    mode: restart
+    then:
       - homeassistant.action:
           action: number.set_value
           data:
             entity_id: ${entity_sensi_auto_heat_number}
             value: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
+              float v = (float) id(climate_ui_target_heat_f);
+              bool app_metric = id(app_units_mode) == 1;
+              bool native_metric = false;
+              if (id(sensi_climate_temperature_unit).has_state()) {
+                std::string tu = id(sensi_climate_temperature_unit).state;
+                native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+              }
+              if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", v);
               return std::string(buf);
-      # Auto-mode fallback path
-      - homeassistant.action:
-          action: climate.set_temperature
-          data:
-            entity_id: ${entity_sensi_climate}
-            target_temp_low: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
-              return std::string(buf);
-            target_temp_high: !lambda |-
-              int cool = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", cool);
-              return std::string(buf);
-      # Heat-mode fallback path
-      - homeassistant.action:
-          action: climate.set_temperature
-          data:
-            entity_id: ${entity_sensi_climate}
-            temperature: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
-              return std::string(buf);
-      - script.execute: lvgl_update_dynamic
-
-  - id: sensi_set_cool_target
-    parameters:
-      val: int
-    then:
-      - lambda: |-
-          if (val < 50) val = 50;
-          if (val > 95) val = 95;
       - homeassistant.action:
           action: number.set_value
           data:
             entity_id: ${entity_sensi_auto_cool_number}
             value: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
+              float v = (float) id(climate_ui_target_cool_f);
+              bool app_metric = id(app_units_mode) == 1;
+              bool native_metric = false;
+              if (id(sensi_climate_temperature_unit).has_state()) {
+                std::string tu = id(sensi_climate_temperature_unit).state;
+                native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+              }
+              if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", v);
               return std::string(buf);
-      # Auto-mode fallback path
       - homeassistant.action:
           action: climate.set_temperature
           data:
             entity_id: ${entity_sensi_climate}
             target_temp_low: !lambda |-
-              int heat = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", heat);
+              float v = (float) id(climate_ui_target_heat_f);
+              bool app_metric = id(app_units_mode) == 1;
+              bool native_metric = false;
+              if (id(sensi_climate_temperature_unit).has_state()) {
+                std::string tu = id(sensi_climate_temperature_unit).state;
+                native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+              }
+              if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", v);
               return std::string(buf);
             target_temp_high: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
+              float v = (float) id(climate_ui_target_cool_f);
+              bool app_metric = id(app_units_mode) == 1;
+              bool native_metric = false;
+              if (id(sensi_climate_temperature_unit).has_state()) {
+                std::string tu = id(sensi_climate_temperature_unit).state;
+                native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+              }
+              if (app_metric && !native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              else if (!app_metric && native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", v);
               return std::string(buf);
-      # Cool-mode fallback path
-      - homeassistant.action:
-          action: climate.set_temperature
-          data:
-            entity_id: ${entity_sensi_climate}
-            temperature: !lambda |-
-              char buf[12];
-              snprintf(buf, sizeof(buf), "%d", val);
-              return std::string(buf);
-      - script.execute: lvgl_update_dynamic
+
+  - id: climate_commit_targets
+    mode: restart
+    then:
+      - script.execute: climate_ui_clamp_targets
+      - if:
+          condition:
+            lambda: |-
+              if (!id(sensi_climate_state).has_state()) return true;
+              std::string mode = id(sensi_climate_state).state;
+              return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
+          then:
+            - script.execute: climate_commit_auto_band
+          else:
+            - script.execute: climate_commit_single_target
+      - lambda: |-
+          id(climate_last_commit_ms) = esphome::millis();
+          id(climate_commit_pending) = false;
+          id(climate_ui_dirty) = false;
+      - script.execute: climate_update_labels
+      - script.execute: climate_sync_controls
+
+  - id: climate_commit_debounced
+    mode: restart
+    then:
+      - lambda: |-
+          id(climate_commit_pending) = true;
+      - if:
+          condition:
+            lambda: |-
+              uint32_t now = esphome::millis();
+              uint32_t min_gap = (uint32_t) atoi("${climate_hold_repeat_ms}");
+              if (min_gap < 120U) min_gap = 120U;
+              return (now - id(climate_last_commit_ms)) >= min_gap;
+          then:
+            - script.execute: climate_commit_targets
+
+  - id: climate_adjust_single
+    mode: restart
+    parameters:
+      delta: int
+      immediate: bool
+    then:
+      - lambda: |-
+          id(climate_ui_target_single_f) += delta;
+          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          if (mode == "heat") id(climate_ui_target_heat_f) = id(climate_ui_target_single_f);
+          if (mode == "cool") id(climate_ui_target_cool_f) = id(climate_ui_target_single_f);
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_update_labels
+      - script.execute: climate_sync_controls
+      - if:
+          condition:
+            lambda: "return immediate;"
+          then:
+            - script.execute: climate_commit_targets
+          else:
+            - script.execute: climate_commit_debounced
+
+  - id: climate_adjust_heat
+    mode: restart
+    parameters:
+      delta: int
+      immediate: bool
+    then:
+      - lambda: |-
+          id(climate_ui_target_heat_f) += delta;
+          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_update_labels
+      - script.execute: climate_sync_controls
+      - if:
+          condition:
+            lambda: "return immediate;"
+          then:
+            - script.execute: climate_commit_targets
+          else:
+            - script.execute: climate_commit_debounced
+
+  - id: climate_adjust_cool
+    mode: restart
+    parameters:
+      delta: int
+      immediate: bool
+    then:
+      - lambda: |-
+          id(climate_ui_target_cool_f) += delta;
+          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_update_labels
+      - script.execute: climate_sync_controls
+      - if:
+          condition:
+            lambda: "return immediate;"
+          then:
+            - script.execute: climate_commit_targets
+          else:
+            - script.execute: climate_commit_debounced
+
+  - id: sensi_set_heat_target
+    mode: restart
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          id(climate_ui_target_heat_f) = val;
+          if (id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "heat") {
+            id(climate_ui_target_single_f) = val;
+          }
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_commit_targets
+
+  - id: sensi_set_cool_target
+    mode: restart
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          id(climate_ui_target_cool_f) = val;
+          if (id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "cool") {
+            id(climate_ui_target_single_f) = val;
+          }
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_commit_targets
+
+  - id: sensi_set_single_target
+    mode: restart
+    parameters:
+      val: int
+    then:
+      - lambda: |-
+          id(climate_ui_target_single_f) = val;
+          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          if (mode == "heat") id(climate_ui_target_heat_f) = val;
+          if (mode == "cool") id(climate_ui_target_cool_f) = val;
+          id(climate_ui_dirty) = true;
+      - script.execute: climate_ui_clamp_targets
+      - script.execute: climate_commit_targets
 
   - id: sensi_heat_down
     then:
       - script.execute:
-          id: sensi_set_heat_target
-          val: !lambda |-
-            int v = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
-            return v - 1;
+          id: climate_adjust_heat
+          delta: -1
+          immediate: true
 
   - id: sensi_heat_up
     then:
       - script.execute:
-          id: sensi_set_heat_target
-          val: !lambda |-
-            int v = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
-            return v + 1;
+          id: climate_adjust_heat
+          delta: 1
+          immediate: true
 
   - id: sensi_cool_down
     then:
       - script.execute:
-          id: sensi_set_cool_target
-          val: !lambda |-
-            int v = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
-            return v - 1;
+          id: climate_adjust_cool
+          delta: -1
+          immediate: true
 
   - id: sensi_cool_up
     then:
       - script.execute:
-          id: sensi_set_cool_target
-          val: !lambda |-
-            int v = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
-            return v + 1;
+          id: climate_adjust_cool
+          delta: 1
+          immediate: true
+
+  - id: sensi_single_down
+    then:
+      - script.execute:
+          id: climate_adjust_single
+          delta: -1
+          immediate: true
+
+  - id: sensi_single_up
+    then:
+      - script.execute:
+          id: climate_adjust_single
+          delta: 1
+          immediate: true
 
   - id: sensi_set_humidity_offset
     parameters:
@@ -1619,142 +2467,9 @@ script:
             char buf[36];
             snprintf(buf, sizeof(buf), "White Temp %dK", id(selected_light_kelvin));
             return std::string(buf);
-      - lvgl.label.update:
-          id: weather_temp_lbl
-          text: !lambda |-
-            float temp = id(wx_temp).state;
-            if (temp != temp) temp = id(wx_entity_temperature).state;
-            if (temp != temp) return std::string("--");
-            char buf[24];
-            snprintf(buf, sizeof(buf), "Temp %.1f", temp);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: weather_cond_lbl
-          text: !lambda |-
-            if (id(wx_weather).has_state() && !id(wx_weather).state.empty()) return id(wx_weather).state;
-            if (id(wx_condition).has_state() && !id(wx_condition).state.empty()) return id(wx_condition).state;
-            if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) return id(wx_entity_state).state;
-            return std::string("-");
-      - lvgl.label.update:
-          id: weather_feels_lbl
-          text: !lambda |-
-            float feels = id(wx_feels).state;
-            if (feels != feels) feels = id(wx_entity_temperature).state;
-            if (feels != feels) return std::string("Feels --");
-            char buf[28];
-            snprintf(buf, sizeof(buf), "Feels %.1f", feels);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: weather_metrics_top_lbl
-          text: !lambda |-
-            char buf[180];
-            float hum = id(wx_humidity).state;
-            if (hum != hum) hum = id(wx_entity_humidity).state;
-            if (hum != hum) hum = 0;
-            float wind = id(wx_wind_speed).state;
-            if (wind != wind) wind = id(wx_entity_wind_speed).state;
-            if (wind != wind) wind = 0;
-            float uv = id(wx_uv).state;
-            if (uv != uv) uv = 0;
-            float clouds = id(wx_clouds).state;
-            if (clouds != clouds) clouds = id(wx_entity_cloud_coverage).state;
-            if (clouds != clouds) clouds = 0;
-            float bearing = id(wx_entity_wind_bearing).state;
-            if (bearing != bearing) bearing = 0;
-            const char *dir = "N";
-            if (bearing >= 22.5f && bearing < 67.5f) dir = "NE";
-            else if (bearing >= 67.5f && bearing < 112.5f) dir = "E";
-            else if (bearing >= 112.5f && bearing < 157.5f) dir = "SE";
-            else if (bearing >= 157.5f && bearing < 202.5f) dir = "S";
-            else if (bearing >= 202.5f && bearing < 247.5f) dir = "SW";
-            else if (bearing >= 247.5f && bearing < 292.5f) dir = "W";
-            else if (bearing >= 292.5f && bearing < 337.5f) dir = "NW";
-            snprintf(buf, sizeof(buf), "Hum %.0f%%  Wind %.0f %s  UV %.1f  Cloud %.0f%%",
-                     hum, wind, dir, uv, clouds);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: weather_metrics_bottom_lbl
-          text: !lambda |-
-            char buf[180];
-            float press = id(wx_pressure).state;
-            if (press != press) press = id(wx_entity_pressure).state;
-            if (press != press) press = 0;
-            float vis = id(wx_visibility).state;
-            if (vis != vis) vis = id(wx_entity_visibility).state;
-            if (vis != vis) vis = 0;
-            float dew = id(wx_entity_dew_point).state;
-            if (dew != dew) dew = 0;
-            snprintf(buf, sizeof(buf), "Press %.0f  Vis %.0f  Dew %.1f", press, vis, dew);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: weather_gps_lbl
-          text: !lambda |-
-            bool gps_alive = (esphome::millis() - id(gps_last_update_ms)) < 15000U;
-            if (!gps_alive) return std::string("GPS: no NMEA data. Check RX ${gps_rx_pin}/TX ${gps_tx_pin}, then try gps_baud_rate 38400.");
-            if (id(gps_satellites).state < 1.0f) return std::string("GPS: data alive, waiting for fix.");
-            char buf[120];
-            snprintf(buf, sizeof(buf), "GPS fix: %.0f sat  lat %.5f  lon %.5f",
-                     id(gps_satellites).state, id(gps_latitude).state, id(gps_longitude).state);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: weather_source_lbl
-          text: !lambda |-
-            if (id(wx_entity_state).has_state() && !id(wx_entity_state).state.empty()) {
-              return std::string("Source ${entity_wx_main}: ") + id(wx_entity_state).state;
-            }
-            return std::string("Source ${entity_wx_main}: unavailable");
-      - lvgl.label.update:
-          id: climate_status_lbl
-          text: !lambda |-
-            char buf[180];
-            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("-");
-            std::string action = id(sensi_climate_hvac_action).has_state() ? id(sensi_climate_hvac_action).state : std::string("-");
-            std::string fan = id(sensi_climate_fan_mode).has_state() ? id(sensi_climate_fan_mode).state : std::string("-");
-            float t = id(sensi_temperature).state == id(sensi_temperature).state ? id(sensi_temperature).state : 0.0f;
-            float h = id(sensi_humidity).state == id(sensi_humidity).state ? id(sensi_humidity).state : 0.0f;
-            snprintf(buf, sizeof(buf), "Mode %s | Action %s | Fan %s\nIndoor %.1fF  Hum %.0f%%",
-                     mode.c_str(), action.c_str(), fan.c_str(), t, h);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_heat_lbl
-          text: !lambda |-
-            char buf[32];
-            int v = id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state ? (int) id(sensi_auto_heat_temp).state : 68;
-            snprintf(buf, sizeof(buf), "Heat %d F", v);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_cool_lbl
-          text: !lambda |-
-            char buf[32];
-            int v = id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state ? (int) id(sensi_auto_cool_temp).state : 74;
-            snprintf(buf, sizeof(buf), "Cool %d F", v);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_hum_offset_lbl
-          text: !lambda |-
-            char buf[32];
-            int v = id(sensi_humidity_offset).state == id(sensi_humidity_offset).state ? (int) id(sensi_humidity_offset).state : 0;
-            snprintf(buf, sizeof(buf), "HumOff %d", v);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_temp_offset_lbl
-          text: !lambda |-
-            char buf[32];
-            int v = id(sensi_temperature_offset).state == id(sensi_temperature_offset).state ? (int) id(sensi_temperature_offset).state : 0;
-            snprintf(buf, sizeof(buf), "TempOff %d", v);
-            return std::string(buf);
-      - lvgl.label.update:
-          id: climate_features_lbl
-          text: !lambda |-
-            char buf[180];
-            snprintf(buf, sizeof(buf), "Aux %s  Hum %s  Time %s  Fan %s  Humid %s  Lock %s",
-                     id(sensi_aux_heat_state).state ? "ON" : "OFF",
-                     id(sensi_display_humidity_state).state ? "ON" : "OFF",
-                     id(sensi_display_time_state).state ? "ON" : "OFF",
-                     id(sensi_fan_support_state).state ? "ON" : "OFF",
-                     id(sensi_humidification_state).state ? "ON" : "OFF",
-                     id(sensi_keypad_lockout_state).state ? "ON" : "OFF");
-            return std::string(buf);
+      - script.execute: weather_update_model
+      - script.execute: weather_update_icon
+      - script.execute: weather_update_labels
       - lvgl.label.update:
           id: reader_bbc_lbl
           text: !lambda |-
@@ -1811,6 +2526,15 @@ script:
                      id(wake_on_trackball) ? "ON" : "OFF");
             return std::string(buf);
       - lvgl.label.update:
+          id: settings_units_lbl
+          text: !lambda |-
+            return std::string(id(app_units_mode) == 1 ? "Metric" : "Imperial");
+      - lvgl.label.update:
+          id: settings_units_source_lbl
+          text: !lambda |-
+            std::string src = id(app_units_source).empty() ? std::string("manual") : id(app_units_source);
+            return std::string("Units source: ") + src;
+      - lvgl.label.update:
           id: theme_status_lbl
           text: !lambda |-
             const char *name = "Midnight";
@@ -1842,6 +2566,7 @@ script:
               "ALL SHORTCUTS REQUIRE ALT\n"
               "Alt+H/L/A/W/C/R/S/T : Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme\n"
               "Alt+Q/E : prev/next page     Alt+K : this page\n"
+              "Alt+1/2/3/4 : Heat-/Heat+/Cool-/Cool+\n"
               "Alt+D/F : prev/next light    Alt+G : light toggle\n"
               "Alt+Z/X : dim/bright         Alt+N/M : warm/cool\n"
               "Alt+P : color studio         Alt+0 : all lights off\n"
@@ -1921,6 +2646,271 @@ script:
           id: touch_cal_p8_lbl
           text: !lambda "return (id(touch_cal_mode) && id(touch_cal_step) == 8) ? std::string(\"X\") : std::string(\"+\");"
 
+  - id: climate_update_labels
+    mode: restart
+    then:
+      - lambda: |-
+          uint32_t since_commit = esphome::millis() - id(climate_last_commit_ms);
+          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && since_commit > 1500U) {
+            bool app_metric = id(app_units_mode) == 1;
+            bool native_metric = false;
+            if (id(sensi_climate_temperature_unit).has_state()) {
+              std::string tu = id(sensi_climate_temperature_unit).state;
+              native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+            }
+            auto native_to_app = [&](float v) -> int {
+              if (!(v == v)) return 0;
+              if (app_metric && !native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
+            };
+            if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+              id(climate_ui_target_heat_f) = native_to_app(id(sensi_auto_heat_temp).state);
+            }
+            if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+              id(climate_ui_target_cool_f) = native_to_app(id(sensi_auto_cool_temp).state);
+            }
+            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+            if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
+            else if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
+            else if (mode == "auto" || mode == "heat_cool" || mode == "heat-cool") {
+              id(climate_ui_target_single_f) = (id(climate_ui_target_heat_f) + id(climate_ui_target_cool_f)) / 2;
+            }
+          }
+      - script.execute: climate_ui_clamp_targets
+      - lvgl.label.update:
+          id: climate_mode_chip_lbl
+          text: !lambda |-
+            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("-");
+            return std::string("Mode: ") + mode;
+      - lvgl.label.update:
+          id: climate_action_chip_lbl
+          text: !lambda |-
+            std::string action = id(sensi_climate_hvac_action).has_state() ? id(sensi_climate_hvac_action).state : std::string("-");
+            return std::string("Act: ") + action;
+      - lvgl.label.update:
+          id: climate_fan_chip_lbl
+          text: !lambda |-
+            std::string fan = id(sensi_climate_fan_mode).has_state() ? id(sensi_climate_fan_mode).state : std::string("-");
+            return std::string("Fan: ") + fan;
+      - lvgl.label.update:
+          id: climate_indoor_lbl
+          text: !lambda |-
+            char buf[128];
+            float t = id(sensi_temperature).state;
+            float h = id(sensi_humidity).state;
+            bool app_metric = id(app_units_mode) == 1;
+            bool native_metric = false;
+            if (id(sensi_climate_temperature_unit).has_state()) {
+              std::string tu = id(sensi_climate_temperature_unit).state;
+              native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+            }
+            if (t == t) {
+              if (app_metric && !native_metric) t = (t - 32.0f) * (5.0f / 9.0f);
+              else if (!app_metric && native_metric) t = (t * (9.0f / 5.0f)) + 32.0f;
+            }
+            if (t != t) t = 0;
+            if (h != h) h = 0;
+            snprintf(buf, sizeof(buf), "Indoor %.1f %s    Humidity %.0f%%", t, app_metric ? "C" : "F", h);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_mode_off_lbl
+          text: !lambda |-
+            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "off";
+            return active ? std::string("[Off]") : std::string("Off");
+      - lvgl.label.update:
+          id: climate_mode_heat_lbl
+          text: !lambda |-
+            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "heat";
+            return active ? std::string("[Heat]") : std::string("Heat");
+      - lvgl.label.update:
+          id: climate_mode_cool_lbl
+          text: !lambda |-
+            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "cool";
+            return active ? std::string("[Cool]") : std::string("Cool");
+      - lvgl.label.update:
+          id: climate_mode_auto_lbl
+          text: !lambda |-
+            bool active = false;
+            if (id(sensi_climate_state).has_state()) {
+              std::string m = id(sensi_climate_state).state;
+              active = (m == "auto" || m == "heat_cool" || m == "heat-cool");
+            }
+            return active ? std::string("[Auto]") : std::string("Auto");
+      - lvgl.label.update:
+          id: climate_single_lbl
+          text: !lambda |-
+            char buf[64];
+            const char *mode_name = "Target";
+            if (id(sensi_climate_state).has_state()) {
+              std::string m = id(sensi_climate_state).state;
+              if (m == "heat") mode_name = "Heat";
+              else if (m == "cool") mode_name = "Cool";
+            }
+            snprintf(buf, sizeof(buf), "%s %d %s", mode_name, id(climate_ui_target_single_f), id(app_units_mode) == 1 ? "C" : "F");
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_auto_heat_lbl
+          text: !lambda |-
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Heat %d %s", id(climate_ui_target_heat_f), id(app_units_mode) == 1 ? "C" : "F");
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_auto_cool_lbl
+          text: !lambda |-
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Cool %d %s", id(climate_ui_target_cool_f), id(app_units_mode) == 1 ? "C" : "F");
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_aux_btn_lbl
+          text: !lambda "return id(sensi_aux_heat_state).state ? std::string(\"Aux ON\") : std::string(\"Aux OFF\");"
+      - lvgl.label.update:
+          id: climate_hum_offset_lbl
+          text: !lambda |-
+            char buf[48];
+            int v = id(sensi_humidity_offset).state == id(sensi_humidity_offset).state ? (int) id(sensi_humidity_offset).state : 0;
+            snprintf(buf, sizeof(buf), "Humidity Offset  %d", v);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_temp_offset_lbl
+          text: !lambda |-
+            char buf[48];
+            int v = id(sensi_temperature_offset).state == id(sensi_temperature_offset).state ? (int) id(sensi_temperature_offset).state : 0;
+            snprintf(buf, sizeof(buf), "Temp Offset      %d", v);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_tools_status_lbl
+          text: !lambda |-
+            char buf[200];
+            snprintf(buf, sizeof(buf), "Aux %s  HumDisp %s  TimeDisp %s  FanSup %s  Humid %s  Lock %s",
+                     id(sensi_aux_heat_state).state ? "ON" : "OFF",
+                     id(sensi_display_humidity_state).state ? "ON" : "OFF",
+                     id(sensi_display_time_state).state ? "ON" : "OFF",
+                     id(sensi_fan_support_state).state ? "ON" : "OFF",
+                     id(sensi_humidification_state).state ? "ON" : "OFF",
+                     id(sensi_keypad_lockout_state).state ? "ON" : "OFF");
+            return std::string(buf);
+      - lvgl.label.update:
+          id: climate_diag_lbl
+          text: !lambda |-
+            char buf[170];
+            uint32_t age = (esphome::millis() - id(climate_last_commit_ms)) / 1000U;
+            snprintf(buf, sizeof(buf), "Last commit %lus  Pending %s  Band %d%s",
+                     (unsigned long) age,
+                     id(climate_commit_pending) ? "YES" : "NO",
+                     id(climate_ui_target_cool_f) - id(climate_ui_target_heat_f),
+                     id(app_units_mode) == 1 ? "C" : "F");
+            return std::string(buf);
+
+  - id: climate_sync_controls
+    mode: restart
+    then:
+      - lambda: |-
+          id(climate_ui_sync_in_progress) = true;
+          uint32_t since_commit = esphome::millis() - id(climate_last_commit_ms);
+          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && since_commit > 1500U) {
+            bool app_metric = id(app_units_mode) == 1;
+            bool native_metric = false;
+            if (id(sensi_climate_temperature_unit).has_state()) {
+              std::string tu = id(sensi_climate_temperature_unit).state;
+              native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+            }
+            auto native_to_app = [&](float v) -> int {
+              if (!(v == v)) return 0;
+              if (app_metric && !native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+              else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+              return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
+            };
+            if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+              id(climate_ui_target_heat_f) = native_to_app(id(sensi_auto_heat_temp).state);
+            }
+            if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+              id(climate_ui_target_cool_f) = native_to_app(id(sensi_auto_cool_temp).state);
+            }
+            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+            if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
+            else if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
+            else if (mode == "auto" || mode == "heat_cool" || mode == "heat-cool") {
+              id(climate_ui_target_single_f) = (id(climate_ui_target_heat_f) + id(climate_ui_target_cool_f)) / 2;
+            }
+          }
+      - script.execute: climate_ui_clamp_targets
+      - lvgl.widget.update:
+          id: climate_single_card
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return false;
+            std::string mode = id(sensi_climate_state).state;
+            return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
+      - lvgl.widget.update:
+          id: climate_single_lbl
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return false;
+            std::string mode = id(sensi_climate_state).state;
+            return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
+      - lvgl.widget.update:
+          id: climate_single_minus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return false;
+            std::string mode = id(sensi_climate_state).state;
+            return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
+      - lvgl.widget.update:
+          id: climate_single_plus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return false;
+            std::string mode = id(sensi_climate_state).state;
+            return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
+      - lvgl.widget.update:
+          id: climate_auto_heat_card
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_heat_lbl
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_heat_minus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_heat_plus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_cool_card
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_cool_lbl
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_cool_minus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lvgl.widget.update:
+          id: climate_auto_cool_plus_btn
+          hidden: !lambda |-
+            if (!id(sensi_climate_state).has_state()) return true;
+            std::string mode = id(sensi_climate_state).state;
+            return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
+      - lambda: |-
+          id(climate_ui_sync_in_progress) = false;
+          id(climate_ui_dirty) = false;
+
   - id: lvgl_sync_lights_controls
     mode: restart
     then:
@@ -1991,8 +2981,10 @@ script:
     mode: restart
     then:
       - script.execute: lvgl_update_labels
+      - script.execute: climate_update_labels
       - script.execute: lvgl_sync_nonlight_controls
       - script.execute: lvgl_sync_lights_controls
+      - script.execute: climate_sync_controls
 
 interval:
   - interval: 1s
@@ -2013,6 +3005,20 @@ interval:
             lambda: "return !id(screensaver_active);"
           then:
             - script.execute: lvgl_update_labels
+            - script.execute: climate_update_labels
+
+  - interval: 220ms
+    then:
+      - if:
+          condition:
+            lambda: |-
+              if (!id(climate_commit_pending)) return false;
+              uint32_t now = esphome::millis();
+              uint32_t min_gap = (uint32_t) atoi("${climate_hold_repeat_ms}");
+              if (min_gap < 120U) min_gap = 120U;
+              return (now - id(climate_last_commit_ms)) >= min_gap;
+          then:
+            - script.execute: climate_commit_targets
 
 lvgl:
   displays:
@@ -2043,6 +3049,10 @@ lvgl:
       - script.execute: touch_cal_apply_stored
       - script.execute: apply_theme
       - script.execute: resolve_selected_light_target
+      - script.execute: climate_ui_seed_from_ha
+      - script.execute: app_units_init_from_ha
+      - script.execute: weather_update_model
+      - script.execute: weather_update_icon
       - lvgl.widget.focus: home_lights_btn
       - script.execute: lvgl_update_dynamic
 
@@ -2870,7 +3880,7 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 54
+            width: 48
             height: 26
             styles: [lv_style_btn]
             group: nav_group
@@ -2881,10 +3891,27 @@ lvgl:
                   src: icon_home_18
                   styles: [lv_style_icon]
                   align: CENTER
+        - label:
+            x: 62
+            y: 10
+            text: "Weather"
         - button:
-            x: 256
+            x: 198
             y: 6
-            width: 52
+            width: 56
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_weather_details
+            widgets:
+              - label:
+                  text: "More"
+                  align: CENTER
+        - button:
+            x: 258
+            y: 6
+            width: 54
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2895,69 +3922,327 @@ lvgl:
                   src: icon_climate_18
                   styles: [lv_style_icon]
                   align: CENTER
-        - label:
-            x: 72
-            y: 10
-            text: "Weather + GPS"
         - button:
             x: 8
             y: 36
             width: 304
-            height: 72
+            height: 86
             styles: [lv_style_card]
+        - image:
+            id: weather_icon_over_unknown
+            x: 18
+            y: 52
+            src: icon_wx_unknown_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_sunny
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_sunny_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_partly
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_partly_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_cloudy
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_cloudy_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_rain
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_rain_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_storm
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_storm_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_snow
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_snow_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_fog
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_fog_52
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_over_windy
+            x: 18
+            y: 52
+            hidden: true
+            src: icon_wx_windy_52
+            styles: [lv_style_icon]
         - label:
-            id: weather_temp_lbl
-            x: 12
-            y: 40
+            id: weather_now_temp_lbl
+            x: 84
+            y: 48
+            width: 220
             text: "--"
         - label:
-            id: weather_cond_lbl
-            x: 12
-            y: 74
-            width: 296
+            id: weather_now_cond_lbl
+            x: 84
+            y: 72
+            width: 220
             text: "-"
         - label:
-            id: weather_feels_lbl
-            x: 12
-            y: 98
-            width: 296
+            id: weather_now_feels_lbl
+            x: 84
+            y: 92
+            width: 220
             text: "Feels --"
+        - label:
+            id: weather_hilo_lbl
+            x: 84
+            y: 110
+            width: 220
+            text: "H/L --"
         - button:
             x: 8
-            y: 114
-            width: 304
-            height: 46
-            styles: [lv_style_card]
-        - label:
-            id: weather_metrics_top_lbl
-            x: 12
             y: 126
-            width: 296
-            text: "metrics top"
+            width: 148
+            height: 30
+            styles: [lv_style_btn_soft]
         - label:
-            id: weather_metrics_bottom_lbl
-            x: 12
-            y: 146
-            width: 296
-            text: "metrics bottom"
+            id: weather_chip_humidity_lbl
+            x: 14
+            y: 134
+            width: 136
+            text: "Humidity --"
+        - button:
+            x: 164
+            y: 126
+            width: 148
+            height: 30
+            styles: [lv_style_btn_soft]
+        - label:
+            id: weather_chip_wind_lbl
+            x: 170
+            y: 134
+            width: 136
+            text: "Wind --"
         - button:
             x: 8
-            y: 164
+            y: 160
+            width: 148
+            height: 30
+            styles: [lv_style_btn_soft]
+        - label:
+            id: weather_chip_uv_lbl
+            x: 14
+            y: 168
+            width: 136
+            text: "UV --"
+        - button:
+            x: 164
+            y: 160
+            width: 148
+            height: 30
+            styles: [lv_style_btn_soft]
+        - label:
+            id: weather_chip_cloud_lbl
+            x: 170
+            y: 168
+            width: 136
+            text: "Cloud --"
+        - button:
+            x: 8
+            y: 194
             width: 304
-            height: 68
+            height: 42
             styles: [lv_style_card]
+        - label:
+            id: weather_units_lbl
+            x: 12
+            y: 198
+            width: 296
+            text: "Units: Imperial"
         - label:
             id: weather_source_lbl
             x: 12
-            y: 168
+            y: 212
             width: 296
-            text: "Entity state"
+            text: "Source unavailable"
         - label:
             id: weather_gps_lbl
             x: 12
-            y: 190
+            y: 226
             width: 296
-            text: "GPS"
+            text: "GPS waiting..."
+
+    - id: weather_details_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 48
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: weather_page
+            widgets:
+              - label:
+                  text: "Back"
+                  align: CENTER
+        - label:
+            x: 64
+            y: 10
+            text: "Weather Details"
+        - button:
+            x: 258
+            y: 6
+            width: 54
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: open_climate
+            widgets:
+              - image:
+                  src: icon_climate_18
+                  styles: [lv_style_icon]
+                  align: CENTER
+        - button:
+            x: 8
+            y: 36
+            width: 304
+            height: 44
+            styles: [lv_style_card]
+        - image:
+            id: weather_icon_det_unknown
+            x: 14
+            y: 44
+            src: icon_wx_unknown_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_sunny
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_sunny_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_partly
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_partly_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_cloudy
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_cloudy_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_rain
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_rain_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_storm
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_storm_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_snow
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_snow_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_fog
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_fog_28
+            styles: [lv_style_icon]
+        - image:
+            id: weather_icon_det_windy
+            x: 14
+            y: 44
+            hidden: true
+            src: icon_wx_windy_28
+            styles: [lv_style_icon]
+        - label:
+            id: weather_details_title_lbl
+            x: 48
+            y: 46
+            width: 260
+            text: "-"
+        - label:
+            id: weather_details_line1_lbl
+            x: 12
+            y: 86
+            width: 296
+            text: "--"
+        - label:
+            id: weather_details_line2_lbl
+            x: 12
+            y: 106
+            width: 296
+            text: "--"
+        - label:
+            id: weather_details_line3_lbl
+            x: 12
+            y: 126
+            width: 296
+            text: "--"
+        - label:
+            id: weather_details_line4_lbl
+            x: 12
+            y: 146
+            width: 296
+            text: "--"
+        - label:
+            id: weather_details_line5_lbl
+            x: 12
+            y: 166
+            width: 296
+            text: "--"
+        - label:
+            id: weather_details_line6_lbl
+            x: 12
+            y: 186
+            width: 296
+            text: "--"
+        - button:
+            x: 8
+            y: 208
+            width: 304
+            height: 28
+            styles: [lv_style_card]
+        - label:
+            id: weather_details_diag_lbl
+            x: 12
+            y: 214
+            width: 296
+            text: "--"
 
     - id: climate_page
       styles: [lv_style_screen]
@@ -2965,7 +4250,7 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 54
+            width: 48
             height: 26
             styles: [lv_style_btn]
             group: nav_group
@@ -2977,13 +4262,13 @@ lvgl:
                   styles: [lv_style_icon]
                   align: CENTER
         - label:
-            x: 72
+            x: 66
             y: 10
-            text: "Climate"
+            text: "Climate Controller"
         - button:
             x: 256
             y: 6
-            width: 52
+            width: 56
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -2995,151 +4280,273 @@ lvgl:
                   styles: [lv_style_icon]
                   align: CENTER
         - button:
-            x: 12
-            y: 206
-            width: 70
-            height: 24
+            x: 8
+            y: 36
+            width: 304
+            height: 26
+            styles: [lv_style_card]
+        - label:
+            id: climate_mode_chip_lbl
+            x: 14
+            y: 42
+            width: 92
+            text: "Mode: -"
+        - label:
+            id: climate_action_chip_lbl
+            x: 108
+            y: 42
+            width: 104
+            text: "Act: -"
+        - label:
+            id: climate_fan_chip_lbl
+            x: 214
+            y: 42
+            width: 90
+            text: "Fan: -"
+        - button:
+            x: 8
+            y: 66
+            width: 304
+            height: 50
+            styles: [lv_style_card]
+        - label:
+            id: climate_indoor_lbl
+            x: 14
+            y: 84
+            width: 292
+            text: "Indoor --.- F  Hum --%"
+        - button:
+            x: 8
+            y: 122
+            width: 72
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_hvac_mode_off
             widgets:
               - label:
+                  id: climate_mode_off_lbl
                   text: "Off"
                   align: CENTER
         - button:
-            x: 86
-            y: 206
-            width: 70
-            height: 24
+            x: 84
+            y: 122
+            width: 72
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_hvac_mode_heat
             widgets:
               - label:
+                  id: climate_mode_heat_lbl
                   text: "Heat"
                   align: CENTER
         - button:
             x: 160
-            y: 206
-            width: 70
-            height: 24
+            y: 122
+            width: 72
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_hvac_mode_cool
             widgets:
               - label:
+                  id: climate_mode_cool_lbl
                   text: "Cool"
                   align: CENTER
         - button:
             x: 234
-            y: 206
-            width: 70
-            height: 24
+            y: 122
+            width: 78
+            height: 28
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_hvac_mode_auto
             widgets:
               - label:
+                  id: climate_mode_auto_lbl
                   text: "Auto"
                   align: CENTER
         - button:
+            id: climate_single_card
             x: 8
-            y: 42
+            y: 154
             width: 304
-            height: 54
-            styles: [lv_style_card]
-        - label:
-            id: climate_status_lbl
-            x: 12
-            y: 52
-            width: 296
-            height: 32
-            text: "mode/action/status"
-        - button:
-            x: 8
-            y: 94
-            width: 236
             height: 52
             styles: [lv_style_card]
         - label:
-            id: climate_heat_lbl
-            x: 12
-            y: 108
-            width: 118
-            text: "Heat Set 68"
+            id: climate_single_lbl
+            x: 16
+            y: 173
+            width: 132
+            text: "Target 70 F"
         - button:
-            x: 136
-            y: 96
-            width: 52
-            height: 48
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute: sensi_heat_down
-            widgets:
-              - label:
-                  text: "-"
-                  align: CENTER
-        - button:
-            x: 192
-            y: 96
-            width: 52
-            height: 48
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute: sensi_heat_up
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-        - button:
-            x: 8
-            y: 146
-            width: 236
-            height: 52
-            styles: [lv_style_card]
-        - label:
-            id: climate_cool_lbl
-            x: 12
+            id: climate_single_minus_btn
+            x: 176
             y: 160
-            width: 118
-            text: "Cool Set 74"
-        - button:
-            x: 136
-            y: 148
-            width: 52
-            height: 48
+            width: 62
+            height: 40
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_click:
-              - script.execute: sensi_cool_down
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_single
+                  delta: -1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_single
+                  delta: -1
+                  immediate: false
             widgets:
               - label:
                   text: "-"
                   align: CENTER
         - button:
-            x: 192
-            y: 148
-            width: 52
-            height: 48
+            id: climate_single_plus_btn
+            x: 246
+            y: 160
+            width: 62
+            height: 40
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_click:
-              - script.execute: sensi_cool_up
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_single
+                  delta: 1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_single
+                  delta: 1
+                  immediate: false
             widgets:
               - label:
                   text: "+"
                   align: CENTER
         - button:
-            x: 248
-            y: 96
-            width: 60
-            height: 48
+            id: climate_auto_heat_card
+            x: 8
+            y: 152
+            width: 304
+            height: 28
+            styles: [lv_style_card]
+        - label:
+            id: climate_auto_heat_lbl
+            x: 14
+            y: 159
+            width: 118
+            text: "Heat 68 F"
+        - button:
+            id: climate_auto_heat_minus_btn
+            x: 220
+            y: 156
+            width: 40
+            height: 20
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_heat
+                  delta: -1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_heat
+                  delta: -1
+                  immediate: false
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - button:
+            id: climate_auto_heat_plus_btn
+            x: 266
+            y: 156
+            width: 40
+            height: 20
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_heat
+                  delta: 1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_heat
+                  delta: 1
+                  immediate: false
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            id: climate_auto_cool_card
+            x: 8
+            y: 182
+            width: 304
+            height: 28
+            styles: [lv_style_card]
+        - label:
+            id: climate_auto_cool_lbl
+            x: 14
+            y: 189
+            width: 118
+            text: "Cool 74 F"
+        - button:
+            id: climate_auto_cool_minus_btn
+            x: 220
+            y: 186
+            width: 40
+            height: 20
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_cool
+                  delta: -1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_cool
+                  delta: -1
+                  immediate: false
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - button:
+            id: climate_auto_cool_plus_btn
+            x: 266
+            y: 186
+            width: 40
+            height: 20
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_short_click:
+              - script.execute:
+                  id: climate_adjust_cool
+                  delta: 1
+                  immediate: true
+            on_long_press_repeat:
+              - script.execute:
+                  id: climate_adjust_cool
+                  delta: 1
+                  immediate: false
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 212
+            width: 146
+            height: 22
             styles: [lv_style_btn]
             group: nav_group
             on_click:
@@ -3149,17 +4556,18 @@ lvgl:
                   text: "Tools"
                   align: CENTER
         - button:
-            x: 248
-            y: 148
-            width: 60
-            height: 48
+            x: 162
+            y: 212
+            width: 146
+            height: 22
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
               - script.execute: sensi_toggle_aux_heat
             widgets:
               - label:
-                  text: "Aux"
+                  id: climate_aux_btn_lbl
+                  text: "Aux OFF"
                   align: CENTER
 
     - id: climate_tools_page
@@ -3168,7 +4576,7 @@ lvgl:
         - button:
             x: 8
             y: 6
-            width: 54
+            width: 48
             height: 26
             styles: [lv_style_btn]
             group: nav_group
@@ -3180,13 +4588,13 @@ lvgl:
                   styles: [lv_style_icon]
                   align: CENTER
         - label:
-            x: 72
+            x: 66
             y: 10
             text: "Climate Tools"
         - button:
             x: 256
             y: 6
-            width: 52
+            width: 56
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3197,33 +4605,43 @@ lvgl:
                   src: icon_climate_18
                   styles: [lv_style_icon]
                   align: CENTER
+        - button:
+            x: 8
+            y: 36
+            width: 304
+            height: 66
+            styles: [lv_style_card]
         - label:
             id: climate_hum_offset_lbl
-            x: 12
+            x: 16
             y: 44
-            width: 92
-            text: "HumOff 0"
+            width: 182
+            text: "Humidity Offset 0"
         - button:
-            x: 108
-            y: 36
-            width: 42
-            height: 38
-            styles: [lv_style_btn_soft]
+            x: 208
+            y: 40
+            width: 46
+            height: 26
+            styles: [lv_style_btn_warn]
             group: nav_group
-            on_click:
+            on_short_click:
+              - script.execute: sensi_humidity_offset_down
+            on_long_press_repeat:
               - script.execute: sensi_humidity_offset_down
             widgets:
               - label:
                   text: "-"
                   align: CENTER
         - button:
-            x: 154
-            y: 36
-            width: 42
-            height: 38
-            styles: [lv_style_btn_soft]
+            x: 260
+            y: 40
+            width: 46
+            height: 26
+            styles: [lv_style_btn_ok]
             group: nav_group
-            on_click:
+            on_short_click:
+              - script.execute: sensi_humidity_offset_up
+            on_long_press_repeat:
               - script.execute: sensi_humidity_offset_up
             widgets:
               - label:
@@ -3231,40 +4649,44 @@ lvgl:
                   align: CENTER
         - label:
             id: climate_temp_offset_lbl
-            x: 12
-            y: 92
-            width: 92
-            text: "TempOff 0"
+            x: 16
+            y: 76
+            width: 182
+            text: "Temp Offset 0"
         - button:
-            x: 108
-            y: 84
-            width: 42
-            height: 38
-            styles: [lv_style_btn_soft]
+            x: 208
+            y: 72
+            width: 46
+            height: 26
+            styles: [lv_style_btn_warn]
             group: nav_group
-            on_click:
+            on_short_click:
+              - script.execute: sensi_temp_offset_down
+            on_long_press_repeat:
               - script.execute: sensi_temp_offset_down
             widgets:
               - label:
                   text: "-"
                   align: CENTER
         - button:
-            x: 154
-            y: 84
-            width: 42
-            height: 38
-            styles: [lv_style_btn_soft]
+            x: 260
+            y: 72
+            width: 46
+            height: 26
+            styles: [lv_style_btn_ok]
             group: nav_group
-            on_click:
+            on_short_click:
+              - script.execute: sensi_temp_offset_up
+            on_long_press_repeat:
               - script.execute: sensi_temp_offset_up
             widgets:
               - label:
                   text: "+"
                   align: CENTER
         - button:
-            x: 202
-            y: 36
-            width: 106
+            x: 8
+            y: 108
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3272,12 +4694,12 @@ lvgl:
               - script.execute: sensi_toggle_aux_heat
             widgets:
               - label:
-                  text: "Aux"
+                  text: "Aux Heat"
                   align: CENTER
         - button:
-            x: 202
-            y: 66
-            width: 106
+            x: 164
+            y: 108
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3285,12 +4707,12 @@ lvgl:
               - script.execute: sensi_toggle_display_humidity
             widgets:
               - label:
-                  text: "DispHum"
+                  text: "Display Humidity"
                   align: CENTER
         - button:
-            x: 202
-            y: 96
-            width: 106
+            x: 8
+            y: 138
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3298,12 +4720,12 @@ lvgl:
               - script.execute: sensi_toggle_display_time
             widgets:
               - label:
-                  text: "DispTime"
+                  text: "Display Time"
                   align: CENTER
         - button:
-            x: 202
-            y: 126
-            width: 106
+            x: 164
+            y: 138
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3311,12 +4733,12 @@ lvgl:
               - script.execute: sensi_toggle_fan_support
             widgets:
               - label:
-                  text: "Fan"
+                  text: "Fan Support"
                   align: CENTER
         - button:
-            x: 202
-            y: 156
-            width: 106
+            x: 8
+            y: 168
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3324,12 +4746,12 @@ lvgl:
               - script.execute: sensi_toggle_humidification
             widgets:
               - label:
-                  text: "Humid"
+                  text: "Humidification"
                   align: CENTER
         - button:
-            x: 202
-            y: 186
-            width: 106
+            x: 164
+            y: 168
+            width: 148
             height: 26
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -3337,14 +4759,20 @@ lvgl:
               - script.execute: sensi_toggle_keypad_lockout
             widgets:
               - label:
-                  text: "Lock"
+                  text: "Keypad Lockout"
                   align: CENTER
         - label:
-            id: climate_features_lbl
+            id: climate_tools_status_lbl
+            x: 12
+            y: 198
+            width: 296
+            text: "feature states"
+        - label:
+            id: climate_diag_lbl
             x: 12
             y: 216
             width: 296
-            text: "feature states"
+            text: "diag"
 
     - id: reader_page
       styles: [lv_style_screen]
@@ -3491,6 +4919,26 @@ lvgl:
                   text: "Saver+"
                   align: CENTER
         - button:
+            id: settings_units_toggle_btn
+            x: 212
+            y: 38
+            width: 96
+            height: 52
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: app_units_toggle
+            widgets:
+              - label:
+                  text: "Units"
+                  x: 30
+                  y: 8
+              - label:
+                  id: settings_units_lbl
+                  text: "Imperial"
+                  x: 18
+                  y: 28
+        - button:
             x: 12
             y: 96
             width: 96
@@ -3591,9 +5039,15 @@ lvgl:
         - label:
             id: settings_status_lbl
             x: 12
-            y: 224
+            y: 210
             width: 296
             text: "settings"
+        - label:
+            id: settings_units_source_lbl
+            x: 12
+            y: 224
+            width: 296
+            text: "Units source: --"
 
     - id: theme_page
       styles: [lv_style_screen]

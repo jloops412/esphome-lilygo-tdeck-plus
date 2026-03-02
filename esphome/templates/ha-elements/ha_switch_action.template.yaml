@@ -1,0 +1,25 @@
+# HA switch action helpers
+substitutions:
+  entity_example_switch: "switch.replace_me"
+
+script:
+  - id: example_switch_toggle
+    then:
+      - homeassistant.action:
+          action: switch.toggle
+          data:
+            entity_id: ${entity_example_switch}
+
+  - id: example_switch_on
+    then:
+      - homeassistant.action:
+          action: switch.turn_on
+          data:
+            entity_id: ${entity_example_switch}
+
+  - id: example_switch_off
+    then:
+      - homeassistant.action:
+          action: switch.turn_off
+          data:
+            entity_id: ${entity_example_switch}

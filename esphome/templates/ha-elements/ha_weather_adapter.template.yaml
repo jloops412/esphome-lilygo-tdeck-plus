@@ -1,0 +1,35 @@
+# Weather adapter scaffold (hybrid source model)
+# 1) Dedicated sensors (preferred)
+# 2) weather.* attributes fallback
+# 3) normalized runtime model
+
+substitutions:
+  entity_wx_main: "weather.replace_me"
+  entity_wx_temp_sensor: "sensor.replace_me_weather_temperature"
+  entity_wx_humidity_sensor: "sensor.replace_me_weather_humidity"
+
+sensor:
+  - platform: homeassistant
+    id: wx_temp
+    entity_id: ${entity_wx_temp_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_humidity
+    entity_id: ${entity_wx_humidity_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_temperature
+    entity_id: ${entity_wx_main}
+    attribute: temperature
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_humidity
+    entity_id: ${entity_wx_main}
+    attribute: humidity
+    internal: true
+
+text_sensor:
+  - platform: homeassistant
+    id: wx_entity_state
+    entity_id: ${entity_wx_main}
+    internal: true

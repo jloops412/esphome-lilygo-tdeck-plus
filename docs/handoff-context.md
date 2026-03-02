@@ -2,15 +2,99 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest pushed LVGL tag: `v0.16.0-lvgl-focused-light-ux-pass`
+2. Latest pushed LVGL tag: `v0.17.0-units-weather-pass1`
 3. Previous LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
 4. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
-5. Current active dev ref in install YAMLs: `main` (tracking latest pass)
+5. Current active install ref in install YAMLs: `v0.17.0-units-weather-pass1`
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
+
+## Current in-progress pass (app-wide units + weather UX/framework, not tagged yet)
+1. App-wide units system:
+   - Added persisted globals:
+     - `app_units_mode` (`0 imperial`, `1 metric`, `-1` bootstrap)
+     - `app_units_initialized`
+     - `app_units_source`
+   - Added scripts:
+     - `app_units_init_from_ha`
+     - `app_units_set_metric`
+     - `app_units_set_imperial`
+     - `app_units_toggle`
+     - `app_units_apply`
+   - First boot now initializes from `${entity_ha_unit_system}` (default `sensor.unit_system`) with weather temperature-unit fallback.
+2. Weather data model hardening:
+   - Added normalized weather globals (`wx_norm_*`) for stable UI rendering and conversion.
+   - Added hybrid weather adapter scripts:
+     - `weather_update_model`
+     - `weather_update_icon`
+     - `weather_update_labels`
+   - Added safe parsing for unknown/unavailable text-backed weather fields (gust/rain/snow/code).
+3. Weather UI rebuild:
+   - Replaced single weather page with:
+     - `weather_page` (overview + icon + chips + source/GPS)
+     - `weather_details_page` (expanded metrics + diagnostics)
+   - Added local icon bucket mapping and icon widgets for sunny/partly/cloud/rain/storm/snow/fog/windy/unknown.
+4. Climate/app-unit compatibility:
+   - Climate seed/sync/commit paths now translate between app-selected units and climate-native units.
+   - Climate labels now render selected unit (`F`/`C`) and keep optimistic-control reliability model.
+5. Settings integration:
+   - Added units toggle control and units-source diagnostics labels on `settings_page`.
+6. Framework deliverables added:
+   - `docs/ha-element-framework.md`
+   - `docs/component-reference-checklist.md`
+   - `esphome/templates/ha-elements/*`
+7. Known limitations:
+   - GPS fix still depends on physical module/wiring/antenna/sky visibility; software path kept intact.
+   - Keyboard backlight firmware control remains intentionally deferred (manual hardware `Alt+B`).
+
+## Current in-progress pass (climate UX rebuild + +/- reliability, not tagged yet)
+1. Climate reliability core replaced:
+   - Removed HA-mirror-derived `+/-` stepping as primary source.
+   - Added optimistic local target globals:
+     - `climate_ui_target_single_f`
+     - `climate_ui_target_heat_f`
+     - `climate_ui_target_cool_f`
+   - Added commit orchestration globals:
+     - `climate_ui_sync_in_progress`
+     - `climate_ui_dirty`
+     - `climate_last_commit_ms`
+     - `climate_commit_pending`
+2. Mode-aware commit scripts:
+   - `climate_commit_single_target` (`temperature` payload path).
+   - `climate_commit_auto_band` (`target_temp_low/high` payload path).
+   - `climate_commit_targets` coordinator + `climate_commit_debounced` hold-repeat coalescing.
+3. Climate page architecture rebuild:
+   - `climate_page` replaced with `Climate Controller` layout:
+     - top chips (`Mode`, `Action`, `Fan`)
+     - indoor telemetry card
+     - segmented HVAC mode row
+     - dynamic target zone:
+       - single-target controls for `heat/cool/off`
+       - dual heat/cool controls for `auto`
+     - bottom rail (`Tools`, `Aux`)
+   - `climate_tools_page` replaced with compact advanced controls:
+     - humidity/temp offset +/- controls
+     - feature toggle pills
+     - diagnostics/status lines
+4. Input alignment:
+   - Added climate keyboard shortcuts:
+     - `Alt+1` heat down
+     - `Alt+2` heat up
+     - `Alt+3` cool down
+     - `Alt+4` cool up
+5. Install/config updates:
+   - Added optional tuning substitutions to LVGL install/template/profile:
+     - `climate_temp_min_f`
+     - `climate_temp_max_f`
+     - `climate_auto_band_min_delta_f`
+     - `climate_hold_repeat_ms`
+6. Dynamic update architecture:
+   - Added `climate_update_labels` and `climate_sync_controls`.
+   - `lvgl_update_dynamic` now runs climate scripts in addition to existing label/control sync.
+   - Added periodic pending-commit flush interval for hold-repeat stability.
 
 ## Current in-progress pass (lights UX reset + LVGL sync hardening, not tagged yet)
 1. Safety baseline:

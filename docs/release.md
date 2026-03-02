@@ -27,8 +27,48 @@
 - `v0.15.0-lvgl-system-review-pass1`: comprehensive system polish pass with icon recolor controls, safer reboot flow, weather readability refinement, climate UX split (`main + tools`), and extended shortcut/help updates.
 - `v0.15.1-lvgl-lighting-gps-kb-controls`: lights quick-action redesign, climate preset removal, stronger keyboard-backlight controls, and GPS status reliability pass.
 - `v0.16.0-lvgl-focused-light-ux-pass`: keyboard-backlight firmware controls removed from LVGL path, light controller rebuilt around arc/switch/roller elements, and climate mode actions moved to bottom rail.
+- `v0.17.0-units-weather-pass1`: app-wide units, weather overview/details rebuild, hybrid weather adapter, local weather icon mapping, and climate unit-aware display/commit behavior.
 
 Unreleased on `main` (candidate next tag):
+
+- app-wide units + weather framework pass:
+  - added persisted app-wide unit model (`imperial/metric`) with first-boot HA bootstrap from `sensor.unit_system`
+  - settings page now includes a units toggle and source diagnostics text
+  - climate display/commit paths now convert between app-selected and climate-native temperature units
+  - weather ingestion now uses hybrid adapter priority:
+    - dedicated weather sensors
+    - `weather.openweathermap` attributes
+    - safe unknown fallbacks
+  - weather UI rebuilt into two pages:
+    - `weather_page` overview
+    - `weather_details_page` full metrics
+  - weather icon mapping now uses local bundled MDI assets (code/condition mapping), no remote icon URLs
+  - expanded weather substitutions:
+    - apparent/dew/precip kind/rain/snow/code/wind direction/wind gust/high/low
+    - `entity_ha_unit_system`
+  - added framework artifacts:
+    - `docs/ha-element-framework.md`
+    - `docs/component-reference-checklist.md`
+    - `esphome/templates/ha-elements/*`
+
+- climate UX rebuild + reliability pass:
+  - complete 2-page rebuild:
+    - `Climate Controller` (mode/status + target control)
+    - `Climate Tools` (offsets + feature toggles + diagnostics)
+  - replaced HA-mirror-derived stepping with optimistic local targets:
+    - `climate_ui_target_single_f`
+    - `climate_ui_target_heat_f`
+    - `climate_ui_target_cool_f`
+  - added mode-aware commit scripts:
+    - single-target commit for `heat/cool/off`
+    - auto-band commit for `auto/heat_cool`
+  - added hold-repeat commit coalescing and pending-flush timing:
+    - `climate_last_commit_ms`
+    - `climate_commit_pending`
+    - `climate_hold_repeat_ms`
+  - added compatibility wrappers so legacy climate script IDs still resolve
+  - climate shortcuts added:
+    - `Alt+1/2/3/4` => `Heat-/Heat+/Cool-/Cool+`
 
 - pre-revamp safety point:
   - local safety tag created before this pass: `v0.16.2-pre-lights-ux-reset`

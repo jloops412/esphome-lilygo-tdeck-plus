@@ -136,6 +136,106 @@ image:
     type: GRAYSCALE
     transparency: alpha_channel
     resize: 30x30
+  - file: mdi:weather-sunny
+    id: icon_wx_sunny_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-partly-cloudy
+    id: icon_wx_partly_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-cloudy
+    id: icon_wx_cloudy_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-rainy
+    id: icon_wx_rain_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-pouring
+    id: icon_wx_pouring_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-snowy
+    id: icon_wx_snow_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-lightning-rainy
+    id: icon_wx_storm_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-fog
+    id: icon_wx_fog_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-windy
+    id: icon_wx_windy_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:help-circle-outline
+    id: icon_wx_unknown_52
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 52x52
+  - file: mdi:weather-sunny
+    id: icon_wx_sunny_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-partly-cloudy
+    id: icon_wx_partly_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-cloudy
+    id: icon_wx_cloudy_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-rainy
+    id: icon_wx_rain_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-pouring
+    id: icon_wx_pouring_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-snowy
+    id: icon_wx_snow_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-lightning-rainy
+    id: icon_wx_storm_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-fog
+    id: icon_wx_fog_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:weather-windy
+    id: icon_wx_windy_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
+  - file: mdi:help-circle-outline
+    id: icon_wx_unknown_28
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 28x28
   - file: mdi:thermometer
     id: icon_climate_30
     type: GRAYSCALE

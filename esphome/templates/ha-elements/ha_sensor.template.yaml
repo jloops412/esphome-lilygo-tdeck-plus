@@ -1,0 +1,10 @@
+# Numeric sensor mirror from HA
+# Replace placeholders before use.
+substitutions:
+  entity_example_sensor: "sensor.replace_me"
+
+sensor:
+  - platform: homeassistant
+    id: example_sensor
+    entity_id: ${entity_example_sensor}
+    internal: true

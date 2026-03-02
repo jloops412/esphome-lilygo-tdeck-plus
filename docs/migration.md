@@ -54,6 +54,45 @@
 41. Periodic 2s refresh now runs labels only to prevent programmatic control churn.
 42. Color Studio replaced roller UX with a swatch matrix + selection indicator + apply workflow and Kelvin release-commit behavior.
 43. Removed scene/preset-cycle scripts and keyboard mappings from active lights workflow.
+44. Climate controller was rebuilt from scratch into a 2-page architecture:
+    - `Climate Controller` (high-frequency actions)
+    - `Climate Tools` (advanced controls)
+45. Climate `+/-` now uses optimistic local targets instead of HA-mirror-derived stepping.
+46. Climate commit path is now mode-aware:
+    - `heat/cool/off` -> single `temperature` commit
+    - `auto/heat_cool` -> `target_temp_low/high` commit
+47. Added debounced hold-repeat commit behavior to prevent stale-tap no-op behavior and service flooding.
+48. Added climate UI globals for robust state/commit orchestration:
+    - `climate_ui_target_single_f`
+    - `climate_ui_target_heat_f`
+    - `climate_ui_target_cool_f`
+    - `climate_ui_sync_in_progress`
+    - `climate_ui_dirty`
+    - `climate_last_commit_ms`
+    - `climate_commit_pending`
+49. Added optional climate tuning substitutions to install/template YAML:
+    - `climate_temp_min_f`
+    - `climate_temp_max_f`
+    - `climate_auto_band_min_delta_f`
+    - `climate_hold_repeat_ms`
+50. Added climate keyboard shortcuts:
+    - `Alt+1/2/3/4` -> `Heat-/Heat+/Cool-/Cool+`.
+51. Added app-wide units system:
+    - persisted globals (`app_units_mode`, `app_units_initialized`)
+    - first-boot initialization from HA `sensor.unit_system` with weather-unit fallback
+    - settings-page unit toggle + source diagnostics label
+52. Weather architecture was rebuilt:
+    - hybrid weather adapter (`weather.openweathermap` + dedicated sensor fallback + attribute fallback)
+    - normalized runtime weather model to avoid direct UI conversion drift
+    - local mapped weather icons (no remote URL icon dependency)
+53. Weather UI rebuilt into two pages:
+    - `weather_page` (overview)
+    - `weather_details_page` (full metrics + diagnostics)
+54. Climate display/commit path now respects selected app units and converts payloads to climate-native units where needed.
+55. Added HA element framework assets:
+    - `docs/ha-element-framework.md`
+    - `docs/component-reference-checklist.md`
+    - `esphome/templates/ha-elements/*`
 
 ## Migration steps for existing HA node
 

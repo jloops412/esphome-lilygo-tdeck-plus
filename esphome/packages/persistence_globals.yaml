@@ -34,6 +34,205 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: climate_ui_target_single_f
+    type: int
+    restore_value: yes
+    initial_value: "70"
+
+  - id: climate_ui_target_heat_f
+    type: int
+    restore_value: yes
+    initial_value: "68"
+
+  - id: climate_ui_target_cool_f
+    type: int
+    restore_value: yes
+    initial_value: "74"
+
+  - id: climate_ui_sync_in_progress
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: climate_ui_dirty
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: climate_last_commit_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: climate_commit_pending
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: app_units_mode
+    type: int
+    restore_value: yes
+    initial_value: "-1"
+
+  - id: app_units_initialized
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+
+  - id: app_units_source
+    type: std::string
+    restore_value: no
+    initial_value: '"ha-default"'
+
+  - id: wx_norm_temp_c
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_feels_c
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_dew_c
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_high_c
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_low_c
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_humidity_pct
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_cloud_pct
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_uv
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_wind_mps
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_wind_gust_mps
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_wind_dir_deg
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_pressure_hpa
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_visibility_m
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_rain_mm_h
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_snow_mm_h
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+  - id: wx_norm_weather_code
+    type: int
+    restore_value: no
+    initial_value: "-1"
+  - id: wx_norm_condition
+    type: std::string
+    restore_value: no
+    initial_value: '"-"'
+  - id: wx_norm_weather
+    type: std::string
+    restore_value: no
+    initial_value: '"-"'
+  - id: wx_norm_precip_kind
+    type: std::string
+    restore_value: no
+    initial_value: '"-"'
+  - id: wx_icon_bucket
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: weather_now_temp_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_now_feels_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Feels --"'
+  - id: weather_hilo_text
+    type: std::string
+    restore_value: no
+    initial_value: '"H/L --"'
+  - id: weather_chip_humidity_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Humidity --"'
+  - id: weather_chip_wind_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Wind --"'
+  - id: weather_chip_uv_text
+    type: std::string
+    restore_value: no
+    initial_value: '"UV --"'
+  - id: weather_chip_cloud_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Cloud --"'
+  - id: weather_units_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Units: Imperial"'
+  - id: weather_source_text
+    type: std::string
+    restore_value: no
+    initial_value: '"Source unavailable"'
+  - id: weather_gps_text
+    type: std::string
+    restore_value: no
+    initial_value: '"GPS waiting..."'
+  - id: weather_details_line1_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line2_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line3_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line4_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line5_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line6_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_diag_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+
   - id: theme_index
     type: int
     restore_value: yes

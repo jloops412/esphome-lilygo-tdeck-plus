@@ -47,6 +47,17 @@ substitutions:
   entity_wx_uv_sensor: "sensor.replace_me_weather_uv"
   entity_wx_visibility_sensor: "sensor.replace_me_weather_visibility"
   entity_wx_wind_speed_sensor: "sensor.replace_me_weather_wind_speed"
+  entity_wx_apparent_sensor: "sensor.replace_me_weather_apparent_temperature"
+  entity_wx_dew_point_sensor: "sensor.replace_me_weather_dew_point"
+  entity_wx_precip_kind_sensor: "sensor.replace_me_weather_precipitation_kind"
+  entity_wx_rain_intensity_sensor: "sensor.replace_me_weather_rain_intensity"
+  entity_wx_snow_intensity_sensor: "sensor.replace_me_weather_snow_intensity"
+  entity_wx_weather_code_sensor: "sensor.replace_me_weather_code"
+  entity_wx_wind_direction_sensor: "sensor.replace_me_weather_wind_direction"
+  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust_speed"
+  entity_wx_today_high_sensor: "sensor.replace_me_weather_today_high"
+  entity_wx_today_low_sensor: "sensor.replace_me_weather_today_low"
+  entity_ha_unit_system: "sensor.unit_system"
 
   entity_word_of_day_sensor: "sensor.replace_me_word_of_day"
   entity_quote_of_hour_sensor: "sensor.replace_me_quote_of_hour"
@@ -161,6 +172,105 @@ text_sensor:
   - platform: homeassistant
     id: wx_entity_state
     entity_id: ${entity_wx_main}
+    internal: true
+  - platform: homeassistant
+    id: ha_unit_system
+    entity_id: ${entity_ha_unit_system}
+    internal: true
+  - platform: homeassistant
+    id: wx_precip_kind_text
+    entity_id: ${entity_wx_precip_kind_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_rain_intensity_text
+    entity_id: ${entity_wx_rain_intensity_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_snow_intensity_text
+    entity_id: ${entity_wx_snow_intensity_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_weather_code_text
+    entity_id: ${entity_wx_weather_code_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_wind_gust_text
+    entity_id: ${entity_wx_wind_gust_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_temperature_unit_text
+    entity_id: ${entity_wx_main}
+    attribute: temperature_unit
+    internal: true
+  - platform: homeassistant
+    id: wx_pressure_unit_text
+    entity_id: ${entity_wx_main}
+    attribute: pressure_unit
+    internal: true
+  - platform: homeassistant
+    id: wx_visibility_unit_text
+    entity_id: ${entity_wx_main}
+    attribute: visibility_unit
+    internal: true
+  - platform: homeassistant
+    id: wx_wind_speed_unit_text
+    entity_id: ${entity_wx_main}
+    attribute: wind_speed_unit
+    internal: true
+  - platform: homeassistant
+    id: wx_precip_unit_text
+    entity_id: ${entity_wx_main}
+    attribute: precipitation_unit
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_precip_kind_text
+    entity_id: ${entity_wx_main}
+    attribute: precipitation_kind
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_wind_gust_text
+    entity_id: ${entity_wx_main}
+    attribute: wind_gust_speed
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_rain_intensity_text
+    entity_id: ${entity_wx_main}
+    attribute: rain_intensity
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_snow_intensity_text
+    entity_id: ${entity_wx_main}
+    attribute: snow_intensity
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_weather_code_text
+    entity_id: ${entity_wx_main}
+    attribute: weather_code
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_high_temperature_text
+    entity_id: ${entity_wx_main}
+    attribute: temperature_high
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_low_temperature_text
+    entity_id: ${entity_wx_main}
+    attribute: temperature_low
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_forecast_high_temperature_text
+    entity_id: ${entity_wx_main}
+    attribute: forecast_high_temperature
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_forecast_low_temperature_text
+    entity_id: ${entity_wx_main}
+    attribute: forecast_low_temperature
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_temperature_unit
+    entity_id: ${entity_sensi_climate}
+    attribute: temperature_unit
     internal: true
 
   - platform: homeassistant
@@ -335,9 +445,34 @@ sensor:
     entity_id: ${entity_wx_wind_speed_sensor}
     internal: true
   - platform: homeassistant
+    id: wx_apparent
+    entity_id: ${entity_wx_apparent_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_dew_point
+    entity_id: ${entity_wx_dew_point_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_wind_direction
+    entity_id: ${entity_wx_wind_direction_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_today_high
+    entity_id: ${entity_wx_today_high_sensor}
+    internal: true
+  - platform: homeassistant
+    id: wx_today_low
+    entity_id: ${entity_wx_today_low_sensor}
+    internal: true
+  - platform: homeassistant
     id: wx_entity_temperature
     entity_id: ${entity_wx_main}
     attribute: temperature
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_apparent_temperature
+    entity_id: ${entity_wx_main}
+    attribute: apparent_temperature
     internal: true
   - platform: homeassistant
     id: wx_entity_humidity
@@ -358,6 +493,11 @@ sensor:
     id: wx_entity_wind_bearing
     entity_id: ${entity_wx_main}
     attribute: wind_bearing
+    internal: true
+  - platform: homeassistant
+    id: wx_entity_wind_direction
+    entity_id: ${entity_wx_main}
+    attribute: wind_direction
     internal: true
   - platform: homeassistant
     id: wx_entity_visibility

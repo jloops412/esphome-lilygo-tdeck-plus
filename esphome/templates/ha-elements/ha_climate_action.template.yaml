@@ -1,0 +1,25 @@
+# HA climate action helper patterns
+substitutions:
+  entity_example_climate: "climate.replace_me"
+
+script:
+  - id: example_climate_set_mode_heat
+    then:
+      - homeassistant.action:
+          action: climate.set_hvac_mode
+          data:
+            entity_id: ${entity_example_climate}
+            hvac_mode: "heat"
+
+  - id: example_climate_set_target
+    parameters:
+      temp: float
+    then:
+      - homeassistant.action:
+          action: climate.set_temperature
+          data:
+            entity_id: ${entity_example_climate}
+            temperature: !lambda |-
+              char buf[16];
+              snprintf(buf, sizeof(buf), "%.1f", temp);
+              return std::string(buf);

@@ -11,6 +11,10 @@ substitutions:
   touch_x_max: "238"
   touch_y_min: "16"
   touch_y_max: "260"
+  climate_temp_min_f: "50"
+  climate_temp_max_f: "90"
+  climate_auto_band_min_delta_f: "2"
+  climate_hold_repeat_ms: "180"
   # Personal entity map (easy install path).
   # Public-safe template lives in:
   # esphome/install/entity-overrides.template.yaml
@@ -55,6 +59,17 @@ substitutions:
   entity_wx_uv_sensor: "sensor.openweathermap_uv_index"
   entity_wx_visibility_sensor: "sensor.openweathermap_visibility"
   entity_wx_wind_speed_sensor: "sensor.openweathermap_wind_speed"
+  entity_wx_apparent_sensor: "sensor.openweathermap_apparent_temperature"
+  entity_wx_dew_point_sensor: "sensor.openweathermap_dew_point_temperature"
+  entity_wx_precip_kind_sensor: "sensor.openweathermap_precipitation_kind"
+  entity_wx_rain_intensity_sensor: "sensor.openweathermap_rain_intensity"
+  entity_wx_snow_intensity_sensor: "sensor.openweathermap_snow_intensity"
+  entity_wx_weather_code_sensor: "sensor.openweathermap_weather_code"
+  entity_wx_wind_direction_sensor: "sensor.openweathermap_wind_direction"
+  entity_wx_wind_gust_sensor: "sensor.openweathermap_wind_gust_speed"
+  entity_wx_today_high_sensor: "sensor.openweathermap_forecast_temperature"
+  entity_wx_today_low_sensor: "sensor.openweathermap_forecast_temperature_low"
+  entity_ha_unit_system: "sensor.unit_system"
   entity_word_of_day_sensor: "sensor.word_of_the_day"
   entity_quote_of_hour_sensor: "sensor.quote_of_the_hour"
   entity_feed_bbc: "event.bbc_news"
@@ -85,7 +100,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "main"
+    ref: "v0.17.0-units-weather-pass1"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

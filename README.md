@@ -26,6 +26,7 @@ Current priorities:
 3. Add GPS entity support.
 4. Keep keyboard-backlight control deferred in firmware (manual keyboard `Alt+B` only for now).
 5. Maintain a single drop-in install YAML for ESPHome/HA.
+6. Keep app-wide units user-selectable with first-boot HA unit-system bootstrap.
 
 ## Install
 
@@ -56,22 +57,28 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
    - no scenes or preset-cycle controls
    - color cluster: `Warm`, `Cool`, and `Color Studio`
    - `Color Studio` now uses a modern swatch matrix + selection ring + apply action + Kelvin slider (commit on release)
-3. `Weather`: glance dashboard with large temperature, readable condition, split metrics rows (readable at a glance), `weather.openweathermap` source line, and explicit GPS diagnostic state.
-4. `Climate`: simplified primary control page with:
-   - HVAC mode quick actions (`Off`, `Heat`, `Cool`, `Auto`)
-   - large `+/-` target controls (`Auto Heat`, `Auto Cool`)
-   - dual-path setpoint writes for stronger `+/-` reliability across HA integrations
-   - fast entry into `Climate Tools` for advanced controls
-5. `Climate Tools`: dedicated advanced Sensi controls:
-   - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`)
-   - direct toggles for Sensi feature switches (aux heat, display humidity/time, fan support, humidification, keypad lockout)
-   - compact live feature-state line (`Aux/Hum/Time/Fan/Humid/Lock`)
+3. `Weather`: rebuilt two-page LVGL flow:
+   - `Weather` overview card with local mapped condition icons, current temp/condition/feels/H-L, compact metric chips, and source/GPS diagnostics
+   - `Weather Details` page with full metric lines (dew, precip, weather code, gust, direction, pressure, visibility, rain/snow intensity, etc.)
+   - hybrid data adapter keeps `weather.openweathermap` primary while falling back to dedicated sensors/attributes
+4. `Climate Controller`: full rebuild with controller-first layout:
+   - top status chips (`Mode`, `Action`, `Fan`) + large indoor readout card
+   - segmented HVAC mode row (`Off`, `Heat`, `Cool`, `Auto`)
+   - mode-aware target zone:
+     - `Heat/Cool/Off`: single large target with reliable hold-repeat `- / +`
+     - `Auto`: dual target cards (`Heat` + `Cool`) with independent hold-repeat `- / +`
+   - bottom rail focused on high-frequency actions only (`Tools`, `Aux`)
+5. `Climate Tools`: compact advanced controls page:
+   - offset `+/-` controls (`Humidity Offset`, `Temperature Offset`) with hold-repeat
+   - feature toggles (aux heat, display humidity/time, fan support, humidification, keypad lockout)
+   - diagnostics lines for feature-state summary and climate commit status
 6. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
-7. `Settings`: wake behavior, saver timing, calibration, and reboot confirmation flow.
+7. `Settings`: wake behavior, saver timing, app-wide unit toggle (`Metric`/`Imperial`), calibration, and reboot confirmation flow.
 8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), display brightness, and shape controls (button/card border width + corner radius).
-9. `Weather diagnostics`: weather page now reads both legacy weather sensors and `weather.*` attributes as fallback for richer data.
+9. `Weather diagnostics`: weather model now normalizes hybrid weather inputs, handles unknown values safely, and maps condition icons locally (no remote icon URLs).
 10. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
-11. `LVGL sync hardening`: periodic UI updates are label-only; light control widgets sync through guarded scripts to avoid script-loop contention.
+11. `LVGL sync hardening`: periodic UI updates are label-only; control widgets sync through guarded scripts to avoid script-loop contention.
+12. `Climate reliability model`: optimistic local setpoints + mode-aware HA commits + debounced hold-repeat commits to avoid stale HA mirror tap misses.
 
 ## Quick keyboard shortcuts
 
@@ -79,18 +86,19 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
 2. `Alt+H/L/A/W/C/R/S/T`: `Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme`.
 3. `Alt+Q/E`: previous/next page.
 4. `Alt+K`: open shortcuts page.
-5. `Alt+D/F`: previous/next selected light.
-6. `Alt+G`: toggle selected light.
-7. `Alt+Z/X`: dim/brighten selected light.
-8. `Alt+N/M`: warm/cool selected light.
-9. `Alt+P`: open Color Studio.
-10. `Alt+0`: all mapped slot lights off.
-11. `Alt+Y`: start touch calibration.
-12. `Alt+V`: reset stored calibration values.
-13. `Alt+J`: save calibration after 9-point capture.
-14. `Alt+U`: retry calibration after 9-point capture.
-15. `Alt+I`: toggle icon color mode (`White`/`Accent`).
-16. `Alt+O`: toggle touch debug.
+5. `Alt+1/2/3/4`: climate `Heat-/Heat+/Cool-/Cool+`.
+6. `Alt+D/F`: previous/next selected light.
+7. `Alt+G`: toggle selected light.
+8. `Alt+Z/X`: dim/brighten selected light.
+9. `Alt+N/M`: warm/cool selected light.
+10. `Alt+P`: open Color Studio.
+11. `Alt+0`: all mapped slot lights off.
+12. `Alt+Y`: start touch calibration.
+13. `Alt+V`: reset stored calibration values.
+14. `Alt+J`: save calibration after 9-point capture.
+15. `Alt+U`: retry calibration after 9-point capture.
+16. `Alt+I`: toggle icon color mode (`White`/`Accent`).
+17. `Alt+O`: toggle touch debug.
 
 Touch calibration in LVGL mode uses a full-screen 9-point capture flow with end-of-pass review.
 After point 9, calibration now enters `Save/Retry` review instead of auto-committing.
@@ -110,4 +118,4 @@ Default values can still be set in one place via install YAML substitutions:
 GPS serial baud is also substitution-driven:
 `gps_baud_rate` (default `9600`).
 
-See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), [`docs/release.md`](docs/release.md), and [`docs/entities-template.md`](docs/entities-template.md) for conventions, privacy mapping, and release details.
+See [`docs/architecture.md`](docs/architecture.md), [`docs/migration.md`](docs/migration.md), [`docs/lvgl-plan.md`](docs/lvgl-plan.md), [`docs/release.md`](docs/release.md), [`docs/entities-template.md`](docs/entities-template.md), [`docs/ha-element-framework.md`](docs/ha-element-framework.md), and [`docs/component-reference-checklist.md`](docs/component-reference-checklist.md) for conventions, framework contracts, and release details.

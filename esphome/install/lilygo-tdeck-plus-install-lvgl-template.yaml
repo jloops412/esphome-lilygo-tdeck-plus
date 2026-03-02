@@ -11,6 +11,10 @@ substitutions:
   touch_x_max: "238"
   touch_y_min: "16"
   touch_y_max: "260"
+  climate_temp_min_f: "50"
+  climate_temp_max_f: "90"
+  climate_auto_band_min_delta_f: "2"
+  climate_hold_repeat_ms: "180"
   light_name_foyer: "Foyer"
   light_name_vanity: "Vanity"
   light_name_bedroom: "Bedroom"
@@ -35,6 +39,28 @@ substitutions:
   light_slot_6_entity: "light.replace_me_slot_6"
   light_slot_7_entity: "light.replace_me_slot_7"
   light_slot_8_entity: "light.replace_me_slot_8"
+  entity_wx_main: "weather.replace_me"
+  entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
+  entity_wx_weather_sensor: "sensor.replace_me_weather_text"
+  entity_wx_temp_sensor: "sensor.replace_me_weather_temperature"
+  entity_wx_feels_sensor: "sensor.replace_me_weather_feels_like"
+  entity_wx_humidity_sensor: "sensor.replace_me_weather_humidity"
+  entity_wx_clouds_sensor: "sensor.replace_me_weather_clouds"
+  entity_wx_pressure_sensor: "sensor.replace_me_weather_pressure"
+  entity_wx_uv_sensor: "sensor.replace_me_weather_uv"
+  entity_wx_visibility_sensor: "sensor.replace_me_weather_visibility"
+  entity_wx_wind_speed_sensor: "sensor.replace_me_weather_wind_speed"
+  entity_wx_apparent_sensor: "sensor.replace_me_weather_apparent_temperature"
+  entity_wx_dew_point_sensor: "sensor.replace_me_weather_dew_point"
+  entity_wx_precip_kind_sensor: "sensor.replace_me_weather_precipitation_kind"
+  entity_wx_rain_intensity_sensor: "sensor.replace_me_weather_rain_intensity"
+  entity_wx_snow_intensity_sensor: "sensor.replace_me_weather_snow_intensity"
+  entity_wx_weather_code_sensor: "sensor.replace_me_weather_code"
+  entity_wx_wind_direction_sensor: "sensor.replace_me_weather_wind_direction"
+  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust"
+  entity_wx_today_high_sensor: "sensor.replace_me_weather_today_high"
+  entity_wx_today_low_sensor: "sensor.replace_me_weather_today_low"
+  entity_ha_unit_system: "sensor.unit_system"
   # Copy substitutions from:
   # esphome/install/entity-overrides.template.yaml
   # and paste your HA entity IDs here.
@@ -50,7 +76,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "main"
+    ref: "v0.17.0-units-weather-pass1"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

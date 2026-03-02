@@ -1,0 +1,9 @@
+# Binary sensor mirror from HA
+substitutions:
+  entity_example_switch: "switch.replace_me"
+
+binary_sensor:
+  - platform: homeassistant
+    id: example_switch_state
+    entity_id: ${entity_example_switch}
+    internal: true

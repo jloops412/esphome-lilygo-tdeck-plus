@@ -1,0 +1,14 @@
+# Text sensor mirror from HA state/attribute
+substitutions:
+  entity_example_text: "sensor.replace_me_text"
+
+text_sensor:
+  - platform: homeassistant
+    id: example_text_state
+    entity_id: ${entity_example_text}
+    internal: true
+  - platform: homeassistant
+    id: example_text_attr
+    entity_id: ${entity_example_text}
+    attribute: friendly_name
+    internal: true
