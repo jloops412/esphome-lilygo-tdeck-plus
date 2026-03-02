@@ -1,0 +1,33 @@
+# Camera snapshot bridge (Home Assistant camera.snapshot -> /local image URL)
+#
+# Add these substitutions:
+#   camera_slot_1_entity: "camera.replace_me_front_door"
+#   camera_snapshot_dir: "/config/www/tdeck"
+#   ha_base_url: "http://homeassistant.local:8123"
+#
+# Add one online_image per camera slot:
+# online_image:
+#   - id: camera_slot_1_image
+#     url: "${ha_base_url}/local/tdeck/cam1.jpg?boot=0"
+#     resize: 156x88
+#     format: JPEG
+#     type: RGB565
+#     update_interval: never
+#
+# Trigger snapshot and refresh image:
+# script:
+#   - id: camera_slot_1_refresh
+#     then:
+#       - homeassistant.action:
+#           action: camera.snapshot
+#           data:
+#             entity_id: ${camera_slot_1_entity}
+#             filename: "${camera_snapshot_dir}/cam1.jpg"
+#       - delay: 900ms
+#       - online_image.set_url:
+#           id: camera_slot_1_image
+#           url: !lambda |-
+#             char buf[256];
+#             snprintf(buf, sizeof(buf), "%s/local/tdeck/cam1.jpg?t=%lu", "${ha_base_url}", (unsigned long) esphome::millis());
+#             return std::string(buf);
+

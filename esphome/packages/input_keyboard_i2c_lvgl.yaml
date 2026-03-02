@@ -141,6 +141,16 @@ interval:
                   - script.execute: open_shortcuts
             - if:
                 condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '5';"
+                then:
+                  - script.execute: camera_open_page
+            - if:
+                condition:
+                  lambda: "return id(kb_last_alt) && id(kb_last_raw) == '6';"
+                then:
+                  - script.execute: camera_refresh_all
+            - if:
+                condition:
                   lambda: "return id(kb_last_alt) && (id(kb_last_raw) == 'q' || id(kb_last_raw) == 'Q');"
                 then:
                   - script.execute: page_prev

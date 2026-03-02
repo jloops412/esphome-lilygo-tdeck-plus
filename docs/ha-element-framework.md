@@ -43,4 +43,4 @@ Use this order for robust adapters:
 Use reusable snippets under:
 - `esphome/templates/ha-elements/`
 
-These include patterns for sensor/text/binary mirrors and action services.
+These include patterns for sensor/text/binary mirrors, action services, weather adapters, and camera snapshot bridges.

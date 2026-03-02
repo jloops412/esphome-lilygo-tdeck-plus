@@ -1,0 +1,83 @@
+:root {
+  --bg: #0a0f18;
+  --surface: #121b2a;
+  --line: #2a3b56;
+  --text: #ecf3ff;
+  --muted: #9fb3d1;
+  --action: #2f6fd8;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at 20% 0%, #1a2438, #0a0f18 45%);
+  color: var(--text);
+}
+
+.app {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+h1, h2 {
+  margin: 0;
+}
+
+header p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+label {
+  display: grid;
+  gap: 5px;
+  font-size: 14px;
+}
+
+input, select, textarea, button {
+  font: inherit;
+  color: var(--text);
+  background: #0f1624;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 220px;
+}
+
+button {
+  background: linear-gradient(180deg, #3a7be6, var(--action));
+  border-color: #5a8ee8;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+

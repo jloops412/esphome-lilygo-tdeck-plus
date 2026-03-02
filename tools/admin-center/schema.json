@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "title": "T-Deck Admin Center Schema",
+  "description": "Form schema and extension hooks for install-time config generation.",
+  "groups": [
+    {
+      "id": "device",
+      "fields": ["name", "friendly_name", "git_ref", "units_mode"]
+    },
+    {
+      "id": "lights",
+      "fields": [
+        "light_slot_count",
+        "light_slot_1_name",
+        "light_slot_1_entity",
+        "light_slot_2_name",
+        "light_slot_2_entity"
+      ]
+    },
+    {
+      "id": "cameras",
+      "fields": [
+        "camera_slot_count",
+        "camera_slot_1_name",
+        "camera_slot_1_entity",
+        "camera_slot_2_name",
+        "camera_slot_2_entity",
+        "camera_refresh_interval_s",
+        "ha_base_url"
+      ]
+    }
+  ],
+  "component_registry": [
+    { "type": "light_slot", "max_slots": 8 },
+    { "type": "camera_snapshot_slot", "max_slots": 2 },
+    { "type": "weather_adapter", "source": "weather.openweathermap" },
+    { "type": "climate_controller", "modes": ["off", "heat", "cool", "auto"] }
+  ]
+}
+

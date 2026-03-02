@@ -42,6 +42,9 @@ api:
 ota:
   - platform: esphome
 
+web_server:
+  version: 3
+
 captive_portal:
 
 switch:
@@ -123,6 +126,16 @@ image:
     resize: 18x18
   - file: mdi:sleep
     id: icon_sleep_18
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 18x18
+  - file: mdi:cctv
+    id: icon_camera_18
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 18x18
+  - file: mdi:refresh
+    id: icon_refresh_18
     type: GRAYSCALE
     transparency: alpha_channel
     resize: 18x18
@@ -258,6 +271,11 @@ image:
     resize: 30x30
   - file: mdi:sleep
     id: icon_sleep_30
+    type: GRAYSCALE
+    transparency: alpha_channel
+    resize: 30x30
+  - file: mdi:cctv
+    id: icon_camera_30
     type: GRAYSCALE
     transparency: alpha_channel
     resize: 30x30

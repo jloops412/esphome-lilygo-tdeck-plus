@@ -109,6 +109,16 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: climate_commit_seq
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: climate_last_commit_result
+    type: std::string
+    restore_value: no
+    initial_value: '"idle"'
+
   - id: app_units_mode
     type: int
     restore_value: yes
@@ -255,6 +265,39 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"Source unavailable"'
+
+  - id: camera_selected_slot
+    type: int
+    restore_value: no
+    initial_value: "0"
+  - id: camera_last_refresh_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+  - id: camera_auto_refresh_enabled
+    type: bool
+    restore_value: yes
+    initial_value: "true"
+  - id: camera_refresh_in_progress
+    type: bool
+    restore_value: no
+    initial_value: "false"
+  - id: camera_slot_1_url
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: camera_slot_2_url
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: camera_slot_1_status
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: camera_slot_2_status
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
   - id: weather_gps_text
     type: std::string
     restore_value: no
@@ -511,6 +554,11 @@ globals:
     type: bool
     restore_value: no
     initial_value: "false"
+
+  - id: touch_last_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
 
   - id: touch_cal_mode
     type: bool

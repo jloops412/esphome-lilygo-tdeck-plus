@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>T-Deck Admin Center v1</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header>
+      <h1>T-Deck Admin Center v1</h1>
+      <p>Generate install YAML and entity overrides for the public LVGL profile.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Device</h2>
+      <label>Name <input id="name" value="lilygo-tdeck-plus" /></label>
+      <label>Friendly Name <input id="friendly_name" value="LilyGO T-Deck Plus" /></label>
+      <label>Package Ref <input id="git_ref" value="main" /></label>
+      <label>Units
+        <select id="units_mode">
+          <option value="imperial">Imperial</option>
+          <option value="metric">Metric</option>
+        </select>
+      </label>
+    </section>
+
+    <section class="panel">
+      <h2>Lights (Slots)</h2>
+      <label>Slot Count
+        <select id="light_slot_count">
+          <option>0</option>
+          <option>1</option>
+          <option>2</option>
+          <option>3</option>
+          <option>4</option>
+          <option>5</option>
+          <option selected>6</option>
+          <option>7</option>
+          <option>8</option>
+        </select>
+      </label>
+      <div class="grid2">
+        <label>Slot 1 Name <input id="light_slot_1_name" value="Foyer" /></label>
+        <label>Slot 1 Entity <input id="light_slot_1_entity" value="light.replace_me_slot_1" /></label>
+        <label>Slot 2 Name <input id="light_slot_2_name" value="Vanity" /></label>
+        <label>Slot 2 Entity <input id="light_slot_2_entity" value="light.replace_me_slot_2" /></label>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Cameras (Optional)</h2>
+      <label>Camera Slot Count
+        <select id="camera_slot_count">
+          <option selected>0</option>
+          <option>1</option>
+          <option>2</option>
+        </select>
+      </label>
+      <div class="grid2">
+        <label>Camera 1 Name <input id="camera_slot_1_name" value="Front Door" /></label>
+        <label>Camera 1 Entity <input id="camera_slot_1_entity" value="camera.replace_me_front_door" /></label>
+        <label>Camera 2 Name <input id="camera_slot_2_name" value="Outdoor" /></label>
+        <label>Camera 2 Entity <input id="camera_slot_2_entity" value="camera.replace_me_outdoor" /></label>
+      </div>
+      <div class="grid2">
+        <label>Refresh (s) <input id="camera_refresh_interval_s" value="60" /></label>
+        <label>HA Base URL <input id="ha_base_url" value="http://homeassistant.local:8123" /></label>
+      </div>
+    </section>
+
+    <section class="panel actions">
+      <button id="generate_btn">Generate YAML</button>
+    </section>
+
+    <section class="panel">
+      <h2>Install YAML (Drop-In)</h2>
+      <textarea id="install_out" rows="16" spellcheck="false"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Entity Overrides Block</h2>
+      <textarea id="overrides_out" rows="16" spellcheck="false"></textarea>
+    </section>
+  </main>
+  <script src="./app.js"></script>
+</body>
+</html>
+

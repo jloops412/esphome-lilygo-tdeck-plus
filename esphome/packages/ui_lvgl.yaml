@@ -1,4 +1,22 @@
 
+http_request:
+  verify_ssl: false
+  timeout: 8s
+
+online_image:
+  - id: camera_slot_1_image
+    url: "${ha_base_url}/local/tdeck/cam1.jpg?boot=0"
+    resize: 150x70
+    format: JPEG
+    type: RGB565
+    update_interval: never
+  - id: camera_slot_2_image
+    url: "${ha_base_url}/local/tdeck/cam2.jpg?boot=0"
+    resize: 150x70
+    format: JPEG
+    type: RGB565
+    update_interval: never
+
 script:
   - id: activity_note
     parameters:
@@ -71,8 +89,15 @@ script:
     then:
       - lambda: |-
           if (id(screensaver_active) || !id(screensaver_enabled)) return;
-          if (id(touch_active)) return;
           uint32_t now = esphome::millis();
+          if (id(touch_active)) {
+            // Guard against a missed touch-release event that can block auto-sleep indefinitely.
+            if ((now - id(touch_last_ms)) > 4000U) {
+              id(touch_active) = false;
+            } else {
+              return;
+            }
+          }
           uint32_t timeout_ms = (uint32_t) id(screensaver_timeout_s) * 1000UL;
           if (timeout_ms < 5000UL) timeout_ms = 5000UL;
           if ((now - id(last_activity_ms)) >= timeout_ms) {
@@ -1159,6 +1184,132 @@ script:
       - script.execute: weather_details_layout_refresh
       - script.execute: weather_details_scroll_top
 
+  - id: camera_build_urls
+    mode: restart
+    then:
+      - lambda: |-
+          uint32_t v = id(camera_last_refresh_ms);
+          if (v == 0U) v = esphome::millis();
+          char u1[256];
+          char u2[256];
+          snprintf(u1, sizeof(u1), "%s/local/tdeck/cam1.jpg?v=%lu",
+                   "${ha_base_url}", (unsigned long) v);
+          snprintf(u2, sizeof(u2), "%s/local/tdeck/cam2.jpg?v=%lu",
+                   "${ha_base_url}", (unsigned long) v);
+          id(camera_slot_1_url) = std::string(u1);
+          id(camera_slot_2_url) = std::string(u2);
+
+  - id: camera_snapshot_trigger_slot
+    mode: restart
+    parameters:
+      slot: int
+    then:
+      - if:
+          condition:
+            lambda: |-
+              if (atoi("${camera_slot_count}") < 1) return false;
+              if (slot < 0 || slot > 1) return false;
+              std::string e = slot == 0 ? std::string("${camera_slot_1_entity}") : std::string("${camera_slot_2_entity}");
+              return !e.empty() && e.find("replace_me") == std::string::npos;
+          then:
+            - homeassistant.action:
+                action: camera.snapshot
+                data:
+                  entity_id: !lambda |-
+                    return slot == 0 ? std::string("${camera_slot_1_entity}") : std::string("${camera_slot_2_entity}");
+                  filename: !lambda |-
+                    if (slot == 0) return std::string("${camera_snapshot_dir}/cam1.jpg");
+                    return std::string("${camera_snapshot_dir}/cam2.jpg");
+
+  - id: camera_snapshot_trigger_all
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: |-
+              std::string en = "${camera_snapshot_enable}";
+              for (char &c : en) if (c >= 'A' && c <= 'Z') c = (char) (c - 'A' + 'a');
+              return !(en == "false" || en == "0" || en == "off" || en == "no");
+          then:
+            - script.execute:
+                id: camera_snapshot_trigger_slot
+                slot: 0
+            - if:
+                condition:
+                  lambda: "return atoi(\"${camera_slot_count}\") >= 2;"
+                then:
+                  - script.execute:
+                      id: camera_snapshot_trigger_slot
+                      slot: 1
+
+  - id: camera_images_pull
+    mode: restart
+    then:
+      - script.execute: camera_build_urls
+      - if:
+          condition:
+            lambda: "return atoi(\"${camera_slot_count}\") >= 1;"
+          then:
+            - online_image.set_url:
+                id: camera_slot_1_image
+                url: !lambda "return id(camera_slot_1_url);"
+      - if:
+          condition:
+            lambda: "return atoi(\"${camera_slot_count}\") >= 2;"
+          then:
+            - online_image.set_url:
+                id: camera_slot_2_image
+                url: !lambda "return id(camera_slot_2_url);"
+
+  - id: camera_refresh_all
+    mode: restart
+    then:
+      - if:
+          condition:
+            lambda: "return atoi(\"${camera_slot_count}\") > 0;"
+          then:
+            - lambda: |-
+                id(camera_refresh_in_progress) = true;
+                id(camera_last_refresh_ms) = esphome::millis();
+                id(camera_slot_1_status) = "Refreshing...";
+                id(camera_slot_2_status) = "Refreshing...";
+            - script.execute: camera_snapshot_trigger_all
+            - delay: 900ms
+            - script.execute: camera_images_pull
+            - lambda: |-
+                id(camera_refresh_in_progress) = false;
+                id(camera_slot_1_status) = id(camera_slot_1_state).has_state() ? id(camera_slot_1_state).state : std::string("No state");
+                id(camera_slot_2_status) = id(camera_slot_2_state).has_state() ? id(camera_slot_2_state).state : std::string("No state");
+            - script.execute: lvgl_update_labels
+
+  - id: camera_open_page
+    mode: restart
+    then:
+      - lambda: |-
+          id(camera_selected_slot) = 0;
+      - lvgl.page.show: cameras_page
+      - script.execute: camera_refresh_all
+      - script.execute: lvgl_update_dynamic
+
+  - id: camera_open_detail
+    mode: restart
+    parameters:
+      slot: int
+    then:
+      - lambda: |-
+          if (slot < 0) slot = 0;
+          if (slot > 1) slot = 1;
+          id(camera_selected_slot) = slot;
+      - lvgl.page.show: camera_detail_page
+      - script.execute: lvgl_update_dynamic
+
+  - id: camera_toggle_auto_refresh
+    mode: restart
+    then:
+      - lambda: |-
+          id(camera_auto_refresh_enabled) = !id(camera_auto_refresh_enabled);
+      - script.execute: lvgl_update_labels
+
   - id: app_units_set_metric
     then:
       - lambda: |-
@@ -1257,12 +1408,22 @@ script:
           text: !lambda |-
             char buf[220];
             uint32_t age = (esphome::millis() - id(climate_last_commit_ms)) / 1000U;
-            snprintf(buf, sizeof(buf), "Climate %s | ack %s | age %lus | last %s:%d",
+            snprintf(buf, sizeof(buf), "Climate %s | ack %s | seq %lu | %s | age %lus",
                      id(climate_out_of_sync) ? "OUT-OF-SYNC" : "OK",
                      id(climate_ack_pending) ? "wait" : "done",
-                     (unsigned long) age,
+                     (unsigned long) id(climate_commit_seq),
+                     id(climate_last_commit_result).c_str(),
+                     (unsigned long) age);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: settings_diag_activity_lbl
+          text: !lambda |-
+            char buf[200];
+            uint32_t age = (esphome::millis() - id(last_activity_ms)) / 1000U;
+            snprintf(buf, sizeof(buf), "Activity: %s:%d | idle %lus",
                      id(last_activity_source).c_str(),
-                     id(last_activity_code));
+                     id(last_activity_code),
+                     (unsigned long) age);
             return std::string(buf);
 
   - id: toggle_weather_diagnostics
@@ -2038,6 +2199,7 @@ script:
           id(climate_ack_pending) = false;
           id(climate_out_of_sync) = false;
           id(climate_commit_pending) = false;
+          id(climate_last_commit_result) = "resync";
       - script.execute: climate_ui_seed_from_ha
       - script.execute: climate_update_labels
       - script.execute: climate_sync_controls
@@ -2104,10 +2266,12 @@ script:
                   id(climate_ack_pending) = false;
                   id(climate_out_of_sync) = false;
                   id(climate_ui_dirty) = false;
+                  id(climate_last_commit_result) = "ack-ok";
                 } else if (now >= id(climate_ack_deadline_ms)) {
                   id(climate_ack_pending) = false;
                   id(climate_out_of_sync) = true;
                   id(climate_commit_pending) = false;
+                  id(climate_last_commit_result) = "ack-timeout";
                 }
 
   - id: climate_ui_seed_from_ha
@@ -2339,10 +2503,12 @@ script:
           uint32_t now = esphome::millis();
           uint32_t ack_timeout = (uint32_t) atoi("${climate_ack_timeout_ms}");
           if (ack_timeout < 2000U) ack_timeout = 2000U;
+          id(climate_commit_seq) += 1;
           id(climate_last_command_ms) = now;
           id(climate_ack_deadline_ms) = now + ack_timeout;
           id(climate_ack_pending) = true;
           id(climate_out_of_sync) = false;
+          id(climate_last_commit_result) = "dispatch";
           id(climate_last_requested_single) = (float) id(climate_ui_target_single_f);
           id(climate_last_requested_heat) = (float) id(climate_ui_target_heat_f);
           id(climate_last_requested_cool) = (float) id(climate_ui_target_cool_f);
@@ -2359,6 +2525,9 @@ script:
           id(climate_last_commit_ms) = esphome::millis();
           id(climate_commit_pending) = false;
           id(climate_ui_dirty) = false;
+          if (id(climate_last_commit_result) == "dispatch") {
+            id(climate_last_commit_result) = "sent";
+          }
       - script.execute: climate_ack_check
       - script.execute: climate_update_labels
       - script.execute: climate_sync_controls
@@ -2384,7 +2553,7 @@ script:
       - script.execute: climate_commit_targets
 
   - id: climate_request_adjust
-    mode: restart
+    mode: queued
     parameters:
       zone: int
       delta: int
@@ -2416,7 +2585,7 @@ script:
                 immediate: !lambda "return immediate;"
 
   - id: climate_adjust_single
-    mode: restart
+    mode: queued
     parameters:
       delta: int
       immediate: bool
@@ -2444,7 +2613,7 @@ script:
             - script.execute: climate_commit_debounced
 
   - id: climate_adjust_heat
-    mode: restart
+    mode: queued
     parameters:
       delta: int
       immediate: bool
@@ -2467,7 +2636,7 @@ script:
             - script.execute: climate_commit_debounced
 
   - id: climate_adjust_cool
-    mode: restart
+    mode: queued
     parameters:
       delta: int
       immediate: bool
@@ -2537,42 +2706,48 @@ script:
   - id: sensi_heat_down
     then:
       - script.execute:
-          id: climate_adjust_heat
+          id: climate_request_adjust
+          zone: 1
           delta: -1
           immediate: true
 
   - id: sensi_heat_up
     then:
       - script.execute:
-          id: climate_adjust_heat
+          id: climate_request_adjust
+          zone: 1
           delta: 1
           immediate: true
 
   - id: sensi_cool_down
     then:
       - script.execute:
-          id: climate_adjust_cool
+          id: climate_request_adjust
+          zone: 2
           delta: -1
           immediate: true
 
   - id: sensi_cool_up
     then:
       - script.execute:
-          id: climate_adjust_cool
+          id: climate_request_adjust
+          zone: 2
           delta: 1
           immediate: true
 
   - id: sensi_single_down
     then:
       - script.execute:
-          id: climate_adjust_single
+          id: climate_request_adjust
+          zone: 0
           delta: -1
           immediate: true
 
   - id: sensi_single_up
     then:
       - script.execute:
-          id: climate_adjust_single
+          id: climate_request_adjust
+          zone: 0
           delta: 1
           immediate: true
 
@@ -2685,26 +2860,37 @@ script:
             float indoor = id(sensi_temperature).state;
             bool has_indoor = indoor == indoor;
             bool gps_alive = (esphome::millis() - id(gps_last_update_ms)) < 15000U;
+            bool app_metric = id(app_units_mode) == 1;
+            bool native_metric = false;
+            if (id(sensi_climate_temperature_unit).has_state()) {
+              std::string tu = id(sensi_climate_temperature_unit).state;
+              native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+            }
+            if (has_indoor) {
+              if (app_metric && !native_metric) indoor = (indoor - 32.0f) * (5.0f / 9.0f);
+              else if (!app_metric && native_metric) indoor = (indoor * (9.0f / 5.0f)) + 32.0f;
+            }
+            const char *unit = app_metric ? "C" : "F";
             if (!gps_alive) {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS NO DATA",
-                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor);
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS NO DATA",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit);
               } else {
                 snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO DATA",
                          id(battery_percent).state, id(wifi_signal_tdeck).state);
               }
             } else if (sats > 0.0f) {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS %.0f sat",
-                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, sats);
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS %.0f sat",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit, sats);
               } else {
                 snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
               }
             } else {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1fF  GPS searching",
-                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor);
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS searching",
+                         id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit);
               } else {
                 snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching",
                          id(battery_percent).state, id(wifi_signal_tdeck).state);
@@ -2715,12 +2901,16 @@ script:
           id: home_substatus_lbl
           text: !lambda |-
             char buf[160];
-            snprintf(buf, sizeof(buf), "Sleep %ds | Units %s | Last %s:%d",
+            snprintf(buf, sizeof(buf), "Sleep %ds | Units %s | Cam %s | Last %s:%d",
                      id(screensaver_timeout_s),
                      id(app_units_mode) == 1 ? "Metric" : "Imperial",
+                     id(camera_auto_refresh_enabled) ? "Auto" : "Manual",
                      id(last_activity_source).c_str(),
                      id(last_activity_code));
             return std::string(buf);
+      - lvgl.widget.update:
+          id: home_cameras_btn
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") <= 0;"
       - lvgl.label.update:
           id: lights_selected_lbl
           text: !lambda |-
@@ -2809,6 +2999,73 @@ script:
             char buf[36];
             snprintf(buf, sizeof(buf), "White Temp %dK", id(selected_light_kelvin));
             return std::string(buf);
+      - lvgl.label.update:
+          id: cameras_title_lbl
+          text: !lambda |-
+            char buf[64];
+            uint32_t age = (esphome::millis() - id(camera_last_refresh_ms)) / 1000U;
+            snprintf(buf, sizeof(buf), "Cameras | %s | %lus ago",
+                     id(camera_auto_refresh_enabled) ? "Auto" : "Manual",
+                     (unsigned long) age);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: camera_slot_1_name_lbl
+          text: !lambda "return std::string(\"${camera_slot_1_name}\");"
+      - lvgl.label.update:
+          id: camera_slot_2_name_lbl
+          text: !lambda "return std::string(\"${camera_slot_2_name}\");"
+      - lvgl.label.update:
+          id: camera_slot_1_status_lbl
+          text: !lambda |-
+            std::string s = id(camera_slot_1_state).has_state() ? id(camera_slot_1_state).state : id(camera_slot_1_status);
+            if ((int) s.size() > 24) s = s.substr(0, 24) + "...";
+            return std::string("Cam1: ") + s;
+      - lvgl.label.update:
+          id: camera_slot_2_status_lbl
+          text: !lambda |-
+            std::string s = id(camera_slot_2_state).has_state() ? id(camera_slot_2_state).state : id(camera_slot_2_status);
+            if ((int) s.size() > 24) s = s.substr(0, 24) + "...";
+            return std::string("Cam2: ") + s;
+      - lvgl.label.update:
+          id: camera_auto_btn_lbl
+          text: !lambda "return id(camera_auto_refresh_enabled) ? std::string(\"A ON\") : std::string(\"A OFF\");"
+      - lvgl.label.update:
+          id: camera_detail_title_lbl
+          text: !lambda |-
+            return id(camera_selected_slot) == 0
+              ? std::string("${camera_slot_1_name}")
+              : std::string("${camera_slot_2_name}");
+      - lvgl.label.update:
+          id: camera_detail_status_lbl
+          text: !lambda |-
+            std::string st = id(camera_selected_slot) == 0
+              ? (id(camera_slot_1_state).has_state() ? id(camera_slot_1_state).state : id(camera_slot_1_status))
+              : (id(camera_slot_2_state).has_state() ? id(camera_slot_2_state).state : id(camera_slot_2_status));
+            char buf[96];
+            snprintf(buf, sizeof(buf), "State %s | URL age %lus", st.c_str(),
+                     (unsigned long)((esphome::millis() - id(camera_last_refresh_ms)) / 1000U));
+            return std::string(buf);
+      - lvgl.widget.update:
+          id: camera_detail_img_slot1
+          hidden: !lambda "return id(camera_selected_slot) != 0;"
+      - lvgl.widget.update:
+          id: camera_detail_img_slot2
+          hidden: !lambda "return id(camera_selected_slot) == 0;"
+      - lvgl.widget.update:
+          id: camera_slot_2_card
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") < 2;"
+      - lvgl.widget.update:
+          id: camera_slot_2_name_lbl
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") < 2;"
+      - lvgl.widget.update:
+          id: camera_slot_2_status_lbl
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") < 2;"
+      - lvgl.widget.update:
+          id: camera_slot_2_img
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") < 2;"
+      - lvgl.widget.update:
+          id: camera_slot_2_open_btn
+          hidden: !lambda "return atoi(\"${camera_slot_count}\") < 2;"
       - script.execute: weather_update_model
       - script.execute: weather_update_icon
       - script.execute: weather_update_labels
@@ -2958,6 +3215,7 @@ script:
             return std::string(
               "ALL SHORTCUTS REQUIRE ALT\n"
               "Alt+H/L/A/W/C/R/S/T : Home/Lights/Colors/Weather/Climate/Reader/Settings/Theme\n"
+              "Alt+5 : Cameras page         Alt+6 : Camera refresh\n"
               "Alt+Q/E : prev/next page     Alt+K : this page\n"
               "Alt+1/2/3/4 : Heat-/Heat+/Cool-/Cool+\n"
               "Alt+D/F : prev/next light    Alt+G : light toggle\n"
@@ -3381,6 +3639,199 @@ script:
       - script.execute: lvgl_sync_lights_controls
       - script.execute: climate_sync_controls
 
+number:
+  - platform: template
+    id: lvgl_display_brightness_control
+    name: "${friendly_name} UI Display Brightness"
+    min_value: 10
+    max_value: 100
+    step: 5
+    lambda: |-
+      return id(backlight_percent);
+    set_action:
+      - script.execute:
+          id: set_display_backlight
+          pct: !lambda "return (int) x;"
+
+  - platform: template
+    id: lvgl_screensaver_timeout_control
+    name: "${friendly_name} UI Screensaver Timeout"
+    min_value: 10
+    max_value: 300
+    step: 5
+    lambda: |-
+      return id(screensaver_timeout_s);
+    set_action:
+      - script.execute:
+          id: set_saver_timeout
+          seconds: !lambda "return (int) x;"
+
+  - platform: template
+    id: lvgl_theme_border_control
+    name: "${friendly_name} UI Theme Border Width"
+    min_value: 1
+    max_value: 4
+    step: 1
+    lambda: |-
+      return id(theme_border_width);
+    set_action:
+      - script.execute:
+          id: set_theme_border_width
+          val: !lambda "return (int) x;"
+
+  - platform: template
+    id: lvgl_theme_radius_control
+    name: "${friendly_name} UI Theme Radius"
+    min_value: 4
+    max_value: 16
+    step: 1
+    lambda: |-
+      return id(theme_radius);
+    set_action:
+      - script.execute:
+          id: set_theme_radius
+          val: !lambda "return (int) x;"
+
+switch:
+  - platform: template
+    id: lvgl_screensaver_enable_switch
+    name: "${friendly_name} UI Screensaver Enabled"
+    lambda: |-
+      return id(screensaver_enabled);
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(screensaver_enabled);"
+          then:
+            - script.execute: toggle_screensaver_enabled
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(screensaver_enabled);"
+          then:
+            - script.execute: toggle_screensaver_enabled
+
+  - platform: template
+    id: lvgl_wake_touch_switch
+    name: "${friendly_name} UI Wake On Touch"
+    lambda: |-
+      return id(wake_on_touch);
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(wake_on_touch);"
+          then:
+            - script.execute: toggle_wake_touch
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(wake_on_touch);"
+          then:
+            - script.execute: toggle_wake_touch
+
+  - platform: template
+    id: lvgl_wake_keyboard_switch
+    name: "${friendly_name} UI Wake On Keyboard"
+    lambda: |-
+      return id(wake_on_keyboard);
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(wake_on_keyboard);"
+          then:
+            - script.execute: toggle_wake_keyboard
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(wake_on_keyboard);"
+          then:
+            - script.execute: toggle_wake_keyboard
+
+  - platform: template
+    id: lvgl_wake_trackball_switch
+    name: "${friendly_name} UI Wake On Trackball"
+    lambda: |-
+      return id(wake_on_trackball);
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(wake_on_trackball);"
+          then:
+            - script.execute: toggle_wake_trackball
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(wake_on_trackball);"
+          then:
+            - script.execute: toggle_wake_trackball
+
+  - platform: template
+    id: lvgl_camera_auto_refresh_switch
+    name: "${friendly_name} UI Camera Auto Refresh"
+    lambda: |-
+      return id(camera_auto_refresh_enabled);
+    turn_on_action:
+      - if:
+          condition:
+            lambda: "return !id(camera_auto_refresh_enabled);"
+          then:
+            - script.execute: camera_toggle_auto_refresh
+    turn_off_action:
+      - if:
+          condition:
+            lambda: "return id(camera_auto_refresh_enabled);"
+          then:
+            - script.execute: camera_toggle_auto_refresh
+
+select:
+  - platform: template
+    id: lvgl_units_mode_select
+    name: "${friendly_name} UI Units Mode"
+    optimistic: true
+    options:
+      - Imperial
+      - Metric
+    initial_option: Imperial
+    lambda: |-
+      return id(app_units_mode) == 1 ? std::string("Metric") : std::string("Imperial");
+    set_action:
+      - if:
+          condition:
+            lambda: "return x == \"Metric\";"
+          then:
+            - script.execute: app_units_set_metric
+          else:
+            - script.execute: app_units_set_imperial
+
+  - platform: template
+    id: lvgl_theme_icon_mode_select
+    name: "${friendly_name} UI Icon Color Mode"
+    optimistic: true
+    options:
+      - Text
+      - Accent
+    initial_option: Text
+    lambda: |-
+      return id(theme_icon_mode) == 0 ? std::string("Text") : std::string("Accent");
+    set_action:
+      - lambda: |-
+          id(theme_icon_mode) = (x == "Accent") ? 1 : 0;
+      - script.execute: apply_theme_icon
+      - script.execute: lvgl_update_labels
+
+button:
+  - platform: template
+    id: lvgl_camera_refresh_button
+    name: "${friendly_name} UI Camera Refresh"
+    on_press:
+      - script.execute: camera_refresh_all
+
+  - platform: template
+    id: lvgl_climate_retry_sync_button
+    name: "${friendly_name} UI Climate Retry Sync"
+    on_press:
+      - script.execute: climate_force_resync
+
 interval:
   - interval: 1s
     then:
@@ -3406,6 +3857,21 @@ interval:
             - script.execute: weather_update_model
             - script.execute: weather_update_icon
             - script.execute: weather_update_labels
+
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            lambda: |-
+              if (id(screensaver_active)) return false;
+              if (atoi("${camera_slot_count}") <= 0) return false;
+              if (!id(camera_auto_refresh_enabled)) return false;
+              uint32_t interval_s = (uint32_t) atoi("${camera_refresh_interval_s}");
+              if (interval_s < 15U) interval_s = 15U;
+              uint32_t now = esphome::millis();
+              return (now - id(camera_last_refresh_ms)) >= (interval_s * 1000UL);
+          then:
+            - script.execute: camera_refresh_all
 
   - interval: 220ms
     then:
@@ -3456,6 +3922,7 @@ lvgl:
       - script.execute: weather_update_model
       - script.execute: weather_update_icon
       - script.execute: home_weather_icon_sync
+      - script.execute: camera_build_urls
       - script.execute: settings_section_show
       - script.execute: diagnostics_update_labels
       - lvgl.widget.focus: home_lights_btn
@@ -3530,8 +3997,24 @@ lvgl:
             id: home_substatus_lbl
             x: 12
             y: 24
-            width: 236
+            width: 168
             text: "Sleep 45s | Units Imperial"
+        - button:
+            id: home_cameras_btn
+            x: 184
+            y: 22
+            width: 64
+            height: 18
+            styles: [lv_style_btn_soft]
+            hidden: true
+            group: nav_group
+            on_click:
+              - script.execute: camera_open_page
+            widgets:
+              - image:
+                  src: icon_camera_18
+                  styles: [lv_style_icon]
+                  align: CENTER
         - button:
             id: home_sleep_btn
             x: 258
@@ -4676,73 +5159,276 @@ lvgl:
                   x: 8
                   y: 6
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line2_lbl
                   x: 8
                   y: 24
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line3_lbl
                   x: 8
                   y: 42
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line4_lbl
                   x: 8
                   y: 60
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line5_lbl
                   x: 8
                   y: 78
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line6_lbl
                   x: 8
                   y: 96
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line7_lbl
                   x: 8
                   y: 114
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line8_lbl
                   x: 8
                   y: 132
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line9_lbl
                   x: 8
                   y: 150
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line10_lbl
                   x: 8
                   y: 168
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line11_lbl
                   x: 8
                   y: 186
                   width: 286
+                  long_mode: DOT
                   text: "--"
               - label:
                   id: weather_details_line12_lbl
                   x: 8
                   y: 204
                   width: 286
+                  long_mode: DOT
                   text: "--"
+
+    - id: cameras_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 48
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: home_page
+            widgets:
+              - image:
+                  src: icon_home_18
+                  styles: [lv_style_icon]
+                  align: CENTER
+        - label:
+            id: cameras_title_lbl
+            x: 62
+            y: 10
+            width: 186
+            text: "Cameras"
+        - button:
+            x: 252
+            y: 6
+            width: 28
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: camera_refresh_all
+            widgets:
+              - image:
+                  src: icon_refresh_18
+                  styles: [lv_style_icon]
+                  align: CENTER
+        - button:
+            x: 284
+            y: 6
+            width: 28
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: camera_toggle_auto_refresh
+            widgets:
+              - label:
+                  id: camera_auto_btn_lbl
+                  text: "A"
+                  align: CENTER
+        - obj:
+            x: 8
+            y: 36
+            width: 304
+            height: 96
+            styles: [lv_style_card]
+        - label:
+            id: camera_slot_1_name_lbl
+            x: 12
+            y: 40
+            width: 180
+            text: "Camera 1"
+        - image:
+            x: 12
+            y: 58
+            src: camera_slot_1_image
+        - label:
+            id: camera_slot_1_status_lbl
+            x: 172
+            y: 58
+            width: 134
+            long_mode: DOT
+            text: "Cam1: --"
+        - button:
+            x: 172
+            y: 100
+            width: 134
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: camera_open_detail
+                  slot: 0
+            widgets:
+              - label:
+                  text: "Open"
+                  align: CENTER
+        - obj:
+            id: camera_slot_2_card
+            x: 8
+            y: 136
+            width: 304
+            height: 96
+            styles: [lv_style_card]
+        - label:
+            id: camera_slot_2_name_lbl
+            x: 12
+            y: 140
+            width: 180
+            text: "Camera 2"
+        - image:
+            id: camera_slot_2_img
+            x: 12
+            y: 158
+            src: camera_slot_2_image
+        - label:
+            id: camera_slot_2_status_lbl
+            x: 172
+            y: 158
+            width: 134
+            long_mode: DOT
+            text: "Cam2: --"
+        - button:
+            id: camera_slot_2_open_btn
+            x: 172
+            y: 200
+            width: 134
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: camera_open_detail
+                  slot: 1
+            widgets:
+              - label:
+                  text: "Open"
+                  align: CENTER
+
+    - id: camera_detail_page
+      styles: [lv_style_screen]
+      widgets:
+        - button:
+            x: 8
+            y: 6
+            width: 48
+            height: 26
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - lvgl.page.show: cameras_page
+            widgets:
+              - label:
+                  text: "Back"
+                  align: CENTER
+        - label:
+            id: camera_detail_title_lbl
+            x: 64
+            y: 10
+            width: 184
+            text: "Camera"
+        - button:
+            x: 252
+            y: 6
+            width: 60
+            height: 26
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: camera_refresh_all
+            widgets:
+              - label:
+                  text: "Refresh"
+                  align: CENTER
+        - obj:
+            x: 8
+            y: 36
+            width: 304
+            height: 178
+            styles: [lv_style_card]
+        - image:
+            id: camera_detail_img_slot1
+            x: 12
+            y: 44
+            src: camera_slot_1_image
+        - image:
+            id: camera_detail_img_slot2
+            x: 12
+            y: 44
+            hidden: true
+            src: camera_slot_2_image
+        - label:
+            id: camera_detail_status_lbl
+            x: 12
+            y: 216
+            width: 296
+            long_mode: DOT
+            text: "State --"
 
     - id: climate_page
       styles: [lv_style_screen]
@@ -4894,12 +5580,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_single
+                  id: climate_request_adjust
+                  zone: 0
                   delta: -1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_single
+                  id: climate_request_adjust
+                  zone: 0
                   delta: -1
                   immediate: false
             widgets:
@@ -4916,12 +5604,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_single
+                  id: climate_request_adjust
+                  zone: 0
                   delta: 1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_single
+                  id: climate_request_adjust
+                  zone: 0
                   delta: 1
                   immediate: false
             widgets:
@@ -4951,12 +5641,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_heat
+                  id: climate_request_adjust
+                  zone: 1
                   delta: -1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_heat
+                  id: climate_request_adjust
+                  zone: 1
                   delta: -1
                   immediate: false
             widgets:
@@ -4973,12 +5665,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_heat
+                  id: climate_request_adjust
+                  zone: 1
                   delta: 1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_heat
+                  id: climate_request_adjust
+                  zone: 1
                   delta: 1
                   immediate: false
             widgets:
@@ -5008,12 +5702,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_cool
+                  id: climate_request_adjust
+                  zone: 2
                   delta: -1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_cool
+                  id: climate_request_adjust
+                  zone: 2
                   delta: -1
                   immediate: false
             widgets:
@@ -5030,12 +5726,14 @@ lvgl:
             group: nav_group
             on_click:
               - script.execute:
-                  id: climate_adjust_cool
+                  id: climate_request_adjust
+                  zone: 2
                   delta: 1
                   immediate: true
             on_long_press_repeat:
               - script.execute:
-                  id: climate_adjust_cool
+                  id: climate_request_adjust
+                  zone: 2
                   delta: 1
                   immediate: false
             widgets:
@@ -5758,19 +6456,29 @@ lvgl:
                   x: 8
                   y: 42
                   width: 194
+                  long_mode: DOT
                   text: "Weather source hidden"
               - label:
                   id: settings_diag_gps_lbl
                   x: 8
                   y: 86
                   width: 194
+                  long_mode: DOT
                   text: "GPS waiting..."
               - label:
                   id: settings_diag_climate_lbl
                   x: 8
                   y: 130
                   width: 194
+                  long_mode: DOT
                   text: "Climate commit age 0s"
+              - label:
+                  id: settings_diag_activity_lbl
+                  x: 8
+                  y: 168
+                  width: 194
+                  long_mode: DOT
+                  text: "Activity --"
 
     - id: theme_page
       styles: [lv_style_screen]

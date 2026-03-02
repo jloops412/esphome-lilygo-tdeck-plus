@@ -30,6 +30,7 @@ touchscreen:
             id(touch_x_last) = touch.x;
             id(touch_y_last) = touch.y;
             id(touch_active) = true;
+            id(touch_last_ms) = esphome::millis();
         - if:
             condition:
               lambda: "return id(touch_cal_mode);"
@@ -174,3 +175,4 @@ touchscreen:
               - script.execute: lvgl_update_dynamic
         - lambda: |-
             id(touch_active) = false;
+            id(touch_last_ms) = esphome::millis();

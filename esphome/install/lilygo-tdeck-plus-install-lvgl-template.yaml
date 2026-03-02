@@ -22,6 +22,16 @@ substitutions:
   screensaver_keyboard_repeat_suppress_ms: "1200"
   screensaver_keyboard_activity_min_interval_ms: "250"
   home_dynamic_weather_icon: "true"
+  # Optional cameras (set camera_slot_count to 0, 1, or 2)
+  camera_slot_count: "0"
+  camera_slot_1_name: "Front Door"
+  camera_slot_2_name: "Outdoor"
+  camera_slot_1_entity: "camera.replace_me_front_door"
+  camera_slot_2_entity: "camera.replace_me_outdoor"
+  camera_refresh_interval_s: "60"
+  camera_snapshot_enable: "true"
+  camera_snapshot_dir: "/config/www/tdeck"
+  ha_base_url: "http://homeassistant.local:8123"
   light_name_foyer: "Foyer"
   light_name_vanity: "Vanity"
   light_name_bedroom: "Bedroom"
@@ -83,7 +93,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "v0.18.3-reliability-core"
+    ref: "v0.19.0-ui-camera-admin-v1"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

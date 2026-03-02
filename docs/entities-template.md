@@ -3,7 +3,7 @@
 Use this pattern to map your Home Assistant entity IDs into substitutions.
 
 If you want an easy prefilled starting point, see:
-`esphome/install/entity-overrides.jloops.yaml`
+`esphome/install/personal/jloops/entity-overrides.yaml`
 
 ## How to use
 
@@ -85,6 +85,17 @@ substitutions:
   entity_sensi_fan_support_switch: "switch.replace_me_sensi_fan_support"
   entity_sensi_humidification_switch: "switch.replace_me_sensi_humidification"
   entity_sensi_keypad_lockout_switch: "switch.replace_me_sensi_keypad_lockout"
+
+  # Optional camera snapshots
+  camera_slot_count: "0"
+  camera_slot_1_name: "Front Door"
+  camera_slot_2_name: "Outdoor"
+  camera_slot_1_entity: "camera.replace_me_front_door"
+  camera_slot_2_entity: "camera.replace_me_outdoor"
+  camera_refresh_interval_s: "60"
+  camera_snapshot_enable: "true"
+  camera_snapshot_dir: "/config/www/tdeck"
+  ha_base_url: "http://homeassistant.local:8123"
 ```
 
 ## Notes
