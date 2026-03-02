@@ -69,6 +69,46 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: climate_mode_effective
+    type: std::string
+    restore_value: no
+    initial_value: '"auto"'
+
+  - id: climate_ack_pending
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: climate_ack_deadline_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: climate_last_command_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: climate_last_requested_single
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+
+  - id: climate_last_requested_heat
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+
+  - id: climate_last_requested_cool
+    type: float
+    restore_value: no
+    initial_value: "-10000"
+
+  - id: climate_out_of_sync
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
   - id: app_units_mode
     type: int
     restore_value: yes
@@ -83,6 +123,11 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"ha-default"'
+
+  - id: home_weather_icon_bucket
+    type: int
+    restore_value: no
+    initial_value: "0"
 
   - id: settings_section_index
     type: int
@@ -407,6 +452,16 @@ globals:
     restore_value: no
     initial_value: "0"
 
+  - id: kb_last_activity_key
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: kb_last_activity_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
   - id: kb_last_text_buf
     type: std::string
     restore_value: no
@@ -533,6 +588,16 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: "0"
+
+  - id: last_activity_source
+    type: std::string
+    restore_value: no
+    initial_value: '"boot"'
+
+  - id: last_activity_code
+    type: int
+    restore_value: no
+    initial_value: "-1"
 
   - id: tb_last_nav_ms
     type: uint32_t

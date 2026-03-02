@@ -16,12 +16,7 @@ interval:
             return;
           }
 
-          if (id(wake_on_keyboard)) {
-            id(last_activity_ms) = esphome::millis();
-            if (id(screensaver_active)) {
-              id(wake_display).execute();
-            }
-          }
+          id(activity_note_keyboard).execute((int) key);
 
           if (key == 0x1B) {
             id(kb_alt_pending) = true;

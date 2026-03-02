@@ -36,6 +36,14 @@ substitutions:
   light_slot_7_entity: "light.replace_me_slot7"
   light_slot_8_entity: "light.replace_me_slot8"
 
+  climate_ack_timeout_ms: "12000"
+  climate_resync_guard_ms: "8000"
+  climate_tolerance_f: "1"
+  climate_tolerance_c_tenths: "5"
+  screensaver_keyboard_repeat_suppress_ms: "1200"
+  screensaver_keyboard_activity_min_interval_ms: "250"
+  home_dynamic_weather_icon: "true"
+
   entity_wx_main: "weather.replace_me"
   entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
   entity_wx_weather_sensor: "sensor.replace_me_weather_text"
@@ -352,6 +360,11 @@ text_sensor:
     attribute: hvac_action
     internal: true
   - platform: homeassistant
+    id: sensi_climate_hvac_mode
+    entity_id: ${entity_sensi_climate}
+    attribute: hvac_mode
+    internal: true
+  - platform: homeassistant
     id: sensi_climate_fan_mode
     entity_id: ${entity_sensi_climate}
     attribute: fan_mode
@@ -529,6 +542,26 @@ sensor:
   - platform: homeassistant
     id: sensi_auto_heat_temp
     entity_id: ${entity_sensi_auto_heat_number}
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_target_temperature
+    entity_id: ${entity_sensi_climate}
+    attribute: temperature
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_target_temp_low
+    entity_id: ${entity_sensi_climate}
+    attribute: target_temp_low
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_target_temp_high
+    entity_id: ${entity_sensi_climate}
+    attribute: target_temp_high
+    internal: true
+  - platform: homeassistant
+    id: sensi_climate_current_temperature
+    entity_id: ${entity_sensi_climate}
+    attribute: current_temperature
     internal: true
   - platform: homeassistant
     id: sensi_humidity_offset

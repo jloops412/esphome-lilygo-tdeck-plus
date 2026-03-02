@@ -15,6 +15,13 @@ substitutions:
   climate_temp_max_f: "90"
   climate_auto_band_min_delta_f: "2"
   climate_hold_repeat_ms: "180"
+  climate_ack_timeout_ms: "12000"
+  climate_resync_guard_ms: "8000"
+  climate_tolerance_f: "1"
+  climate_tolerance_c_tenths: "5"
+  screensaver_keyboard_repeat_suppress_ms: "1200"
+  screensaver_keyboard_activity_min_interval_ms: "250"
+  home_dynamic_weather_icon: "true"
   # Personal entity map (easy install path).
   # Public-safe template lives in:
   # esphome/install/entity-overrides.template.yaml
@@ -100,7 +107,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "v0.18.2-theme-color-cast-hotfix"
+    ref: "main"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

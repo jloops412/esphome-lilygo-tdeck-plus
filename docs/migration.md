@@ -110,6 +110,22 @@
     - retained hold-repeat behavior for sustained presses
 61. Theme color compile hotfix:
     - updated LVGL theme style color lambdas to return `lv_color_t` via `lv_color_hex(...)` to satisfy ESPHome 2026.2.2/LVGL type requirements.
+62. Added centralized activity and screensaver reliability path:
+    - new scripts `activity_note`, `activity_note_keyboard`, and `screensaver_tick`
+    - removed direct keyboard writes to `last_activity_ms`
+    - added keyboard noise/repeat suppression substitutions for reliable auto-sleep timing
+63. Climate sync model upgraded with acknowledgment tracking:
+    - new globals for ack deadline/requested targets/out-of-sync state
+    - new scripts: `climate_resolve_mode`, `climate_ack_check`, `climate_force_resync`
+    - climate commits now track command windows and avoid stale HA reseed rollback until ack/timeout
+64. Added Home dynamic weather icon behavior:
+    - home weather tile now supports icon-bucket sync via `home_weather_icon_sync`
+    - controlled by `home_dynamic_weather_icon` substitution
+65. Added climate attribute mirrors in HA package:
+    - `hvac_mode` text attribute
+    - `temperature`, `target_temp_low`, `target_temp_high`, `current_temperature` numeric attributes
+66. Climate Tools now includes explicit `Retry Sync` action when device-side targets drift from HA mirrors.
+67. Weather details row formatting was shortened to reduce text overlap in the scroll panel.
 
 ## Migration steps for existing HA node
 

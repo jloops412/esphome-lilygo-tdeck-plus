@@ -1,23 +1,83 @@
 
 script:
-  - id: note_activity
+  - id: activity_note
+    parameters:
+      source: string
+      code: int
     then:
       - lambda: |-
           uint32_t now = esphome::millis();
-          if (!id(screensaver_active)) {
-            // Ignore very-frequent activity pulses to prevent noisy inputs
-            // from blocking auto-screensaver.
-            if ((now - id(last_activity_note_ms)) < 1500) {
+          uint32_t min_interval = 1200U;
+          if (source == "keyboard") {
+            min_interval = (uint32_t) atoi("${screensaver_keyboard_activity_min_interval_ms}");
+            if (min_interval < 120U) min_interval = 120U;
+          }
+
+          if (id(screensaver_active)) {
+            if (source == "keyboard" && !id(wake_on_keyboard)) {
               return;
             }
+            id(last_activity_source) = source;
+            id(last_activity_code) = code;
+            id(last_activity_note_ms) = now;
+            id(last_activity_ms) = now;
+            id(wake_display).execute();
+            return;
           }
+
+          if ((now - id(last_activity_note_ms)) < min_interval) {
+            return;
+          }
+
+          id(last_activity_source) = source;
+          id(last_activity_code) = code;
           id(last_activity_note_ms) = now;
           id(last_activity_ms) = now;
-      - if:
-          condition:
-            lambda: "return id(screensaver_active);"
-          then:
-            - script.execute: wake_display
+
+  - id: activity_note_keyboard
+    parameters:
+      key: int
+    then:
+      - lambda: |-
+          if (key <= 0) return;
+          // ESC is ALT-prefix in this keyboard path; do not treat it as activity.
+          if (key == 0x1B) return;
+
+          uint32_t now = esphome::millis();
+          uint32_t repeat_suppress = (uint32_t) atoi("${screensaver_keyboard_repeat_suppress_ms}");
+          if (repeat_suppress < 200U) repeat_suppress = 200U;
+          if (repeat_suppress > 8000U) repeat_suppress = 8000U;
+
+          if (id(kb_last_activity_key) == key &&
+              (now - id(kb_last_activity_ms)) < repeat_suppress) {
+            return;
+          }
+
+          id(kb_last_activity_key) = key;
+          id(kb_last_activity_ms) = now;
+      - script.execute:
+          id: activity_note
+          source: "keyboard"
+          code: !lambda "return key;"
+
+  - id: note_activity
+    then:
+      - script.execute:
+          id: activity_note
+          source: "input"
+          code: 0
+
+  - id: screensaver_tick
+    then:
+      - lambda: |-
+          if (id(screensaver_active) || !id(screensaver_enabled)) return;
+          if (id(touch_active)) return;
+          uint32_t now = esphome::millis();
+          uint32_t timeout_ms = (uint32_t) id(screensaver_timeout_s) * 1000UL;
+          if (timeout_ms < 5000UL) timeout_ms = 5000UL;
+          if ((now - id(last_activity_ms)) >= timeout_ms) {
+            id(sleep_display).execute();
+          }
 
   - id: page_next
     then:
@@ -34,6 +94,8 @@ script:
       - lambda: |-
           uint32_t now = esphome::millis();
           id(screensaver_active) = false;
+          id(last_activity_source) = "wake";
+          id(last_activity_code) = 0;
           id(last_activity_ms) = now;
           id(last_activity_note_ms) = now;
       - light.turn_on:
@@ -1076,12 +1138,14 @@ script:
 
   - id: open_climate
     then:
+      - script.execute: climate_resolve_mode
       - script.execute: climate_ui_seed_from_ha
       - lvgl.page.show: climate_page
       - script.execute: lvgl_update_dynamic
 
   - id: open_climate_tools
     then:
+      - script.execute: climate_resolve_mode
       - script.execute: climate_ui_seed_from_ha
       - lvgl.page.show: climate_tools_page
       - script.execute: lvgl_update_dynamic
@@ -1191,11 +1255,14 @@ script:
       - lvgl.label.update:
           id: settings_diag_climate_lbl
           text: !lambda |-
-            char buf[170];
+            char buf[220];
             uint32_t age = (esphome::millis() - id(climate_last_commit_ms)) / 1000U;
-            snprintf(buf, sizeof(buf), "Climate commit age %lus | pending %s",
+            snprintf(buf, sizeof(buf), "Climate %s | ack %s | age %lus | last %s:%d",
+                     id(climate_out_of_sync) ? "OUT-OF-SYNC" : "OK",
+                     id(climate_ack_pending) ? "wait" : "done",
                      (unsigned long) age,
-                     id(climate_commit_pending) ? "yes" : "no");
+                     id(last_activity_source).c_str(),
+                     id(last_activity_code));
             return std::string(buf);
 
   - id: toggle_weather_diagnostics
@@ -1510,6 +1577,51 @@ script:
       - lvgl.widget.update:
           id: weather_icon_det_partly
           hidden: !lambda "return id(wx_icon_bucket) != 8;"
+      - script.execute: home_weather_icon_sync
+
+  - id: home_weather_icon_sync
+    mode: restart
+    then:
+      - lambda: |-
+          std::string opt = "${home_dynamic_weather_icon}";
+          for (char &c : opt) {
+            if (c >= 'A' && c <= 'Z') c = (char) (c - 'A' + 'a');
+          }
+          if (opt == "false" || opt == "0" || opt == "off" || opt == "no") {
+            id(home_weather_icon_bucket) = 9;
+          } else {
+            id(home_weather_icon_bucket) = id(wx_icon_bucket);
+          }
+      - lvgl.widget.update:
+          id: home_weather_icon_static
+          hidden: !lambda "return id(home_weather_icon_bucket) != 9;"
+      - lvgl.widget.update:
+          id: home_weather_icon_unknown
+          hidden: !lambda "return id(home_weather_icon_bucket) != 0;"
+      - lvgl.widget.update:
+          id: home_weather_icon_sunny
+          hidden: !lambda "return id(home_weather_icon_bucket) != 1;"
+      - lvgl.widget.update:
+          id: home_weather_icon_cloudy
+          hidden: !lambda "return id(home_weather_icon_bucket) != 2;"
+      - lvgl.widget.update:
+          id: home_weather_icon_rain
+          hidden: !lambda "return id(home_weather_icon_bucket) != 3;"
+      - lvgl.widget.update:
+          id: home_weather_icon_storm
+          hidden: !lambda "return id(home_weather_icon_bucket) != 4;"
+      - lvgl.widget.update:
+          id: home_weather_icon_snow
+          hidden: !lambda "return id(home_weather_icon_bucket) != 5;"
+      - lvgl.widget.update:
+          id: home_weather_icon_fog
+          hidden: !lambda "return id(home_weather_icon_bucket) != 6;"
+      - lvgl.widget.update:
+          id: home_weather_icon_windy
+          hidden: !lambda "return id(home_weather_icon_bucket) != 7;"
+      - lvgl.widget.update:
+          id: home_weather_icon_partly
+          hidden: !lambda "return id(home_weather_icon_bucket) != 8;"
 
   - id: weather_update_labels
     mode: restart
@@ -1658,7 +1770,7 @@ script:
           if (wind <= -9000.0f) snprintf(details_5, sizeof(details_5), "Wind: --");
           else snprintf(details_5, sizeof(details_5), "Wind: %.1f %s", wind, wind_unit);
           if (gust <= -9000.0f || dir <= -9000.0f) snprintf(details_6, sizeof(details_6), "Gust/Dir: --");
-          else snprintf(details_6, sizeof(details_6), "Gust: %.1f %s  Dir: %.0f%c %s", gust, wind_unit, dir, 0xB0, dir_txt);
+          else snprintf(details_6, sizeof(details_6), "Gust %.1f %s  Dir %.0f deg %s", gust, wind_unit, dir, dir_txt);
           if (uv <= -9000.0f) snprintf(details_7, sizeof(details_7), "UV: --");
           else snprintf(details_7, sizeof(details_7), "UV: %.2f", uv);
           if (cloud <= -9000.0f) snprintf(details_8, sizeof(details_8), "Cloud: --");
@@ -1668,12 +1780,12 @@ script:
           if (vis <= -9000.0f) snprintf(details_10, sizeof(details_10), "Visibility: --");
           else snprintf(details_10, sizeof(details_10), "Visibility: %.1f %s", vis, vis_unit);
           if (rain <= -9000.0f && snow <= -9000.0f) snprintf(details_11, sizeof(details_11), "Rain/Snow: --");
-          else snprintf(details_11, sizeof(details_11), "Rain %.2f %s | Snow %.2f %s",
+          else snprintf(details_11, sizeof(details_11), "Rain %.2f %s  Snow %.2f %s",
                         rain <= -9000.0f ? 0.0f : rain, precip_unit,
                         snow <= -9000.0f ? 0.0f : snow, precip_unit);
           std::string precip_kind = id(wx_norm_precip_kind);
           if ((int) precip_kind.size() > 14) precip_kind = precip_kind.substr(0, 14) + ".";
-          snprintf(details_12, sizeof(details_12), "Precip: %s | Code: %d", precip_kind.c_str(), id(wx_norm_weather_code));
+          snprintf(details_12, sizeof(details_12), "Precip %s  Code %d", precip_kind.c_str(), id(wx_norm_weather_code));
           snprintf(details_diag, sizeof(details_diag), "%s | %s", source_lbl, gps_lbl);
 
           id(weather_now_temp_text) = std::string(now_temp);
@@ -1784,46 +1896,65 @@ script:
 
   - id: sensi_hvac_mode_off
     then:
+      - lambda: |-
+          id(climate_mode_effective) = "off";
+          id(climate_ack_pending) = false;
+          id(climate_out_of_sync) = false;
+          id(climate_last_command_ms) = esphome::millis();
+          id(climate_ui_dirty) = true;
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "off"
-      - lambda: |-
-          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_heat
     then:
+      - lambda: |-
+          id(climate_mode_effective) = "heat";
+          id(climate_ack_pending) = false;
+          id(climate_out_of_sync) = false;
+          id(climate_last_command_ms) = esphome::millis();
+          id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
+          id(climate_ui_dirty) = true;
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "heat"
-      - lambda: |-
-          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_cool
     then:
+      - lambda: |-
+          id(climate_mode_effective) = "cool";
+          id(climate_ack_pending) = false;
+          id(climate_out_of_sync) = false;
+          id(climate_last_command_ms) = esphome::millis();
+          id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
+          id(climate_ui_dirty) = true;
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "cool"
-      - lambda: |-
-          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_hvac_mode_auto
     then:
+      - lambda: |-
+          id(climate_mode_effective) = "auto";
+          id(climate_ack_pending) = false;
+          id(climate_out_of_sync) = false;
+          id(climate_last_command_ms) = esphome::millis();
+          id(climate_ui_target_single_f) = (id(climate_ui_target_heat_f) + id(climate_ui_target_cool_f)) / 2;
+          id(climate_ui_dirty) = true;
       - homeassistant.action:
           action: climate.set_hvac_mode
           data:
             entity_id: ${entity_sensi_climate}
             hvac_mode: "auto"
-      - lambda: |-
-          id(climate_ui_dirty) = true;
       - script.execute: lvgl_update_dynamic
 
   - id: sensi_toggle_aux_heat
@@ -1874,10 +2005,122 @@ script:
             entity_id: ${entity_sensi_keypad_lockout_switch}
       - script.execute: lvgl_update_dynamic
 
-  - id: climate_ui_seed_from_ha
+  - id: climate_resolve_mode
     mode: restart
     then:
       - lambda: |-
+          auto lower = [](std::string s) -> std::string {
+            for (char &c : s) {
+              if (c >= 'A' && c <= 'Z') c = (char) (c - 'A' + 'a');
+            }
+            return s;
+          };
+
+          std::string mode;
+          if (id(sensi_climate_hvac_mode).has_state()) mode = id(sensi_climate_hvac_mode).state;
+          if (mode.empty() && id(sensi_climate_state).has_state()) mode = id(sensi_climate_state).state;
+          mode = lower(mode);
+
+          if (mode == "heat-cool") mode = "heat_cool";
+          if (mode == "heatcool") mode = "heat_cool";
+
+          bool known = (mode == "off" || mode == "heat" || mode == "cool" || mode == "auto" || mode == "heat_cool");
+          if (!known) {
+            mode = id(climate_mode_effective);
+            if (mode.empty()) mode = "auto";
+          }
+          id(climate_mode_effective) = mode;
+
+  - id: climate_force_resync
+    mode: restart
+    then:
+      - lambda: |-
+          id(climate_ack_pending) = false;
+          id(climate_out_of_sync) = false;
+          id(climate_commit_pending) = false;
+      - script.execute: climate_ui_seed_from_ha
+      - script.execute: climate_update_labels
+      - script.execute: climate_sync_controls
+
+  - id: climate_ack_check
+    mode: restart
+    then:
+      - script.execute: climate_resolve_mode
+      - if:
+          condition:
+            lambda: "return id(climate_ack_pending);"
+          then:
+            - lambda: |-
+                auto absf = [](float v) -> float { return v < 0.0f ? -v : v; };
+                auto native_to_app = [&](float v) -> float {
+                  if (!(v == v)) return -10000.0f;
+                  bool app_metric = id(app_units_mode) == 1;
+                  bool native_metric = false;
+                  if (id(sensi_climate_temperature_unit).has_state()) {
+                    std::string tu = id(sensi_climate_temperature_unit).state;
+                    native_metric = (tu.find("C") != std::string::npos || tu.find("c") != std::string::npos);
+                  }
+                  if (app_metric && !native_metric) v = (v - 32.0f) * (5.0f / 9.0f);
+                  else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
+                  return v;
+                };
+
+                float tol = id(app_units_mode) == 1
+                  ? ((float) atoi("${climate_tolerance_c_tenths}") / 10.0f)
+                  : (float) atoi("${climate_tolerance_f}");
+                if (tol < 0.2f) tol = 0.2f;
+
+                float ha_single = native_to_app(id(sensi_climate_target_temperature).state);
+                float ha_heat = native_to_app(id(sensi_climate_target_temp_low).state);
+                float ha_cool = native_to_app(id(sensi_climate_target_temp_high).state);
+
+                if (ha_heat <= -9000.0f && id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+                  ha_heat = native_to_app(id(sensi_auto_heat_temp).state);
+                }
+                if (ha_cool <= -9000.0f && id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+                  ha_cool = native_to_app(id(sensi_auto_cool_temp).state);
+                }
+
+                bool ack_ok = false;
+                std::string mode = id(climate_mode_effective);
+                if (mode == "auto" || mode == "heat_cool") {
+                  if (ha_heat > -9000.0f && ha_cool > -9000.0f) {
+                    ack_ok = absf(ha_heat - id(climate_last_requested_heat)) <= tol &&
+                             absf(ha_cool - id(climate_last_requested_cool)) <= tol;
+                  }
+                } else {
+                  float expected = id(climate_last_requested_single);
+                  float observed = ha_single;
+                  if (observed <= -9000.0f) {
+                    observed = (mode == "cool") ? ha_cool : ha_heat;
+                  }
+                  if (observed > -9000.0f) {
+                    ack_ok = absf(observed - expected) <= tol;
+                  }
+                }
+
+                uint32_t now = esphome::millis();
+                if (ack_ok) {
+                  id(climate_ack_pending) = false;
+                  id(climate_out_of_sync) = false;
+                  id(climate_ui_dirty) = false;
+                } else if (now >= id(climate_ack_deadline_ms)) {
+                  id(climate_ack_pending) = false;
+                  id(climate_out_of_sync) = true;
+                  id(climate_commit_pending) = false;
+                }
+
+  - id: climate_ui_seed_from_ha
+    mode: restart
+    then:
+      - script.execute: climate_resolve_mode
+      - lambda: |-
+          if (id(climate_ack_pending)) return;
+          if (id(climate_out_of_sync)) return;
+          uint32_t guard_ms = (uint32_t) atoi("${climate_resync_guard_ms}");
+          if (guard_ms < 1000U) guard_ms = 1000U;
+          if ((esphome::millis() - id(climate_last_command_ms)) < guard_ms) return;
+
           int heat = id(climate_ui_target_heat_f);
           int cool = id(climate_ui_target_cool_f);
 
@@ -1895,17 +2138,21 @@ script:
             return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
           };
 
-          if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+          if (id(sensi_climate_target_temp_low).state == id(sensi_climate_target_temp_low).state) {
+            heat = native_to_app(id(sensi_climate_target_temp_low).state);
+          } else if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
             heat = native_to_app(id(sensi_auto_heat_temp).state);
           }
-          if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+          if (id(sensi_climate_target_temp_high).state == id(sensi_climate_target_temp_high).state) {
+            cool = native_to_app(id(sensi_climate_target_temp_high).state);
+          } else if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
             cool = native_to_app(id(sensi_auto_cool_temp).state);
           }
 
           id(climate_ui_target_heat_f) = heat;
           id(climate_ui_target_cool_f) = cool;
 
-          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("auto");
+          std::string mode = id(climate_mode_effective);
           if (mode == "heat") id(climate_ui_target_single_f) = heat;
           else if (mode == "cool") id(climate_ui_target_single_f) = cool;
           else id(climate_ui_target_single_f) = (heat + cool) / 2;
@@ -1971,8 +2218,7 @@ script:
       - if:
           condition:
             lambda: |-
-              if (!id(sensi_climate_state).has_state()) return false;
-              std::string mode = id(sensi_climate_state).state;
+              std::string mode = id(climate_mode_effective);
               return mode == "heat";
           then:
             - homeassistant.action:
@@ -1995,8 +2241,7 @@ script:
       - if:
           condition:
             lambda: |-
-              if (!id(sensi_climate_state).has_state()) return false;
-              std::string mode = id(sensi_climate_state).state;
+              std::string mode = id(climate_mode_effective);
               return mode == "cool";
           then:
             - homeassistant.action:
@@ -2088,12 +2333,23 @@ script:
   - id: climate_commit_targets
     mode: restart
     then:
+      - script.execute: climate_resolve_mode
       - script.execute: climate_ui_clamp_targets
+      - lambda: |-
+          uint32_t now = esphome::millis();
+          uint32_t ack_timeout = (uint32_t) atoi("${climate_ack_timeout_ms}");
+          if (ack_timeout < 2000U) ack_timeout = 2000U;
+          id(climate_last_command_ms) = now;
+          id(climate_ack_deadline_ms) = now + ack_timeout;
+          id(climate_ack_pending) = true;
+          id(climate_out_of_sync) = false;
+          id(climate_last_requested_single) = (float) id(climate_ui_target_single_f);
+          id(climate_last_requested_heat) = (float) id(climate_ui_target_heat_f);
+          id(climate_last_requested_cool) = (float) id(climate_ui_target_cool_f);
       - if:
           condition:
             lambda: |-
-              if (!id(sensi_climate_state).has_state()) return true;
-              std::string mode = id(sensi_climate_state).state;
+              std::string mode = id(climate_mode_effective);
               return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
           then:
             - script.execute: climate_commit_auto_band
@@ -2103,6 +2359,7 @@ script:
           id(climate_last_commit_ms) = esphome::millis();
           id(climate_commit_pending) = false;
           id(climate_ui_dirty) = false;
+      - script.execute: climate_ack_check
       - script.execute: climate_update_labels
       - script.execute: climate_sync_controls
 
@@ -2121,17 +2378,59 @@ script:
           then:
             - script.execute: climate_commit_targets
 
+  - id: climate_commit_dispatch
+    mode: restart
+    then:
+      - script.execute: climate_commit_targets
+
+  - id: climate_request_adjust
+    mode: restart
+    parameters:
+      zone: int
+      delta: int
+      immediate: bool
+    then:
+      - if:
+          condition:
+            lambda: "return zone == 0;"
+          then:
+            - script.execute:
+                id: climate_adjust_single
+                delta: !lambda "return delta;"
+                immediate: !lambda "return immediate;"
+      - if:
+          condition:
+            lambda: "return zone == 1;"
+          then:
+            - script.execute:
+                id: climate_adjust_heat
+                delta: !lambda "return delta;"
+                immediate: !lambda "return immediate;"
+      - if:
+          condition:
+            lambda: "return zone == 2;"
+          then:
+            - script.execute:
+                id: climate_adjust_cool
+                delta: !lambda "return delta;"
+                immediate: !lambda "return immediate;"
+
   - id: climate_adjust_single
     mode: restart
     parameters:
       delta: int
       immediate: bool
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_single_f) += delta;
-          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          std::string mode = id(climate_mode_effective);
           if (mode == "heat") id(climate_ui_target_heat_f) = id(climate_ui_target_single_f);
           if (mode == "cool") id(climate_ui_target_cool_f) = id(climate_ui_target_single_f);
+          if (mode == "auto" || mode == "heat_cool") {
+            id(climate_ui_target_heat_f) += delta;
+            id(climate_ui_target_cool_f) += delta;
+          }
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
       - script.execute: climate_update_labels
@@ -2140,7 +2439,7 @@ script:
           condition:
             lambda: "return immediate;"
           then:
-            - script.execute: climate_commit_targets
+            - script.execute: climate_commit_dispatch
           else:
             - script.execute: climate_commit_debounced
 
@@ -2150,9 +2449,10 @@ script:
       delta: int
       immediate: bool
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_heat_f) += delta;
-          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          std::string mode = id(climate_mode_effective);
           if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
@@ -2162,7 +2462,7 @@ script:
           condition:
             lambda: "return immediate;"
           then:
-            - script.execute: climate_commit_targets
+            - script.execute: climate_commit_dispatch
           else:
             - script.execute: climate_commit_debounced
 
@@ -2172,9 +2472,10 @@ script:
       delta: int
       immediate: bool
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_cool_f) += delta;
-          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          std::string mode = id(climate_mode_effective);
           if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
@@ -2184,7 +2485,7 @@ script:
           condition:
             lambda: "return immediate;"
           then:
-            - script.execute: climate_commit_targets
+            - script.execute: climate_commit_dispatch
           else:
             - script.execute: climate_commit_debounced
 
@@ -2193,42 +2494,45 @@ script:
     parameters:
       val: int
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_heat_f) = val;
-          if (id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "heat") {
+          if (id(climate_mode_effective) == "heat") {
             id(climate_ui_target_single_f) = val;
           }
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
-      - script.execute: climate_commit_targets
+      - script.execute: climate_commit_dispatch
 
   - id: sensi_set_cool_target
     mode: restart
     parameters:
       val: int
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_cool_f) = val;
-          if (id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "cool") {
+          if (id(climate_mode_effective) == "cool") {
             id(climate_ui_target_single_f) = val;
           }
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
-      - script.execute: climate_commit_targets
+      - script.execute: climate_commit_dispatch
 
   - id: sensi_set_single_target
     mode: restart
     parameters:
       val: int
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_target_single_f) = val;
-          std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+          std::string mode = id(climate_mode_effective);
           if (mode == "heat") id(climate_ui_target_heat_f) = val;
           if (mode == "cool") id(climate_ui_target_cool_f) = val;
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_clamp_targets
-      - script.execute: climate_commit_targets
+      - script.execute: climate_commit_dispatch
 
   - id: sensi_heat_down
     then:
@@ -2406,6 +2710,16 @@ script:
                          id(battery_percent).state, id(wifi_signal_tdeck).state);
               }
             }
+            return std::string(buf);
+      - lvgl.label.update:
+          id: home_substatus_lbl
+          text: !lambda |-
+            char buf[160];
+            snprintf(buf, sizeof(buf), "Sleep %ds | Units %s | Last %s:%d",
+                     id(screensaver_timeout_s),
+                     id(app_units_mode) == 1 ? "Metric" : "Imperial",
+                     id(last_activity_source).c_str(),
+                     id(last_activity_code));
             return std::string(buf);
       - lvgl.label.update:
           id: lights_selected_lbl
@@ -2728,9 +3042,12 @@ script:
   - id: climate_update_labels
     mode: restart
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           uint32_t since_commit = esphome::millis() - id(climate_last_commit_ms);
-          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && since_commit > 1500U) {
+          uint32_t guard_ms = (uint32_t) atoi("${climate_resync_guard_ms}");
+          if (guard_ms < 1000U) guard_ms = 1000U;
+          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && !id(climate_ack_pending) && !id(climate_out_of_sync) && since_commit > guard_ms) {
             bool app_metric = id(app_units_mode) == 1;
             bool native_metric = false;
             if (id(sensi_climate_temperature_unit).has_state()) {
@@ -2743,13 +3060,17 @@ script:
               else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
               return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
             };
-            if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+            if (id(sensi_climate_target_temp_low).state == id(sensi_climate_target_temp_low).state) {
+              id(climate_ui_target_heat_f) = native_to_app(id(sensi_climate_target_temp_low).state);
+            } else if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
               id(climate_ui_target_heat_f) = native_to_app(id(sensi_auto_heat_temp).state);
             }
-            if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+            if (id(sensi_climate_target_temp_high).state == id(sensi_climate_target_temp_high).state) {
+              id(climate_ui_target_cool_f) = native_to_app(id(sensi_climate_target_temp_high).state);
+            } else if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
               id(climate_ui_target_cool_f) = native_to_app(id(sensi_auto_cool_temp).state);
             }
-            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+            std::string mode = id(climate_mode_effective);
             if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
             else if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
             else if (mode == "auto" || mode == "heat_cool" || mode == "heat-cool") {
@@ -2760,7 +3081,7 @@ script:
       - lvgl.label.update:
           id: climate_mode_chip_lbl
           text: !lambda |-
-            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("-");
+            std::string mode = id(climate_mode_effective).empty() ? std::string("-") : id(climate_mode_effective);
             return std::string("Mode: ") + mode;
       - lvgl.label.update:
           id: climate_action_chip_lbl
@@ -2777,6 +3098,7 @@ script:
           text: !lambda |-
             char buf[128];
             float t = id(sensi_temperature).state;
+            if (!(t == t)) t = id(sensi_climate_current_temperature).state;
             float h = id(sensi_humidity).state;
             bool app_metric = id(app_units_mode) == 1;
             bool native_metric = false;
@@ -2795,37 +3117,32 @@ script:
       - lvgl.label.update:
           id: climate_mode_off_lbl
           text: !lambda |-
-            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "off";
+            bool active = id(climate_mode_effective) == "off";
             return active ? std::string("[Off]") : std::string("Off");
       - lvgl.label.update:
           id: climate_mode_heat_lbl
           text: !lambda |-
-            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "heat";
+            bool active = id(climate_mode_effective) == "heat";
             return active ? std::string("[Heat]") : std::string("Heat");
       - lvgl.label.update:
           id: climate_mode_cool_lbl
           text: !lambda |-
-            bool active = id(sensi_climate_state).has_state() && id(sensi_climate_state).state == "cool";
+            bool active = id(climate_mode_effective) == "cool";
             return active ? std::string("[Cool]") : std::string("Cool");
       - lvgl.label.update:
           id: climate_mode_auto_lbl
           text: !lambda |-
-            bool active = false;
-            if (id(sensi_climate_state).has_state()) {
-              std::string m = id(sensi_climate_state).state;
-              active = (m == "auto" || m == "heat_cool" || m == "heat-cool");
-            }
+            std::string m = id(climate_mode_effective);
+            bool active = (m == "auto" || m == "heat_cool" || m == "heat-cool");
             return active ? std::string("[Auto]") : std::string("Auto");
       - lvgl.label.update:
           id: climate_single_lbl
           text: !lambda |-
             char buf[64];
             const char *mode_name = "Target";
-            if (id(sensi_climate_state).has_state()) {
-              std::string m = id(sensi_climate_state).state;
-              if (m == "heat") mode_name = "Heat";
-              else if (m == "cool") mode_name = "Cool";
-            }
+            std::string m = id(climate_mode_effective);
+            if (m == "heat") mode_name = "Heat";
+            else if (m == "cool") mode_name = "Cool";
             snprintf(buf, sizeof(buf), "%s %d %s", mode_name, id(climate_ui_target_single_f), id(app_units_mode) == 1 ? "C" : "F");
             return std::string(buf);
       - lvgl.label.update:
@@ -2872,11 +3189,13 @@ script:
       - lvgl.label.update:
           id: climate_diag_lbl
           text: !lambda |-
-            char buf[170];
+            char buf[220];
             uint32_t age = (esphome::millis() - id(climate_last_commit_ms)) / 1000U;
-            snprintf(buf, sizeof(buf), "Last commit %lus  Pending %s  Band %d%s",
+            snprintf(buf, sizeof(buf), "Commit %lus  pend %s ack %s sync %s  Band %d%s",
                      (unsigned long) age,
                      id(climate_commit_pending) ? "YES" : "NO",
+                     id(climate_ack_pending) ? "YES" : "NO",
+                     id(climate_out_of_sync) ? "OUT" : "OK",
                      id(climate_ui_target_cool_f) - id(climate_ui_target_heat_f),
                      id(app_units_mode) == 1 ? "C" : "F");
             return std::string(buf);
@@ -2884,10 +3203,13 @@ script:
   - id: climate_sync_controls
     mode: restart
     then:
+      - script.execute: climate_resolve_mode
       - lambda: |-
           id(climate_ui_sync_in_progress) = true;
           uint32_t since_commit = esphome::millis() - id(climate_last_commit_ms);
-          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && since_commit > 1500U) {
+          uint32_t guard_ms = (uint32_t) atoi("${climate_resync_guard_ms}");
+          if (guard_ms < 1000U) guard_ms = 1000U;
+          if (!id(climate_ui_dirty) && !id(climate_commit_pending) && !id(climate_ack_pending) && !id(climate_out_of_sync) && since_commit > guard_ms) {
             bool app_metric = id(app_units_mode) == 1;
             bool native_metric = false;
             if (id(sensi_climate_temperature_unit).has_state()) {
@@ -2900,13 +3222,17 @@ script:
               else if (!app_metric && native_metric) v = (v * (9.0f / 5.0f)) + 32.0f;
               return (int) (v + (v >= 0.0f ? 0.5f : -0.5f));
             };
-            if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
+            if (id(sensi_climate_target_temp_low).state == id(sensi_climate_target_temp_low).state) {
+              id(climate_ui_target_heat_f) = native_to_app(id(sensi_climate_target_temp_low).state);
+            } else if (id(sensi_auto_heat_temp).state == id(sensi_auto_heat_temp).state) {
               id(climate_ui_target_heat_f) = native_to_app(id(sensi_auto_heat_temp).state);
             }
-            if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
+            if (id(sensi_climate_target_temp_high).state == id(sensi_climate_target_temp_high).state) {
+              id(climate_ui_target_cool_f) = native_to_app(id(sensi_climate_target_temp_high).state);
+            } else if (id(sensi_auto_cool_temp).state == id(sensi_auto_cool_temp).state) {
               id(climate_ui_target_cool_f) = native_to_app(id(sensi_auto_cool_temp).state);
             }
-            std::string mode = id(sensi_climate_state).has_state() ? id(sensi_climate_state).state : std::string("");
+            std::string mode = id(climate_mode_effective);
             if (mode == "heat") id(climate_ui_target_single_f) = id(climate_ui_target_heat_f);
             else if (mode == "cool") id(climate_ui_target_single_f) = id(climate_ui_target_cool_f);
             else if (mode == "auto" || mode == "heat_cool" || mode == "heat-cool") {
@@ -2917,74 +3243,62 @@ script:
       - lvgl.widget.update:
           id: climate_single_card
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return false;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
       - lvgl.widget.update:
           id: climate_single_lbl
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return false;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
       - lvgl.widget.update:
           id: climate_single_minus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return false;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
       - lvgl.widget.update:
           id: climate_single_plus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return false;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return mode == "auto" || mode == "heat_cool" || mode == "heat-cool";
       - lvgl.widget.update:
           id: climate_auto_heat_card
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_heat_lbl
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_heat_minus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_heat_plus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_cool_card
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_cool_lbl
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_cool_minus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lvgl.widget.update:
           id: climate_auto_cool_plus_btn
           hidden: !lambda |-
-            if (!id(sensi_climate_state).has_state()) return true;
-            std::string mode = id(sensi_climate_state).state;
+            std::string mode = id(climate_mode_effective);
             return !(mode == "auto" || mode == "heat_cool" || mode == "heat-cool");
       - lambda: |-
           id(climate_ui_sync_in_progress) = false;
@@ -3061,6 +3375,7 @@ script:
     then:
       - script.execute: lvgl_update_labels
       - script.execute: climate_update_labels
+      - script.execute: home_weather_icon_sync
       - script.execute: settings_section_show
       - script.execute: lvgl_sync_nonlight_controls
       - script.execute: lvgl_sync_lights_controls
@@ -3069,14 +3384,8 @@ script:
 interval:
   - interval: 1s
     then:
-      - lambda: |-
-          uint32_t now = esphome::millis();
-          uint32_t idle_ms = now - id(last_activity_ms);
-          if (id(screensaver_enabled) && !id(screensaver_active)) {
-            if (idle_ms >= (uint32_t) id(screensaver_timeout_s) * 1000UL) {
-              id(sleep_display).execute();
-            }
-          }
+      - script.execute: screensaver_tick
+      - script.execute: climate_ack_check
 
   - interval: 2s
     then:
@@ -3086,6 +3395,17 @@ interval:
           then:
             - script.execute: lvgl_update_labels
             - script.execute: climate_update_labels
+            - script.execute: home_weather_icon_sync
+
+  - interval: 15s
+    then:
+      - if:
+          condition:
+            lambda: "return !id(screensaver_active);"
+          then:
+            - script.execute: weather_update_model
+            - script.execute: weather_update_icon
+            - script.execute: weather_update_labels
 
   - interval: 220ms
     then:
@@ -3130,10 +3450,12 @@ lvgl:
       - script.execute: apply_theme
       - script.execute: theme_sync_editor_from_token
       - script.execute: resolve_selected_light_target
+      - script.execute: climate_resolve_mode
       - script.execute: climate_ui_seed_from_ha
       - script.execute: app_units_init_from_ha
       - script.execute: weather_update_model
       - script.execute: weather_update_icon
+      - script.execute: home_weather_icon_sync
       - script.execute: settings_section_show
       - script.execute: diagnostics_update_labels
       - lvgl.widget.focus: home_lights_btn
@@ -3202,8 +3524,14 @@ lvgl:
             id: home_status_lbl
             x: 12
             y: 8
-            width: 240
+            width: 236
             text: "Status"
+        - label:
+            id: home_substatus_lbl
+            x: 12
+            y: 24
+            width: 236
+            text: "Sleep 45s | Units Imperial"
         - button:
             id: home_sleep_btn
             x: 258
@@ -3246,7 +3574,62 @@ lvgl:
               - lvgl.page.show: weather_page
             widgets:
               - image:
+                  id: home_weather_icon_static
                   src: icon_weather_30
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_unknown
+                  src: icon_wx_unknown_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_sunny
+                  src: icon_wx_sunny_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_partly
+                  src: icon_wx_partly_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_cloudy
+                  src: icon_wx_cloudy_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_rain
+                  src: icon_wx_rain_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_storm
+                  src: icon_wx_storm_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_snow
+                  src: icon_wx_snow_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_fog
+                  src: icon_wx_fog_28
+                  hidden: true
+                  styles: [lv_style_icon]
+                  align: CENTER
+              - image:
+                  id: home_weather_icon_windy
+                  src: icon_wx_windy_28
+                  hidden: true
                   styles: [lv_style_icon]
                   align: CENTER
         - button:
@@ -4882,8 +5265,22 @@ lvgl:
             id: climate_tools_status_lbl
             x: 12
             y: 198
-            width: 296
+            width: 206
             text: "feature states"
+        - button:
+            id: climate_retry_sync_btn
+            x: 224
+            y: 198
+            width: 84
+            height: 18
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: climate_force_resync
+            widgets:
+              - label:
+                  text: "Retry Sync"
+                  align: CENTER
         - label:
             id: climate_diag_lbl
             x: 12

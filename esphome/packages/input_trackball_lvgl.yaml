@@ -17,7 +17,10 @@ binary_sensor:
             condition:
               lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "trackball"
+                  code: 1
 
   - platform: gpio
     id: tb_up
@@ -38,7 +41,10 @@ binary_sensor:
             condition:
               lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "trackball"
+                  code: 2
 
   - platform: gpio
     id: tb_left
@@ -58,7 +64,10 @@ binary_sensor:
             condition:
               lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "trackball"
+                  code: 3
 
   - platform: gpio
     id: tb_down
@@ -78,7 +87,10 @@ binary_sensor:
             condition:
               lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "trackball"
+                  code: 4
 
   - platform: gpio
     id: tb_click
@@ -99,4 +111,7 @@ binary_sensor:
             condition:
               lambda: "return id(wake_on_trackball) && (id(screensaver_active) || (esphome::millis() - id(last_activity_note_ms) > 1800));"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "trackball"
+                  code: 5

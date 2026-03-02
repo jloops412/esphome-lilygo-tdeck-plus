@@ -12,6 +12,56 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
+## Current in-progress pass (`v0.18.3-reliability-core`, not tagged yet)
+1. Screensaver reliability:
+   - Added centralized activity scripts:
+     - `activity_note(source, code)`
+     - `activity_note_keyboard(key)`
+     - `screensaver_tick`
+   - Keyboard input no longer writes `last_activity_ms` directly.
+   - Added keyboard noise suppression via substitutions:
+     - `screensaver_keyboard_repeat_suppress_ms`
+     - `screensaver_keyboard_activity_min_interval_ms`
+   - Added activity diagnostics globals:
+     - `last_activity_source`
+     - `last_activity_code`
+     - `kb_last_activity_key`
+     - `kb_last_activity_ms`
+2. Climate reliability and sync integrity:
+   - Added mode-resolution script `climate_resolve_mode` (hvac-mode attribute first, with fallbacks).
+   - Added ack/resync model:
+     - `climate_ack_pending`
+     - `climate_ack_deadline_ms`
+     - `climate_last_command_ms`
+     - `climate_last_requested_single`
+     - `climate_last_requested_heat`
+     - `climate_last_requested_cool`
+     - `climate_out_of_sync`
+   - Added scripts:
+     - `climate_ack_check`
+     - `climate_force_resync`
+     - `climate_commit_dispatch` (compat wrapper)
+   - Added `Retry Sync` button on `climate_tools_page`.
+   - Added climate attribute mirrors in `ha_entities.yaml`:
+     - `sensi_climate_hvac_mode`
+     - `sensi_climate_target_temperature`
+     - `sensi_climate_target_temp_low`
+     - `sensi_climate_target_temp_high`
+     - `sensi_climate_current_temperature`
+3. Home dynamic weather icon:
+   - Added weather icon stack on Home weather tile.
+   - Added `home_weather_icon_sync` script to map normalized weather bucket to home icon visibility.
+   - Added `home_dynamic_weather_icon` substitution toggle.
+4. Weather details formatting:
+   - Shortened details row strings to reduce overlap risk in the scroll container.
+5. Install/template/profile updates:
+   - Added reliability substitutions to:
+     - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+     - `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
+     - `esphome/install/entity-overrides.template.yaml`
+     - `esphome/profiles/lvgl_experimental.yaml`
+   - Switched LVGL install/template package ref to `main` for active-development testing.
+
 ## Current released pass (`v0.18.0-settings-theme-weather-pass1`)
 1. Weather page cleanup:
    - removed visible source diagnostics text from `weather_page` and `weather_details_page`.

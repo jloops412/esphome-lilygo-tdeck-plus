@@ -34,6 +34,24 @@
 
 Unreleased on `main` (candidate next tag):
 
+- `v0.18.3-reliability-core` candidate:
+  - screensaver reliability:
+    - centralized activity path (`activity_note`, `activity_note_keyboard`)
+    - keyboard repeat/noise suppression (`screensaver_keyboard_repeat_suppress_ms`, `screensaver_keyboard_activity_min_interval_ms`)
+    - dedicated `screensaver_tick` script for timeout enforcement
+  - climate reliability:
+    - added resolved mode state (`climate_mode_effective`) with hvac-mode-first fallback
+    - added command ack/out-of-sync tracking (`climate_ack_pending`, deadline, requested targets)
+    - added `climate_ack_check` loop and `Retry Sync` action in Climate Tools
+    - added climate attribute mirrors (`temperature`, `target_temp_low/high`, `current_temperature`, `hvac_mode`)
+  - home weather icon:
+    - dynamic weather icon stack on Home weather tile driven by normalized weather bucket
+    - controlled by `home_dynamic_weather_icon`
+  - install/template updates:
+    - added new reliability substitutions to LVGL install/template/override/profile files
+  - weather details:
+    - reduced row string length to avoid scroll-container text overlap
+
 - settings/theme/weather cleanup + climate click reliability pass:
   - Weather pages:
     - removed visible `Source ...` diagnostics text from overview/details

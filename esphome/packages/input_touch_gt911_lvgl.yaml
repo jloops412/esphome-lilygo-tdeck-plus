@@ -20,7 +20,10 @@ touchscreen:
             condition:
               lambda: "return id(wake_on_touch);"
             then:
-              - script.execute: note_activity
+              - script.execute:
+                  id: activity_note
+                  source: "touch"
+                  code: 1
         - lambda: |-
             id(touch_raw_x_last) = touch.x_raw;
             id(touch_raw_y_last) = touch.y_raw;

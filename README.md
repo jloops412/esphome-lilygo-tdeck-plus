@@ -28,6 +28,31 @@ Current priorities:
 5. Maintain a single drop-in install YAML for ESPHome/HA.
 6. Keep app-wide units user-selectable with first-boot HA unit-system bootstrap.
 
+## Latest Pass (Unreleased)
+
+1. Reliability-first fixes:
+   - Added centralized activity tracking scripts (`activity_note`, `activity_note_keyboard`) and keyboard repeat suppression to stop false idle resets.
+   - Replaced direct keyboard writes to `last_activity_ms`; keyboard wake/sleep now flows through the same guarded activity path as touch/trackball.
+   - Added `screensaver_tick` script and moved timeout checks to that path for consistent auto-sleep behavior.
+2. Climate control hardening:
+   - Added resolved mode state (`climate_mode_effective`) from `hvac_mode` attribute fallback chain.
+   - Added ack/resync state (`climate_ack_pending`, deadlines, requested targets, out-of-sync flag) to prevent stale HA mirror rollback after rapid `+/-` presses.
+   - Added `Retry Sync` action in Climate Tools (`climate_force_resync`).
+   - Added climate attribute mirrors (`temperature`, `target_temp_low/high`, `current_temperature`) for stronger thermostat-side synchronization.
+3. Home weather icon:
+   - Added dynamic weather icon stack to Home weather tile.
+   - Home tile icon now follows normalized weather bucket via `home_weather_icon_sync`.
+4. Weather/detail polish:
+   - Shortened weather detail row formatting to reduce overlap risk in the scroll container.
+5. New tuning substitutions:
+   - `climate_ack_timeout_ms`
+   - `climate_resync_guard_ms`
+   - `climate_tolerance_f`
+   - `climate_tolerance_c_tenths`
+   - `screensaver_keyboard_repeat_suppress_ms`
+   - `screensaver_keyboard_activity_min_interval_ms`
+   - `home_dynamic_weather_icon`
+
 ## Install
 
 Stable install YAML:
