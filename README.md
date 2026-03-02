@@ -63,6 +63,7 @@ LVGL beta install YAML (parallel track):
 
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 - `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml` (public tokenized template)
+- Current pinned LVGL tag: `v0.18.3-reliability-core`
 
 Each install YAML pulls modular files from this repo by configured Git ref.
 Install YAMLs now set `packages.refresh: 1min` to minimize stale package-cache issues during active development.

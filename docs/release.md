@@ -31,26 +31,9 @@
 - `v0.18.0-settings-theme-weather-pass1`: weather diagnostics cleanup on weather pages, scroll-safe weather details, full Settings list/detail IA rebuild, token-based Theme Studio rebuild, and climate `+/-` click reliability hardening.
 - `v0.18.1-settings-screensaver-hotfix`: adds missing `toggle_screensaver_enabled` script ID used by rebuilt settings page.
 - `v0.18.2-theme-color-cast-hotfix`: fixes LVGL compile errors by casting theme style color lambdas to `lv_color_t` using `lv_color_hex(...)`.
+- `v0.18.3-reliability-core`: screensaver keyboard-noise guard, climate ack/resync reliability model, climate retry sync action, and dynamic home weather icon mapping.
 
 Unreleased on `main` (candidate next tag):
-
-- `v0.18.3-reliability-core` candidate:
-  - screensaver reliability:
-    - centralized activity path (`activity_note`, `activity_note_keyboard`)
-    - keyboard repeat/noise suppression (`screensaver_keyboard_repeat_suppress_ms`, `screensaver_keyboard_activity_min_interval_ms`)
-    - dedicated `screensaver_tick` script for timeout enforcement
-  - climate reliability:
-    - added resolved mode state (`climate_mode_effective`) with hvac-mode-first fallback
-    - added command ack/out-of-sync tracking (`climate_ack_pending`, deadline, requested targets)
-    - added `climate_ack_check` loop and `Retry Sync` action in Climate Tools
-    - added climate attribute mirrors (`temperature`, `target_temp_low/high`, `current_temperature`, `hvac_mode`)
-  - home weather icon:
-    - dynamic weather icon stack on Home weather tile driven by normalized weather bucket
-    - controlled by `home_dynamic_weather_icon`
-  - install/template updates:
-    - added new reliability substitutions to LVGL install/template/override/profile files
-  - weather details:
-    - reduced row string length to avoid scroll-container text overlap
 
 - settings/theme/weather cleanup + climate click reliability pass:
   - Weather pages:
