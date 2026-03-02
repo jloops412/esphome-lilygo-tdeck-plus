@@ -18,10 +18,17 @@
 - admin-center generator scaffold in `tools/admin-center`
 - docs refreshed and normalized
 
+## Hotfix candidate after `v0.19.0-ui-camera-admin-v1`
+
+- `select.template` compatibility fix for ESPHome 2026.2.2:
+  - removed `optimistic` and `initial_option` from template selects that use `lambda`
+  - affected IDs:
+    - `lvgl_units_mode_select`
+    - `lvgl_theme_icon_mode_select`
+
 ## Tagging process
 
 1. Merge to `main`.
 2. Create new tag (recommended next: `v0.19.0-ui-camera-admin-v1`).
 3. Update install YAML `ref` to the release tag.
 4. Publish release summary with migration notes.
-

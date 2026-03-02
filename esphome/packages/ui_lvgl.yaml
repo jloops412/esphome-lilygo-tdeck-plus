@@ -3787,11 +3787,9 @@ select:
   - platform: template
     id: lvgl_units_mode_select
     name: "${friendly_name} UI Units Mode"
-    optimistic: true
     options:
       - Imperial
       - Metric
-    initial_option: Imperial
     lambda: |-
       return id(app_units_mode) == 1 ? std::string("Metric") : std::string("Imperial");
     set_action:
@@ -3806,11 +3804,9 @@ select:
   - platform: template
     id: lvgl_theme_icon_mode_select
     name: "${friendly_name} UI Icon Color Mode"
-    optimistic: true
     options:
       - Text
       - Accent
-    initial_option: Text
     lambda: |-
       return id(theme_icon_mode) == 0 ? std::string("Text") : std::string("Accent");
     set_action:

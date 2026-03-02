@@ -39,6 +39,14 @@
    - Rewrote README and core docs (`architecture`, `migration`, `release`).
    - Added `docs/cameras.md` and `docs/admin-center.md`.
 
+## Post-pass hotfix (ESPHome 2026.2.2 config validation)
+
+1. Fixed `select.template` schema errors in `ui_lvgl.yaml`:
+   - removed `optimistic` and `initial_option` from selects that also use `lambda`.
+2. This resolves:
+   - `optimistic cannot be used with lambda`
+   - `initial_value cannot be used with lambda`
+
 ## Known constraints
 
 - Local environment here does not have `esphome` CLI, so no local compile gate was run in this pass.
@@ -55,4 +63,3 @@
 3. Tag and pin release:
    - suggested tag `v0.19.0-ui-camera-admin-v1`
    - then set install YAML package `ref` to that tag.
-
