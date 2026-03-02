@@ -78,6 +78,13 @@ script:
           value: !lambda "return id(screensaver_timeout_s);"
       - script.execute: lvgl_update_dynamic
 
+  - id: toggle_screensaver_enabled
+    mode: restart
+    then:
+      - lambda: |-
+          id(screensaver_enabled) = !id(screensaver_enabled);
+      - script.execute: lvgl_update_dynamic
+
   - id: toggle_wake_touch
     then:
       - lambda: |-
