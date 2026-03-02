@@ -28,8 +28,28 @@
 - `v0.15.1-lvgl-lighting-gps-kb-controls`: lights quick-action redesign, climate preset removal, stronger keyboard-backlight controls, and GPS status reliability pass.
 - `v0.16.0-lvgl-focused-light-ux-pass`: keyboard-backlight firmware controls removed from LVGL path, light controller rebuilt around arc/switch/roller elements, and climate mode actions moved to bottom rail.
 - `v0.17.0-units-weather-pass1`: app-wide units, weather overview/details rebuild, hybrid weather adapter, local weather icon mapping, and climate unit-aware display/commit behavior.
+- `v0.18.0-settings-theme-weather-pass1`: weather diagnostics cleanup on weather pages, scroll-safe weather details, full Settings list/detail IA rebuild, token-based Theme Studio rebuild, and climate `+/-` click reliability hardening.
 
 Unreleased on `main` (candidate next tag):
+
+- settings/theme/weather cleanup + climate click reliability pass:
+  - Weather pages:
+    - removed visible `Source ...` diagnostics text from overview/details
+    - details page now uses a scroll-safe metric container with explicit non-overlapping row spacing
+  - Settings page:
+    - rebuilt to category `List + Detail` architecture (`System`, `Display`, `Input`, `Units`, `Diagnostics`)
+    - diagnostics controls now include weather-source visibility toggle and consolidated diagnostics labels
+  - Theme page:
+    - rebuilt to token-based `Theme Studio` (no preset-cycle UI)
+    - added per-token RGB editing with live preview swatch, HEX readout, apply/revert flow
+    - kept icon-mode + shape controls in the same page
+  - climate reliability:
+    - changed climate-controller and climate-tools `+/-` controls from `on_short_click` to `on_click`
+    - retained long-press repeat behavior
+  - LVGL wiring fixes:
+    - added missing `toggle_weather_diagnostics` script
+    - added `lv_style_theme_preview` style used by Theme Studio preview
+    - boot/dynamic path now syncs settings section visibility and theme editor state
 
 - app-wide units + weather framework pass:
   - added persisted app-wide unit model (`imperial/metric`) with first-boot HA bootstrap from `sensor.unit_system`

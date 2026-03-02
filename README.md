@@ -58,8 +58,9 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
    - color cluster: `Warm`, `Cool`, and `Color Studio`
    - `Color Studio` now uses a modern swatch matrix + selection ring + apply action + Kelvin slider (commit on release)
 3. `Weather`: rebuilt two-page LVGL flow:
-   - `Weather` overview card with local mapped condition icons, current temp/condition/feels/H-L, compact metric chips, and source/GPS diagnostics
-   - `Weather Details` page with full metric lines (dew, precip, weather code, gust, direction, pressure, visibility, rain/snow intensity, etc.)
+   - `Weather` overview card with local mapped condition icons, current temp/condition/feels/H-L, compact metric chips, and unit/GPS status
+   - weather source diagnostics are now hidden from weather pages and surfaced under `Settings > Diagnostics`
+   - `Weather Details` page uses a scroll-safe metrics container (no overlapping lines) for dew, precip, weather code, gust, direction, pressure, visibility, rain/snow intensity, etc.
    - hybrid data adapter keeps `weather.openweathermap` primary while falling back to dedicated sensors/attributes
 4. `Climate Controller`: full rebuild with controller-first layout:
    - top status chips (`Mode`, `Action`, `Fan`) + large indoor readout card
@@ -73,12 +74,19 @@ Install YAML package refs are quoted strings (for example `ref: "main"`). If pin
    - feature toggles (aux heat, display humidity/time, fan support, humidification, keypad lockout)
    - diagnostics lines for feature-state summary and climate commit status
 6. `Reader`: source list with live preview snippets for BBC/DC/Loudoun/Word/Quote.
-7. `Settings`: wake behavior, saver timing, app-wide unit toggle (`Metric`/`Imperial`), calibration, and reboot confirmation flow.
-8. `Theme`: expanded palette set (`Midnight`, `Slate`, `Ember`, `Moss`, `Mono`, `Dusk`, `Ocean`), accent color chooser, icon color mode (`White`/`Accent`), display brightness, and shape controls (button/card border width + corner radius).
+7. `Settings`: rebuilt to a category `List + Detail` layout:
+   - categories: `System`, `Display`, `Input`, `Units`, `Diagnostics`
+   - includes unit toggle/source, sleep/brightness controls, wake/calibration controls, and diagnostics-only weather source visibility toggle
+8. `Theme`: rebuilt to a token-based `Theme Studio`:
+   - no preset-cycle UI
+   - editable tokens: `Screen BG`, `Surface`, `Surface Alt`, `Action`, `Action Soft`, `Text Primary`, `Text Dim`, `Success`, `Warning`
+   - per-token RGB editor with live swatch, HEX readout, apply/revert
+   - keeps shape controls (border width/radius) and icon color mode toggle
 9. `Weather diagnostics`: weather model now normalizes hybrid weather inputs, handles unknown values safely, and maps condition icons locally (no remote icon URLs).
 10. `Sleep/input hardening`: auto-sleep now ignores ultra-frequent input chatter and trackball repeat behavior is constrained for better stability.
 11. `LVGL sync hardening`: periodic UI updates are label-only; control widgets sync through guarded scripts to avoid script-loop contention.
 12. `Climate reliability model`: optimistic local setpoints + mode-aware HA commits + debounced hold-repeat commits to avoid stale HA mirror tap misses.
+13. `Climate +/- click reliability`: climate controller and climate tools `+/-` controls now use `on_click` + long-press repeat for more deterministic tap handling on this target.
 
 ## Quick keyboard shortcuts
 

@@ -93,6 +93,21 @@
     - `docs/ha-element-framework.md`
     - `docs/component-reference-checklist.md`
     - `esphome/templates/ha-elements/*`
+56. Weather cleanup pass:
+    - removed weather source text from weather overview/details visible UI
+    - moved weather source visibility to `Settings > Diagnostics` only
+57. Weather details layout hardening:
+    - rebuilt details area as a scroll-safe container with fixed vertical metric rows
+    - expanded to 12 non-overlapping lines
+58. Settings IA rebuild:
+    - replaced fixed-grid settings with category `List + Detail`
+    - categories now: `System`, `Display`, `Input`, `Units`, `Diagnostics`
+59. Theme Studio rebuild:
+    - removed preset-cycle controls from active theme UI
+    - introduced token-based color editing with RGB sliders, HEX readout, live swatch, apply/revert
+60. Climate `+/-` reliability hardening:
+    - switched climate-controller and climate-tools `+/-` taps to `on_click`
+    - retained hold-repeat behavior for sustained presses
 
 ## Migration steps for existing HA node
 

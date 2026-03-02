@@ -84,6 +84,16 @@ globals:
     restore_value: no
     initial_value: '"ha-default"'
 
+  - id: settings_section_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: show_weather_diagnostics
+    type: bool
+    restore_value: yes
+    initial_value: "false"
+
   - id: wx_norm_temp_c
     type: float
     restore_value: no
@@ -228,10 +238,114 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"--"'
+  - id: weather_details_line7_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line8_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line9_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line10_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line11_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
+  - id: weather_details_line12_text
+    type: std::string
+    restore_value: no
+    initial_value: '"--"'
   - id: weather_details_diag_text
     type: std::string
     restore_value: no
     initial_value: '"--"'
+
+  - id: theme_token_index
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: theme_token_screen_bg
+    type: int
+    restore_value: yes
+    initial_value: "0x090D12"
+
+  - id: theme_token_surface
+    type: int
+    restore_value: yes
+    initial_value: "0x131A24"
+
+  - id: theme_token_surface_alt
+    type: int
+    restore_value: yes
+    initial_value: "0x151E2A"
+
+  - id: theme_token_action
+    type: int
+    restore_value: yes
+    initial_value: "0x1B2533"
+
+  - id: theme_token_action_soft
+    type: int
+    restore_value: yes
+    initial_value: "0x4A7CD6"
+
+  - id: theme_token_text_primary
+    type: int
+    restore_value: yes
+    initial_value: "0xF2F5FA"
+
+  - id: theme_token_text_dim
+    type: int
+    restore_value: yes
+    initial_value: "0xDDE8F3"
+
+  - id: theme_token_ok
+    type: int
+    restore_value: yes
+    initial_value: "0x1C2B24"
+
+  - id: theme_token_warn
+    type: int
+    restore_value: yes
+    initial_value: "0x2F1D22"
+
+  - id: theme_ui_sync_in_progress
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: theme_edit_r
+    type: int
+    restore_value: no
+    initial_value: "27"
+
+  - id: theme_edit_g
+    type: int
+    restore_value: no
+    initial_value: "37"
+
+  - id: theme_edit_b
+    type: int
+    restore_value: no
+    initial_value: "51"
+
+  - id: theme_hex_text
+    type: std::string
+    restore_value: no
+    initial_value: '"#1B2533"'
+
+  - id: theme_preview_text
+    type: std::string
+    restore_value: no
+    initial_value: '"RGB 27/37/51"'
 
   - id: theme_index
     type: int

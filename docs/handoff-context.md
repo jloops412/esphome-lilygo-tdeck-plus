@@ -12,6 +12,32 @@
 2. Every code change must update `docs/handoff-context.md` in the same iteration.
 3. Never close a work pass without docs + handoff parity.
 
+## Current in-progress pass (weather cleanup + settings/theme rebuild + climate tap reliability, not tagged yet)
+1. Weather page cleanup:
+   - removed visible source diagnostics text from `weather_page` and `weather_details_page`.
+   - weather source remains available for diagnostics only via `Settings > Diagnostics`.
+2. Weather details layout hardening:
+   - rebuilt details into a scrollable metrics container with 12 fixed rows.
+   - removed overlapping footer text pattern; rows are vertically spaced and scroll-safe.
+3. Settings full rebuild:
+   - replaced legacy settings grid with category `List + Detail` architecture:
+     - `System`, `Display`, `Input`, `Units`, `Diagnostics`.
+   - section routing/state managed by persisted `settings_section_index`.
+4. Theme full rebuild:
+   - switched to token-based `Theme Studio` editing model.
+   - added per-token RGB editor state globals + HEX readout + live swatch.
+   - removed preset-cycle theme controls from active UI (legacy globals retained for transition compatibility).
+5. Climate `+/-` reliability follow-up:
+   - climate controller `+/-` controls use `on_click` + hold-repeat.
+   - climate tools offset `+/-` controls also moved from `on_short_click` to `on_click`.
+6. Wiring/boot fixes:
+   - added missing `toggle_weather_diagnostics` script implementation.
+   - added missing `lv_style_theme_preview` style.
+   - boot path now syncs:
+     - `theme_sync_editor_from_token`
+     - `settings_section_show`
+     - diagnostics labels.
+
 ## Current in-progress pass (app-wide units + weather UX/framework, not tagged yet)
 1. App-wide units system:
    - Added persisted globals:

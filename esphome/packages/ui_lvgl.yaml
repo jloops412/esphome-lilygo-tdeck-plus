@@ -611,18 +611,25 @@ script:
       - script.execute: lvgl_update_dynamic
 
   - id: theme_prev
+    mode: restart
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 6) % 7;
-      - script.execute: apply_theme
+          id(theme_token_index) = (id(theme_token_index) + 8) % 9;
+          id(theme_index) = id(theme_token_index) % 7;
+      - script.execute: theme_sync_editor_from_token
+      - script.execute: lvgl_update_labels
 
   - id: theme_next
+    mode: restart
     then:
       - lambda: |-
-          id(theme_index) = (id(theme_index) + 1) % 7;
-      - script.execute: apply_theme
+          id(theme_token_index) = (id(theme_token_index) + 1) % 9;
+          id(theme_index) = id(theme_token_index) % 7;
+      - script.execute: theme_sync_editor_from_token
+      - script.execute: lvgl_update_labels
 
   - id: theme_accent_set
+    mode: restart
     parameters:
       idx: int
     then:
@@ -630,26 +637,38 @@ script:
           if (idx < 0) idx = 0;
           if (idx > 4) idx = 4;
           id(theme_accent_index) = idx;
-      - script.execute: apply_theme_accent
-      - script.execute: apply_theme_shape
-      - script.execute: lvgl_update_dynamic
+          if (idx == 0) {
+            id(theme_token_action_soft) = 0x4A7CD6;
+          } else if (idx == 1) {
+            id(theme_token_action_soft) = 0x56A66C;
+          } else if (idx == 2) {
+            id(theme_token_action_soft) = 0xC48B3D;
+          } else if (idx == 3) {
+            id(theme_token_action_soft) = 0xB66F8E;
+          } else {
+            id(theme_token_action_soft) = 0x8F979F;
+          }
+      - script.execute: theme_apply_tokens
 
   - id: theme_accent_next
+    mode: restart
     then:
       - lambda: |-
           id(theme_accent_index) = (id(theme_accent_index) + 1) % 5;
-      - script.execute: apply_theme_accent
-      - script.execute: apply_theme_shape
-      - script.execute: lvgl_update_dynamic
+      - script.execute:
+          id: theme_accent_set
+          idx: !lambda "return id(theme_accent_index);"
 
   - id: theme_icon_mode_toggle
+    mode: restart
     then:
       - lambda: |-
           id(theme_icon_mode) = (id(theme_icon_mode) + 1) % 2;
       - script.execute: apply_theme_icon
-      - script.execute: lvgl_update_dynamic
+      - script.execute: lvgl_update_labels
 
   - id: set_theme_border_width
+    mode: restart
     parameters:
       val: int
     then:
@@ -658,9 +677,10 @@ script:
           if (val > 4) val = 4;
           id(theme_border_width) = val;
       - script.execute: apply_theme_shape
-      - script.execute: lvgl_update_dynamic
+      - script.execute: lvgl_update_labels
 
   - id: set_theme_radius
+    mode: restart
     parameters:
       val: int
     then:
@@ -669,7 +689,190 @@ script:
           if (val > 16) val = 16;
           id(theme_radius) = val;
       - script.execute: apply_theme_shape
-      - script.execute: lvgl_update_dynamic
+      - script.execute: lvgl_update_labels
+
+  - id: theme_select_token
+    mode: restart
+    parameters:
+      idx: int
+    then:
+      - lambda: |-
+          if (idx < 0) idx = 0;
+          if (idx > 8) idx = 8;
+          id(theme_token_index) = idx;
+      - script.execute: theme_sync_editor_from_token
+      - script.execute: lvgl_update_labels
+
+  - id: theme_sync_editor_from_token
+    mode: restart
+    then:
+      - lambda: |-
+          int color = id(theme_token_screen_bg);
+          switch (id(theme_token_index)) {
+            case 0: color = id(theme_token_screen_bg); break;
+            case 1: color = id(theme_token_surface); break;
+            case 2: color = id(theme_token_surface_alt); break;
+            case 3: color = id(theme_token_action); break;
+            case 4: color = id(theme_token_action_soft); break;
+            case 5: color = id(theme_token_text_primary); break;
+            case 6: color = id(theme_token_text_dim); break;
+            case 7: color = id(theme_token_ok); break;
+            default: color = id(theme_token_warn); break;
+          }
+          id(theme_ui_sync_in_progress) = true;
+          id(theme_edit_r) = (color >> 16) & 0xFF;
+          id(theme_edit_g) = (color >> 8) & 0xFF;
+          id(theme_edit_b) = color & 0xFF;
+      - lvgl.slider.update:
+          id: theme_r_slider
+          value: !lambda "return id(theme_edit_r);"
+      - lvgl.slider.update:
+          id: theme_g_slider
+          value: !lambda "return id(theme_edit_g);"
+      - lvgl.slider.update:
+          id: theme_b_slider
+          value: !lambda "return id(theme_edit_b);"
+      - lambda: |-
+          id(theme_ui_sync_in_progress) = false;
+      - script.execute: theme_update_hex_and_preview
+
+  - id: theme_editor_set_rgb
+    mode: restart
+    parameters:
+      channel: int
+      val: int
+    then:
+      - if:
+          condition:
+            lambda: "return !id(theme_ui_sync_in_progress);"
+          then:
+            - lambda: |-
+                if (val < 0) val = 0;
+                if (val > 255) val = 255;
+                if (channel == 0) id(theme_edit_r) = val;
+                else if (channel == 1) id(theme_edit_g) = val;
+                else id(theme_edit_b) = val;
+            - script.execute: theme_update_hex_and_preview
+
+  - id: theme_editor_step_rgb
+    mode: restart
+    parameters:
+      channel: int
+      delta: int
+    then:
+      - lambda: |-
+          int v = 0;
+          if (channel == 0) v = id(theme_edit_r);
+          else if (channel == 1) v = id(theme_edit_g);
+          else v = id(theme_edit_b);
+          v += delta;
+          if (v < 0) v = 0;
+          if (v > 255) v = 255;
+          if (channel == 0) id(theme_edit_r) = v;
+          else if (channel == 1) id(theme_edit_g) = v;
+          else id(theme_edit_b) = v;
+      - lvgl.slider.update:
+          id: theme_r_slider
+          value: !lambda "return id(theme_edit_r);"
+      - lvgl.slider.update:
+          id: theme_g_slider
+          value: !lambda "return id(theme_edit_g);"
+      - lvgl.slider.update:
+          id: theme_b_slider
+          value: !lambda "return id(theme_edit_b);"
+      - script.execute: theme_update_hex_and_preview
+
+  - id: theme_editor_apply_to_token
+    mode: restart
+    then:
+      - lambda: |-
+          int color = ((id(theme_edit_r) & 0xFF) << 16) |
+                      ((id(theme_edit_g) & 0xFF) << 8) |
+                      (id(theme_edit_b) & 0xFF);
+          switch (id(theme_token_index)) {
+            case 0: id(theme_token_screen_bg) = color; break;
+            case 1: id(theme_token_surface) = color; break;
+            case 2: id(theme_token_surface_alt) = color; break;
+            case 3: id(theme_token_action) = color; break;
+            case 4: id(theme_token_action_soft) = color; break;
+            case 5: id(theme_token_text_primary) = color; break;
+            case 6: id(theme_token_text_dim) = color; break;
+            case 7: id(theme_token_ok) = color; break;
+            default: id(theme_token_warn) = color; break;
+          }
+      - script.execute: theme_apply_tokens
+      - script.execute: theme_sync_editor_from_token
+      - script.execute: lvgl_update_labels
+
+  - id: theme_editor_revert_token
+    mode: restart
+    then:
+      - script.execute: theme_sync_editor_from_token
+      - script.execute: lvgl_update_labels
+
+  - id: theme_update_hex_and_preview
+    mode: restart
+    then:
+      - lambda: |-
+          if (id(theme_edit_r) < 0) id(theme_edit_r) = 0;
+          if (id(theme_edit_r) > 255) id(theme_edit_r) = 255;
+          if (id(theme_edit_g) < 0) id(theme_edit_g) = 0;
+          if (id(theme_edit_g) > 255) id(theme_edit_g) = 255;
+          if (id(theme_edit_b) < 0) id(theme_edit_b) = 0;
+          if (id(theme_edit_b) > 255) id(theme_edit_b) = 255;
+          char hex_buf[16];
+          char prev_buf[48];
+          snprintf(hex_buf, sizeof(hex_buf), "#%02X%02X%02X", id(theme_edit_r), id(theme_edit_g), id(theme_edit_b));
+          snprintf(prev_buf, sizeof(prev_buf), "RGB %d / %d / %d", id(theme_edit_r), id(theme_edit_g), id(theme_edit_b));
+          id(theme_hex_text) = std::string(hex_buf);
+          id(theme_preview_text) = std::string(prev_buf);
+      - lvgl.label.update:
+          id: theme_hex_lbl
+          text: !lambda "return id(theme_hex_text);"
+      - lvgl.label.update:
+          id: theme_preview_lbl
+          text: !lambda "return id(theme_preview_text);"
+      - lvgl.style.update:
+          id: lv_style_theme_preview
+          bg_color: !lambda "return ((id(theme_edit_r) & 0xFF) << 16) | ((id(theme_edit_g) & 0xFF) << 8) | (id(theme_edit_b) & 0xFF);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+
+  - id: theme_apply_tokens
+    mode: restart
+    then:
+      - lvgl.style.update:
+          id: lv_style_screen
+          bg_color: !lambda "return id(theme_token_screen_bg);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - lvgl.style.update:
+          id: lv_style_card
+          bg_color: !lambda "return id(theme_token_surface);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - lvgl.style.update:
+          id: lv_style_btn
+          bg_color: !lambda "return id(theme_token_action);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - lvgl.style.update:
+          id: lv_style_btn_soft
+          bg_color: !lambda "return id(theme_token_surface_alt);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - lvgl.style.update:
+          id: lv_style_btn_ok
+          bg_color: !lambda "return id(theme_token_ok);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - lvgl.style.update:
+          id: lv_style_btn_warn
+          bg_color: !lambda "return id(theme_token_warn);"
+          border_color: !lambda "return id(theme_token_action_soft);"
+          text_color: !lambda "return id(theme_token_text_primary);"
+      - script.execute: apply_theme_shape
+      - script.execute: apply_theme_icon
+      - script.execute: theme_update_hex_and_preview
+      - script.execute: lvgl_update_labels
 
   - id: apply_theme_shape
     then:
@@ -757,305 +960,17 @@ script:
             - lvgl.style.update: { id: lv_style_btn_ok, radius: 16 }
 
   - id: apply_theme
+    mode: restart
     then:
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 0;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x090D12
-                text_color: 0xF2F5FA
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x131A24
-                border_color: 0x2A3647
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x1B2533
-                border_color: 0x4A6B93
-                text_color: 0xF2F5FA
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x151E2A
-                border_color: 0x34475F
-                text_color: 0xDFE8F3
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x2F1D22
-                border_color: 0x7B4A57
-                text_color: 0xFDEEF2
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x1C2B24
-                border_color: 0x4A7B62
-                text_color: 0xE9F8EF
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 1;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x091017
-                text_color: 0xEAF3FA
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x102131
-                border_color: 0x2D4C68
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x173149
-                border_color: 0x4A7CA6
-                text_color: 0xEAF3FA
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x132A3F
-                border_color: 0x3B6184
-                text_color: 0xDDEAF7
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x2E2420
-                border_color: 0x7C5B4D
-                text_color: 0xF8ECE4
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x17312D
-                border_color: 0x3E7B73
-                text_color: 0xE6F7F4
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 2;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x140F0A
-                text_color: 0xFDF1E4
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x241A12
-                border_color: 0x705638
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x352518
-                border_color: 0x8B663F
-                text_color: 0xFDF1E4
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x2C2015
-                border_color: 0x6F5235
-                text_color: 0xF5E6D5
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x3A231E
-                border_color: 0x8A4A3F
-                text_color: 0xFAECE8
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x2A2815
-                border_color: 0x6D7140
-                text_color: 0xF3F5E2
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 3;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x0D120F
-                text_color: 0xEEF7F1
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x16201A
-                border_color: 0x3C5846
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x1C2D23
-                border_color: 0x5A8B6C
-                text_color: 0xEEF7F1
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x19261E
-                border_color: 0x466754
-                text_color: 0xDDEDE3
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x332522
-                border_color: 0x835D50
-                text_color: 0xFAEDE9
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x1A3126
-                border_color: 0x4C8768
-                text_color: 0xE7F8EE
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 4;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x070808
-                text_color: 0xF1F3F3
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x111313
-                border_color: 0x3A3F40
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x191B1C
-                border_color: 0x6A7172
-                text_color: 0xF1F3F3
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x151718
-                border_color: 0x4E5556
-                text_color: 0xDDE2E2
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x322626
-                border_color: 0x7D5C5C
-                text_color: 0xFAF0F0
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x213126
-                border_color: 0x59806B
-                text_color: 0xE8F6EE
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 5;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x0E0B10
-                text_color: 0xF7F0FF
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x1A1520
-                border_color: 0x4D3B5E
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x261D30
-                border_color: 0x8A67A8
-                text_color: 0xF7F0FF
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x21192A
-                border_color: 0x634B78
-                text_color: 0xEADDF8
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x3C2126
-                border_color: 0x9A4C5A
-                text_color: 0xFFECEF
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x1D2F2A
-                border_color: 0x4F8E7D
-                text_color: 0xEAFBF6
-      - if:
-          condition:
-            lambda: "return id(theme_index) == 6;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_screen
-                bg_color: 0x071116
-                text_color: 0xEAF9FF
-            - lvgl.style.update:
-                id: lv_style_card
-                bg_color: 0x0D222B
-                border_color: 0x2E5C70
-            - lvgl.style.update:
-                id: lv_style_btn
-                bg_color: 0x12313F
-                border_color: 0x3F88A8
-                text_color: 0xEAF9FF
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                bg_color: 0x102933
-                border_color: 0x2E637A
-                text_color: 0xDDF1FA
-            - lvgl.style.update:
-                id: lv_style_btn_warn
-                bg_color: 0x362723
-                border_color: 0x8B5E52
-                text_color: 0xFBF0EC
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                bg_color: 0x16342F
-                border_color: 0x3E8B7D
-                text_color: 0xE5F9F5
-      - script.execute: apply_theme_accent
-      - script.execute: apply_theme_shape
-      - script.execute: lvgl_update_dynamic
+      - script.execute: theme_apply_tokens
 
   - id: apply_theme_accent
+    mode: restart
     then:
-      - if:
-          condition:
-            lambda: "return id(theme_accent_index) == 0;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_btn
-                border_color: 0x4A7CD6
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                border_color: 0x355E99
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                border_color: 0x4F8AD8
-      - if:
-          condition:
-            lambda: "return id(theme_accent_index) == 1;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_btn
-                border_color: 0x56A66C
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                border_color: 0x3E7B51
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                border_color: 0x69BC7E
-      - if:
-          condition:
-            lambda: "return id(theme_accent_index) == 2;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_btn
-                border_color: 0xC48B3D
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                border_color: 0x8E6532
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                border_color: 0xD6A24E
-      - if:
-          condition:
-            lambda: "return id(theme_accent_index) == 3;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_btn
-                border_color: 0xB66F8E
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                border_color: 0x8D4F6B
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                border_color: 0xC98AA6
-      - if:
-          condition:
-            lambda: "return id(theme_accent_index) == 4;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_btn
-                border_color: 0x7C838A
-            - lvgl.style.update:
-                id: lv_style_btn_soft
-                border_color: 0x5A6168
-            - lvgl.style.update:
-                id: lv_style_btn_ok
-                border_color: 0x8F979F
-      - script.execute: apply_theme_icon
+      - script.execute: theme_apply_tokens
 
   - id: apply_theme_icon
+    mode: restart
     then:
       - if:
           condition:
@@ -1063,47 +978,15 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_icon
-                image_recolor: 0xF2F6FF
+                image_recolor: !lambda "return id(theme_token_text_primary);"
                 image_recolor_opa: 100%
       - if:
           condition:
-            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 0;"
+            lambda: "return id(theme_icon_mode) == 1;"
           then:
             - lvgl.style.update:
                 id: lv_style_icon
-                image_recolor: 0x4A7CD6
-                image_recolor_opa: 100%
-      - if:
-          condition:
-            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 1;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_icon
-                image_recolor: 0x56A66C
-                image_recolor_opa: 100%
-      - if:
-          condition:
-            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 2;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_icon
-                image_recolor: 0xC48B3D
-                image_recolor_opa: 100%
-      - if:
-          condition:
-            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 3;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_icon
-                image_recolor: 0xB66F8E
-                image_recolor_opa: 100%
-      - if:
-          condition:
-            lambda: "return id(theme_icon_mode) == 1 && id(theme_accent_index) == 4;"
-          then:
-            - lvgl.style.update:
-                id: lv_style_icon
-                image_recolor: 0xB8BFC6
+                image_recolor: !lambda "return id(theme_token_action_soft);"
                 image_recolor_opa: 100%
 
   - id: open_detail_bbc
@@ -1202,6 +1085,8 @@ script:
       - script.execute: weather_update_model
       - script.execute: weather_update_icon
       - script.execute: weather_update_labels
+      - script.execute: weather_details_layout_refresh
+      - script.execute: weather_details_scroll_top
 
   - id: app_units_set_metric
     then:
@@ -1270,6 +1155,98 @@ script:
           id(climate_ui_dirty) = true;
       - script.execute: climate_ui_seed_from_ha
       - script.execute: lvgl_update_dynamic
+
+  - id: weather_details_layout_refresh
+    mode: restart
+    then:
+      - script.execute: weather_update_labels
+
+  - id: weather_details_scroll_top
+    mode: restart
+    then:
+      - lambda: |-
+          // LVGL page show normally resets scroll on this target.
+          // Keep a no-op script id for explicit contract/shortcut hooks.
+
+  - id: diagnostics_update_labels
+    mode: restart
+    then:
+      - lvgl.label.update:
+          id: settings_diag_weather_lbl
+          text: !lambda |-
+            if (!id(show_weather_diagnostics)) {
+              return std::string("Weather source hidden");
+            }
+            return id(weather_source_text);
+      - lvgl.label.update:
+          id: settings_diag_gps_lbl
+          text: !lambda "return id(weather_gps_text);"
+      - lvgl.label.update:
+          id: settings_diag_climate_lbl
+          text: !lambda |-
+            char buf[170];
+            uint32_t age = (esphome::millis() - id(climate_last_commit_ms)) / 1000U;
+            snprintf(buf, sizeof(buf), "Climate commit age %lus | pending %s",
+                     (unsigned long) age,
+                     id(climate_commit_pending) ? "yes" : "no");
+            return std::string(buf);
+
+  - id: toggle_weather_diagnostics
+    mode: restart
+    then:
+      - lambda: |-
+          id(show_weather_diagnostics) = !id(show_weather_diagnostics);
+      - script.execute: diagnostics_update_labels
+      - script.execute: lvgl_update_labels
+
+  - id: settings_section_show
+    mode: restart
+    then:
+      - lvgl.widget.update:
+          id: settings_panel_system
+          hidden: !lambda "return id(settings_section_index) != 0;"
+      - lvgl.widget.update:
+          id: settings_panel_display
+          hidden: !lambda "return id(settings_section_index) != 1;"
+      - lvgl.widget.update:
+          id: settings_panel_input
+          hidden: !lambda "return id(settings_section_index) != 2;"
+      - lvgl.widget.update:
+          id: settings_panel_units
+          hidden: !lambda "return id(settings_section_index) != 3;"
+      - lvgl.widget.update:
+          id: settings_panel_diag
+          hidden: !lambda "return id(settings_section_index) != 4;"
+      - lvgl.label.update:
+          id: settings_cat_system_lbl
+          text: !lambda "return id(settings_section_index) == 0 ? std::string(\"[System]\") : std::string(\"System\");"
+      - lvgl.label.update:
+          id: settings_cat_display_lbl
+          text: !lambda "return id(settings_section_index) == 1 ? std::string(\"[Display]\") : std::string(\"Display\");"
+      - lvgl.label.update:
+          id: settings_cat_input_lbl
+          text: !lambda "return id(settings_section_index) == 2 ? std::string(\"[Input]\") : std::string(\"Input\");"
+      - lvgl.label.update:
+          id: settings_cat_units_lbl
+          text: !lambda "return id(settings_section_index) == 3 ? std::string(\"[Units]\") : std::string(\"Units\");"
+      - lvgl.label.update:
+          id: settings_cat_diag_lbl
+          text: !lambda "return id(settings_section_index) == 4 ? std::string(\"[Diag]\") : std::string(\"Diag\");"
+      - script.execute: diagnostics_update_labels
+
+  - id: settings_section_next
+    mode: restart
+    then:
+      - lambda: |-
+          id(settings_section_index) = (id(settings_section_index) + 1) % 5;
+      - script.execute: settings_section_show
+
+  - id: settings_section_prev
+    mode: restart
+    then:
+      - lambda: |-
+          id(settings_section_index) = (id(settings_section_index) + 4) % 5;
+      - script.execute: settings_section_show
 
   - id: weather_update_model
     mode: restart
@@ -1605,6 +1582,12 @@ script:
           char details_4[96];
           char details_5[96];
           char details_6[96];
+          char details_7[96];
+          char details_8[96];
+          char details_9[96];
+          char details_10[96];
+          char details_11[96];
+          char details_12[96];
           char details_diag[160];
           char units_lbl[64];
           char source_lbl[180];
@@ -1660,16 +1643,30 @@ script:
           }
 
           snprintf(units_lbl, sizeof(units_lbl), "Units: %s", id(app_units_mode) == 1 ? "Metric" : "Imperial");
-          snprintf(details_1, sizeof(details_1), "Temp %s | %s", now_temp, now_feels);
-          if (dew <= -9000.0f) snprintf(details_2, sizeof(details_2), "Dew -- | %s", hilo);
-          else snprintf(details_2, sizeof(details_2), "Dew %.1f%s | %s", dew, temp_unit, hilo);
-          snprintf(details_3, sizeof(details_3), "%s | %s | %s | %s", chip_h, chip_w, chip_u, chip_c);
-          if (gust <= -9000.0f || dir <= -9000.0f) snprintf(details_4, sizeof(details_4), "Gust -- | Dir --");
-          else snprintf(details_4, sizeof(details_4), "Gust %.1f %s | Dir %.0f%c %s", gust, wind_unit, dir, 0xB0, dir_txt);
-          if (press <= -9000.0f || vis <= -9000.0f) snprintf(details_5, sizeof(details_5), "Pressure/Visibility unavailable");
-          else snprintf(details_5, sizeof(details_5), "Pressure %.2f %s | Visibility %.1f %s", press, press_unit, vis, vis_unit);
-          if (rain <= -9000.0f || snow <= -9000.0f) snprintf(details_6, sizeof(details_6), "Precip -- | Kind %s | Code %d", id(wx_norm_precip_kind).c_str(), id(wx_norm_weather_code));
-          else snprintf(details_6, sizeof(details_6), "Rain %.2f %s | Snow %.2f %s | Kind %s | Code %d", rain, precip_unit, snow, precip_unit, id(wx_norm_precip_kind).c_str(), id(wx_norm_weather_code));
+          snprintf(details_1, sizeof(details_1), "Temp: %s", now_temp);
+          snprintf(details_2, sizeof(details_2), "%s", now_feels);
+          snprintf(details_3, sizeof(details_3), "High/Low: %s", hilo);
+          if (hum <= -9000.0f) snprintf(details_4, sizeof(details_4), "Humidity: --");
+          else snprintf(details_4, sizeof(details_4), "Humidity: %.0f%%", hum);
+          if (wind <= -9000.0f) snprintf(details_5, sizeof(details_5), "Wind: --");
+          else snprintf(details_5, sizeof(details_5), "Wind: %.1f %s", wind, wind_unit);
+          if (gust <= -9000.0f || dir <= -9000.0f) snprintf(details_6, sizeof(details_6), "Gust/Dir: --");
+          else snprintf(details_6, sizeof(details_6), "Gust: %.1f %s  Dir: %.0f%c %s", gust, wind_unit, dir, 0xB0, dir_txt);
+          if (uv <= -9000.0f) snprintf(details_7, sizeof(details_7), "UV: --");
+          else snprintf(details_7, sizeof(details_7), "UV: %.2f", uv);
+          if (cloud <= -9000.0f) snprintf(details_8, sizeof(details_8), "Cloud: --");
+          else snprintf(details_8, sizeof(details_8), "Cloud: %.0f%%", cloud);
+          if (press <= -9000.0f) snprintf(details_9, sizeof(details_9), "Pressure: --");
+          else snprintf(details_9, sizeof(details_9), "Pressure: %.2f %s", press, press_unit);
+          if (vis <= -9000.0f) snprintf(details_10, sizeof(details_10), "Visibility: --");
+          else snprintf(details_10, sizeof(details_10), "Visibility: %.1f %s", vis, vis_unit);
+          if (rain <= -9000.0f && snow <= -9000.0f) snprintf(details_11, sizeof(details_11), "Rain/Snow: --");
+          else snprintf(details_11, sizeof(details_11), "Rain %.2f %s | Snow %.2f %s",
+                        rain <= -9000.0f ? 0.0f : rain, precip_unit,
+                        snow <= -9000.0f ? 0.0f : snow, precip_unit);
+          std::string precip_kind = id(wx_norm_precip_kind);
+          if ((int) precip_kind.size() > 14) precip_kind = precip_kind.substr(0, 14) + ".";
+          snprintf(details_12, sizeof(details_12), "Precip: %s | Code: %d", precip_kind.c_str(), id(wx_norm_weather_code));
           snprintf(details_diag, sizeof(details_diag), "%s | %s", source_lbl, gps_lbl);
 
           id(weather_now_temp_text) = std::string(now_temp);
@@ -1685,6 +1682,12 @@ script:
           id(weather_details_line4_text) = std::string(details_4);
           id(weather_details_line5_text) = std::string(details_5);
           id(weather_details_line6_text) = std::string(details_6);
+          id(weather_details_line7_text) = std::string(details_7);
+          id(weather_details_line8_text) = std::string(details_8);
+          id(weather_details_line9_text) = std::string(details_9);
+          id(weather_details_line10_text) = std::string(details_10);
+          id(weather_details_line11_text) = std::string(details_11);
+          id(weather_details_line12_text) = std::string(details_12);
           id(weather_details_diag_text) = std::string(details_diag);
           id(weather_units_text) = std::string(units_lbl);
           id(weather_source_text) = std::string(source_lbl);
@@ -1695,7 +1698,10 @@ script:
           text: !lambda "return id(weather_now_temp_text);"
       - lvgl.label.update:
           id: weather_now_cond_lbl
-          text: !lambda "return id(wx_norm_weather);"
+          text: !lambda |-
+            std::string s = id(wx_norm_weather);
+            if ((int) s.size() > 24) s = s.substr(0, 24) + ".";
+            return s;
       - lvgl.label.update:
           id: weather_now_feels_lbl
           text: !lambda "return id(weather_now_feels_text);"
@@ -1718,14 +1724,14 @@ script:
           id: weather_units_lbl
           text: !lambda "return id(weather_units_text);"
       - lvgl.label.update:
-          id: weather_source_lbl
-          text: !lambda "return id(weather_source_text);"
-      - lvgl.label.update:
           id: weather_gps_lbl
           text: !lambda "return id(weather_gps_text);"
       - lvgl.label.update:
           id: weather_details_title_lbl
-          text: !lambda "return id(wx_norm_condition);"
+          text: !lambda |-
+            std::string s = id(wx_norm_condition);
+            if ((int) s.size() > 28) s = s.substr(0, 28) + ".";
+            return s;
       - lvgl.label.update:
           id: weather_details_line1_lbl
           text: !lambda "return id(weather_details_line1_text);"
@@ -1745,8 +1751,23 @@ script:
           id: weather_details_line6_lbl
           text: !lambda "return id(weather_details_line6_text);"
       - lvgl.label.update:
-          id: weather_details_diag_lbl
-          text: !lambda "return id(weather_details_diag_text);"
+          id: weather_details_line7_lbl
+          text: !lambda "return id(weather_details_line7_text);"
+      - lvgl.label.update:
+          id: weather_details_line8_lbl
+          text: !lambda "return id(weather_details_line8_text);"
+      - lvgl.label.update:
+          id: weather_details_line9_lbl
+          text: !lambda "return id(weather_details_line9_text);"
+      - lvgl.label.update:
+          id: weather_details_line10_lbl
+          text: !lambda "return id(weather_details_line10_text);"
+      - lvgl.label.update:
+          id: weather_details_line11_lbl
+          text: !lambda "return id(weather_details_line11_text);"
+      - lvgl.label.update:
+          id: weather_details_line12_lbl
+          text: !lambda "return id(weather_details_line12_text);"
 
   - id: open_light_colors
     then:
@@ -2519,8 +2540,7 @@ script:
           id: settings_status_lbl
           text: !lambda |-
             char buf[160];
-            snprintf(buf, sizeof(buf), "Saver %ds | Wake T/K/B %s/%s/%s",
-                     id(screensaver_timeout_s),
+            snprintf(buf, sizeof(buf), "Wake T/K/B %s/%s/%s",
                      id(wake_on_touch) ? "ON" : "OFF",
                      id(wake_on_keyboard) ? "ON" : "OFF",
                      id(wake_on_trackball) ? "ON" : "OFF");
@@ -2535,30 +2555,82 @@ script:
             std::string src = id(app_units_source).empty() ? std::string("manual") : id(app_units_source);
             return std::string("Units source: ") + src;
       - lvgl.label.update:
+          id: settings_screensaver_toggle_lbl
+          text: !lambda "return id(screensaver_enabled) ? std::string(\"Screensaver ON\") : std::string(\"Screensaver OFF\");"
+      - lvgl.label.update:
+          id: settings_wake_touch_lbl
+          text: !lambda "return id(wake_on_touch) ? std::string(\"Wake Touch ON\") : std::string(\"Wake Touch OFF\");"
+      - lvgl.label.update:
+          id: settings_wake_keyboard_lbl
+          text: !lambda "return id(wake_on_keyboard) ? std::string(\"Wake Keys ON\") : std::string(\"Wake Keys OFF\");"
+      - lvgl.label.update:
+          id: settings_wake_trackball_lbl
+          text: !lambda "return id(wake_on_trackball) ? std::string(\"Wake Ball ON\") : std::string(\"Wake Ball OFF\");"
+      - lvgl.label.update:
+          id: settings_diag_toggle_lbl
+          text: !lambda "return id(show_weather_diagnostics) ? std::string(\"Diag Detail ON\") : std::string(\"Diag Detail OFF\");"
+      - lvgl.label.update:
+          id: settings_cat_system_lbl
+          text: !lambda "return id(settings_section_index) == 0 ? std::string(\"[System]\") : std::string(\"System\");"
+      - lvgl.label.update:
+          id: settings_cat_display_lbl
+          text: !lambda "return id(settings_section_index) == 1 ? std::string(\"[Display]\") : std::string(\"Display\");"
+      - lvgl.label.update:
+          id: settings_cat_input_lbl
+          text: !lambda "return id(settings_section_index) == 2 ? std::string(\"[Input]\") : std::string(\"Input\");"
+      - lvgl.label.update:
+          id: settings_cat_units_lbl
+          text: !lambda "return id(settings_section_index) == 3 ? std::string(\"[Units]\") : std::string(\"Units\");"
+      - lvgl.label.update:
+          id: settings_cat_diag_lbl
+          text: !lambda "return id(settings_section_index) == 4 ? std::string(\"[Diag]\") : std::string(\"Diag\");"
+      - lvgl.label.update:
           id: theme_status_lbl
           text: !lambda |-
-            const char *name = "Midnight";
-            if (id(theme_index) == 1) name = "Slate";
-            if (id(theme_index) == 2) name = "Ember";
-            if (id(theme_index) == 3) name = "Moss";
-            if (id(theme_index) == 4) name = "Mono";
-            if (id(theme_index) == 5) name = "Dusk";
-            if (id(theme_index) == 6) name = "Ocean";
-            const char *accent = "Blue";
-            if (id(theme_accent_index) == 1) accent = "Green";
-            if (id(theme_accent_index) == 2) accent = "Amber";
-            if (id(theme_accent_index) == 3) accent = "Rose";
-            if (id(theme_accent_index) == 4) accent = "Mono";
-            const char *icon_mode = id(theme_icon_mode) == 0 ? "White" : "Accent";
-            char buf[220];
-            snprintf(buf, sizeof(buf), "Theme %s | Accent %s | Icon %s | Border %d | Radius %d | Disp %d%%",
-                     name,
-                     accent,
-                     icon_mode,
+            const char *token = "Screen";
+            if (id(theme_token_index) == 1) token = "Surface";
+            else if (id(theme_token_index) == 2) token = "SurfaceAlt";
+            else if (id(theme_token_index) == 3) token = "Action";
+            else if (id(theme_token_index) == 4) token = "ActionSoft";
+            else if (id(theme_token_index) == 5) token = "Text";
+            else if (id(theme_token_index) == 6) token = "TextDim";
+            else if (id(theme_token_index) == 7) token = "Success";
+            else if (id(theme_token_index) == 8) token = "Warning";
+            char buf[192];
+            snprintf(buf, sizeof(buf), "Token %s | Icon %s | Border %d | Radius %d",
+                     token,
+                     id(theme_icon_mode) == 0 ? "Text" : "Accent",
                      id(theme_border_width),
-                     id(theme_radius),
-                     id(backlight_percent));
+                     id(theme_radius));
             return std::string(buf);
+      - lvgl.label.update:
+          id: theme_token_0_lbl
+          text: !lambda "return id(theme_token_index) == 0 ? std::string(\"[Screen BG]\") : std::string(\"Screen BG\");"
+      - lvgl.label.update:
+          id: theme_token_1_lbl
+          text: !lambda "return id(theme_token_index) == 1 ? std::string(\"[Surface]\") : std::string(\"Surface\");"
+      - lvgl.label.update:
+          id: theme_token_2_lbl
+          text: !lambda "return id(theme_token_index) == 2 ? std::string(\"[Surface Alt]\") : std::string(\"Surface Alt\");"
+      - lvgl.label.update:
+          id: theme_token_3_lbl
+          text: !lambda "return id(theme_token_index) == 3 ? std::string(\"[Action]\") : std::string(\"Action\");"
+      - lvgl.label.update:
+          id: theme_token_4_lbl
+          text: !lambda "return id(theme_token_index) == 4 ? std::string(\"[Action Soft]\") : std::string(\"Action Soft\");"
+      - lvgl.label.update:
+          id: theme_token_5_lbl
+          text: !lambda "return id(theme_token_index) == 5 ? std::string(\"[Text Primary]\") : std::string(\"Text Primary\");"
+      - lvgl.label.update:
+          id: theme_token_6_lbl
+          text: !lambda "return id(theme_token_index) == 6 ? std::string(\"[Text Dim]\") : std::string(\"Text Dim\");"
+      - lvgl.label.update:
+          id: theme_token_7_lbl
+          text: !lambda "return id(theme_token_index) == 7 ? std::string(\"[Success]\") : std::string(\"Success\");"
+      - lvgl.label.update:
+          id: theme_token_8_lbl
+          text: !lambda "return id(theme_token_index) == 8 ? std::string(\"[Warning]\") : std::string(\"Warning\");"
+      - script.execute: diagnostics_update_labels
       - lvgl.label.update:
           id: shortcuts_body_lbl
           text: !lambda |-
@@ -2982,6 +3054,7 @@ script:
     then:
       - script.execute: lvgl_update_labels
       - script.execute: climate_update_labels
+      - script.execute: settings_section_show
       - script.execute: lvgl_sync_nonlight_controls
       - script.execute: lvgl_sync_lights_controls
       - script.execute: climate_sync_controls
@@ -3048,11 +3121,14 @@ lvgl:
           }
       - script.execute: touch_cal_apply_stored
       - script.execute: apply_theme
+      - script.execute: theme_sync_editor_from_token
       - script.execute: resolve_selected_light_target
       - script.execute: climate_ui_seed_from_ha
       - script.execute: app_units_init_from_ha
       - script.execute: weather_update_model
       - script.execute: weather_update_icon
+      - script.execute: settings_section_show
+      - script.execute: diagnostics_update_labels
       - lvgl.widget.focus: home_lights_btn
       - script.execute: lvgl_update_dynamic
 
@@ -3104,6 +3180,12 @@ lvgl:
     - id: lv_style_icon
       image_recolor: 0xF2F6FF
       image_recolor_opa: 100%
+    - id: lv_style_theme_preview
+      bg_opa: cover
+      bg_color: 0x1B2533
+      border_width: 2
+      border_color: 0x4A7CD6
+      radius: 10
 
   pages:
     - id: home_page
@@ -4075,15 +4157,9 @@ lvgl:
             width: 296
             text: "Units: Imperial"
         - label:
-            id: weather_source_lbl
-            x: 12
-            y: 212
-            width: 296
-            text: "Source unavailable"
-        - label:
             id: weather_gps_lbl
             x: 12
-            y: 226
+            y: 216
             width: 296
             text: "GPS waiting..."
 
@@ -4195,54 +4271,88 @@ lvgl:
             y: 46
             width: 260
             text: "-"
-        - label:
-            id: weather_details_line1_lbl
-            x: 12
-            y: 86
-            width: 296
-            text: "--"
-        - label:
-            id: weather_details_line2_lbl
-            x: 12
-            y: 106
-            width: 296
-            text: "--"
-        - label:
-            id: weather_details_line3_lbl
-            x: 12
-            y: 126
-            width: 296
-            text: "--"
-        - label:
-            id: weather_details_line4_lbl
-            x: 12
-            y: 146
-            width: 296
-            text: "--"
-        - label:
-            id: weather_details_line5_lbl
-            x: 12
-            y: 166
-            width: 296
-            text: "--"
-        - label:
-            id: weather_details_line6_lbl
-            x: 12
-            y: 186
-            width: 296
-            text: "--"
-        - button:
+        - obj:
+            id: weather_details_scroll
             x: 8
-            y: 208
+            y: 84
             width: 304
-            height: 28
+            height: 152
             styles: [lv_style_card]
-        - label:
-            id: weather_details_diag_lbl
-            x: 12
-            y: 214
-            width: 296
-            text: "--"
+            scrollbar_mode: AUTO
+            group: nav_group
+            widgets:
+              - label:
+                  id: weather_details_line1_lbl
+                  x: 8
+                  y: 6
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line2_lbl
+                  x: 8
+                  y: 24
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line3_lbl
+                  x: 8
+                  y: 42
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line4_lbl
+                  x: 8
+                  y: 60
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line5_lbl
+                  x: 8
+                  y: 78
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line6_lbl
+                  x: 8
+                  y: 96
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line7_lbl
+                  x: 8
+                  y: 114
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line8_lbl
+                  x: 8
+                  y: 132
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line9_lbl
+                  x: 8
+                  y: 150
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line10_lbl
+                  x: 8
+                  y: 168
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line11_lbl
+                  x: 8
+                  y: 186
+                  width: 286
+                  text: "--"
+              - label:
+                  id: weather_details_line12_lbl
+                  x: 8
+                  y: 204
+                  width: 286
+                  text: "--"
 
     - id: climate_page
       styles: [lv_style_screen]
@@ -4392,7 +4502,7 @@ lvgl:
             height: 40
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_single
                   delta: -1
@@ -4414,7 +4524,7 @@ lvgl:
             height: 40
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_single
                   delta: 1
@@ -4449,7 +4559,7 @@ lvgl:
             height: 20
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_heat
                   delta: -1
@@ -4471,7 +4581,7 @@ lvgl:
             height: 20
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_heat
                   delta: 1
@@ -4506,7 +4616,7 @@ lvgl:
             height: 20
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_cool
                   delta: -1
@@ -4528,7 +4638,7 @@ lvgl:
             height: 20
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute:
                   id: climate_adjust_cool
                   delta: 1
@@ -4624,7 +4734,7 @@ lvgl:
             height: 26
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute: sensi_humidity_offset_down
             on_long_press_repeat:
               - script.execute: sensi_humidity_offset_down
@@ -4639,7 +4749,7 @@ lvgl:
             height: 26
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute: sensi_humidity_offset_up
             on_long_press_repeat:
               - script.execute: sensi_humidity_offset_up
@@ -4660,7 +4770,7 @@ lvgl:
             height: 26
             styles: [lv_style_btn_warn]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute: sensi_temp_offset_down
             on_long_press_repeat:
               - script.execute: sensi_temp_offset_down
@@ -4675,7 +4785,7 @@ lvgl:
             height: 26
             styles: [lv_style_btn_ok]
             group: nav_group
-            on_short_click:
+            on_click:
               - script.execute: sensi_temp_offset_up
             on_long_press_repeat:
               - script.execute: sensi_temp_offset_up
@@ -4884,170 +4994,379 @@ lvgl:
             on_click:
               - lvgl.page.show: home_page
             widgets:
-              - image:
-                  src: icon_home_18
-                  styles: [lv_style_icon]
-                  align: CENTER
+                - image:
+                    src: icon_home_18
+                    styles: [lv_style_icon]
+                    align: CENTER
         - label:
-            x: 72
+            x: 66
             y: 10
             text: "Settings"
         - button:
-            x: 12
+            id: settings_cat_system_btn
+            x: 8
             y: 38
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: saver_timeout_down
-            widgets:
-              - label:
-                  text: "Saver-"
-                  align: CENTER
-        - button:
-            x: 112
-            y: 38
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: saver_timeout_up
-            widgets:
-              - label:
-                  text: "Saver+"
-                  align: CENTER
-        - button:
-            id: settings_units_toggle_btn
-            x: 212
-            y: 38
-            width: 96
-            height: 52
+            width: 88
+            height: 34
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute: app_units_toggle
+              - lambda: "id(settings_section_index) = 0;"
+              - script.execute: settings_section_show
             widgets:
               - label:
+                  id: settings_cat_system_lbl
+                  text: "System"
+                  align: CENTER
+        - button:
+            id: settings_cat_display_btn
+            x: 8
+            y: 76
+            width: 88
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: "id(settings_section_index) = 1;"
+              - script.execute: settings_section_show
+            widgets:
+              - label:
+                  id: settings_cat_display_lbl
+                  text: "Display"
+                  align: CENTER
+        - button:
+            id: settings_cat_input_btn
+            x: 8
+            y: 114
+            width: 88
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: "id(settings_section_index) = 2;"
+              - script.execute: settings_section_show
+            widgets:
+              - label:
+                  id: settings_cat_input_lbl
+                  text: "Input"
+                  align: CENTER
+        - button:
+            id: settings_cat_units_btn
+            x: 8
+            y: 152
+            width: 88
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: "id(settings_section_index) = 3;"
+              - script.execute: settings_section_show
+            widgets:
+              - label:
+                  id: settings_cat_units_lbl
                   text: "Units"
-                  x: 30
+                  align: CENTER
+        - button:
+            id: settings_cat_diag_btn
+            x: 8
+            y: 190
+            width: 88
+            height: 34
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - lambda: "id(settings_section_index) = 4;"
+              - script.execute: settings_section_show
+            widgets:
+              - label:
+                  id: settings_cat_diag_lbl
+                  text: "Diag"
+                  align: CENTER
+        - obj:
+            id: settings_panel_system
+            x: 102
+            y: 38
+            width: 210
+            height: 198
+            styles: [lv_style_card]
+            widgets:
+              - button:
+                  x: 8
                   y: 8
+                  width: 94
+                  height: 30
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: sleep_display
+                  widgets:
+                    - label:
+                        text: "Sleep Now"
+                        align: CENTER
+              - button:
+                  x: 108
+                  y: 8
+                  width: 94
+                  height: 30
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: open_reboot_confirm
+                  widgets:
+                    - label:
+                        text: "Reboot"
+                        align: CENTER
+              - button:
+                  x: 8
+                  y: 44
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn]
+                  group: nav_group
+                  on_click:
+                    - script.execute: open_shortcuts
+                  widgets:
+                    - label:
+                        text: "Keyboard Help"
+                        align: CENTER
               - label:
-                  id: settings_units_lbl
-                  text: "Imperial"
-                  x: 18
-                  y: 28
-        - button:
-            x: 12
-            y: 96
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: toggle_wake_touch
+                  id: settings_status_lbl
+                  x: 8
+                  y: 78
+                  width: 194
+                  text: "Wake T/K/B ON/ON/ON"
+        - obj:
+            id: settings_panel_display
+            x: 102
+            y: 38
+            width: 210
+            height: 198
+            styles: [lv_style_card]
+            hidden: true
             widgets:
               - label:
-                  text: "WakeTouch"
-                  align: CENTER
-        - button:
-            x: 112
-            y: 96
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: toggle_wake_keyboard
-            widgets:
+                  id: settings_saver_lbl
+                  x: 8
+                  y: 8
+                  width: 194
+                  text: "Auto sleep timeout: 45s"
+              - slider:
+                  id: settings_saver_slider
+                  x: 8
+                  y: 24
+                  width: 194
+                  min_value: 10
+                  max_value: 300
+                  value: 45
+                  group: nav_group
+                  on_release:
+                    - script.execute:
+                        id: set_saver_timeout
+                        seconds: !lambda "return (int)x;"
               - label:
-                  text: "WakeKeys"
-                  align: CENTER
-        - button:
-            x: 212
-            y: 96
-            width: 96
-            height: 52
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: toggle_wake_trackball
+                  text: "Display Brightness"
+                  x: 8
+                  y: 44
+                  width: 194
+              - slider:
+                  id: display_brightness_slider
+                  x: 8
+                  y: 60
+                  width: 194
+                  min_value: 10
+                  max_value: 100
+                  value: 80
+                  group: nav_group
+                  on_release:
+                    - script.execute:
+                        id: set_display_backlight
+                        pct: !lambda "return (int)x;"
+              - button:
+                  x: 8
+                  y: 84
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_screensaver_enabled
+                  widgets:
+                    - label:
+                        id: settings_screensaver_toggle_lbl
+                        text: "Screensaver ON"
+                        align: CENTER
+        - obj:
+            id: settings_panel_input
+            x: 102
+            y: 38
+            width: 210
+            height: 198
+            styles: [lv_style_card]
+            hidden: true
             widgets:
+              - button:
+                  x: 8
+                  y: 8
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_wake_touch
+                  widgets:
+                    - label:
+                        id: settings_wake_touch_lbl
+                        text: "Wake Touch ON"
+                        align: CENTER
+              - button:
+                  x: 8
+                  y: 40
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_wake_keyboard
+                  widgets:
+                    - label:
+                        id: settings_wake_keyboard_lbl
+                        text: "Wake Keys ON"
+                        align: CENTER
+              - button:
+                  x: 8
+                  y: 72
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_wake_trackball
+                  widgets:
+                    - label:
+                        id: settings_wake_trackball_lbl
+                        text: "Wake Ball ON"
+                        align: CENTER
+              - button:
+                  x: 8
+                  y: 106
+                  width: 94
+                  height: 28
+                  styles: [lv_style_btn]
+                  group: nav_group
+                  on_click:
+                    - script.execute: start_touch_calibration
+                  widgets:
+                    - label:
+                        text: "Cal Start"
+                        align: CENTER
+              - button:
+                  x: 108
+                  y: 106
+                  width: 94
+                  height: 28
+                  styles: [lv_style_btn_warn]
+                  group: nav_group
+                  on_click:
+                    - script.execute: reset_touch_calibration
+                  widgets:
+                    - label:
+                        text: "Cal Reset"
+                        align: CENTER
+              - button:
+                  x: 8
+                  y: 140
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_touch_debug
+                  widgets:
+                    - label:
+                        text: "Touch Debug"
+                        align: CENTER
+        - obj:
+            id: settings_panel_units
+            x: 102
+            y: 38
+            width: 210
+            height: 198
+            styles: [lv_style_card]
+            hidden: true
+            widgets:
+              - button:
+                  id: settings_units_toggle_btn
+                  x: 8
+                  y: 8
+                  width: 194
+                  height: 42
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: app_units_toggle
+                  widgets:
+                    - label:
+                        text: "Units"
+                        x: 78
+                        y: 6
+                    - label:
+                        id: settings_units_lbl
+                        text: "Imperial"
+                        x: 70
+                        y: 22
               - label:
-                  text: "WakeBall"
-                  align: CENTER
-        - label:
-            id: settings_saver_lbl
-            x: 12
-            y: 154
-            width: 296
-            text: "Auto sleep timeout"
-        - slider:
-            id: settings_saver_slider
-            x: 12
-            y: 170
-            width: 296
-            min_value: 10
-            max_value: 300
-            value: 45
-            group: nav_group
-            on_release:
-              - script.execute:
-                  id: set_saver_timeout
-                  seconds: !lambda "return (int)x;"
-        - button:
-            x: 12
-            y: 194
-            width: 96
-            height: 32
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: start_touch_calibration
-            widgets:
+                  id: settings_units_source_lbl
+                  x: 8
+                  y: 58
+                  width: 194
+                  text: "Units source: --"
               - label:
-                  text: "Cal"
-                  align: CENTER
-        - button:
-            x: 112
-            y: 194
-            width: 96
-            height: 32
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: open_reboot_confirm
+                  x: 8
+                  y: 78
+                  width: 194
+                  text: "App-wide unit control"
+        - obj:
+            id: settings_panel_diag
+            x: 102
+            y: 38
+            width: 210
+            height: 198
+            styles: [lv_style_card]
+            hidden: true
             widgets:
+              - button:
+                  id: settings_diag_toggle_btn
+                  x: 8
+                  y: 8
+                  width: 194
+                  height: 28
+                  styles: [lv_style_btn_soft]
+                  group: nav_group
+                  on_click:
+                    - script.execute: toggle_weather_diagnostics
+                  widgets:
+                    - label:
+                        id: settings_diag_toggle_lbl
+                        text: "Diag Detail OFF"
+                        align: CENTER
               - label:
-                  text: "Reboot"
-                  align: CENTER
-        - button:
-            x: 212
-            y: 194
-            width: 96
-            height: 32
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: sleep_display
-            widgets:
-              - image:
-                  src: icon_sleep_30
-                  styles: [lv_style_icon]
-                  align: CENTER
-        - label:
-            id: settings_status_lbl
-            x: 12
-            y: 210
-            width: 296
-            text: "settings"
-        - label:
-            id: settings_units_source_lbl
-            x: 12
-            y: 224
-            width: 296
-            text: "Units source: --"
+                  id: settings_diag_weather_lbl
+                  x: 8
+                  y: 42
+                  width: 194
+                  text: "Weather source hidden"
+              - label:
+                  id: settings_diag_gps_lbl
+                  x: 8
+                  y: 86
+                  width: 194
+                  text: "GPS waiting..."
+              - label:
+                  id: settings_diag_climate_lbl
+                  x: 8
+                  y: 130
+                  width: 194
+                  text: "Climate commit age 0s"
 
     - id: theme_page
       styles: [lv_style_screen]
@@ -5062,147 +5381,491 @@ lvgl:
             on_click:
               - lvgl.page.show: home_page
             widgets:
-              - image:
-                  src: icon_home_18
-                  styles: [lv_style_icon]
-                  align: CENTER
+                - image:
+                    src: icon_home_18
+                    styles: [lv_style_icon]
+                    align: CENTER
         - label:
-            x: 72
+            x: 66
             y: 10
-            text: "Theme"
+            text: "Theme Studio"
         - button:
-            x: 6
+            x: 8
             y: 38
-            width: 42
-            height: 26
+            width: 88
+            height: 20
             styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - lambda: |-
-                  id(theme_index) = 0;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Ngt"
-                  align: CENTER
-        - button:
-            x: 50
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 1;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Slt"
-                  align: CENTER
-        - button:
-            x: 94
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 2;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Emr"
-                  align: CENTER
-        - button:
-            x: 138
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 3;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Mss"
-                  align: CENTER
-        - button:
-            x: 182
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 4;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Mono"
-                  align: CENTER
-        - button:
-            x: 226
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 5;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Dsk"
-                  align: CENTER
-        - button:
-            x: 270
-            y: 38
-            width: 42
-            height: 26
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - lambda: |-
-                  id(theme_index) = 6;
-              - script.execute: apply_theme
-            widgets:
-              - label:
-                  text: "Ocn"
-                  align: CENTER
-        - label:
-            x: 12
-            y: 70
-            width: 296
-            text: "Display Brightness"
-        - slider:
-            id: display_brightness_slider
-            x: 12
-            y: 84
-            width: 296
-            min_value: 10
-            max_value: 100
-            value: 80
-            group: nav_group
-            on_release:
               - script.execute:
-                  id: set_display_backlight
-                  pct: !lambda "return (int)x;"
+                  id: theme_select_token
+                  idx: 0
+            widgets:
+              - label:
+                  id: theme_token_0_lbl
+                  text: "Screen BG"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 60
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 1
+            widgets:
+              - label:
+                  id: theme_token_1_lbl
+                  text: "Surface"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 82
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 2
+            widgets:
+              - label:
+                  id: theme_token_2_lbl
+                  text: "Surface Alt"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 104
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 3
+            widgets:
+              - label:
+                  id: theme_token_3_lbl
+                  text: "Action"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 126
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 4
+            widgets:
+              - label:
+                  id: theme_token_4_lbl
+                  text: "Action Soft"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 148
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 5
+            widgets:
+              - label:
+                  id: theme_token_5_lbl
+                  text: "Text Primary"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 170
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 6
+            widgets:
+              - label:
+                  id: theme_token_6_lbl
+                  text: "Text Dim"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 192
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 7
+            widgets:
+              - label:
+                  id: theme_token_7_lbl
+                  text: "Success"
+                  align: CENTER
+        - button:
+            x: 8
+            y: 214
+            width: 88
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_select_token
+                  idx: 8
+            widgets:
+              - label:
+                  id: theme_token_8_lbl
+                  text: "Warning"
+                  align: CENTER
+        - obj:
+            id: theme_preview_swatch
+            x: 104
+            y: 38
+            width: 56
+            height: 34
+            styles: [lv_style_theme_preview]
         - label:
-            x: 12
-            y: 102
-            width: 146
-            text: "Border Width"
+            id: theme_hex_lbl
+            x: 168
+            y: 44
+            width: 140
+            text: "#1B2533"
+        - label:
+            id: theme_preview_lbl
+            x: 168
+            y: 60
+            width: 140
+            text: "RGB 27 / 37 / 51"
+        - label:
+            x: 104
+            y: 82
+            text: "R"
+        - slider:
+            id: theme_r_slider
+            x: 118
+            y: 80
+            width: 92
+            min_value: 0
+            max_value: 255
+            value: 27
+            group: nav_group
+            on_value:
+              - script.execute:
+                  id: theme_editor_set_rgb
+                  channel: 0
+                  val: !lambda "return (int)x;"
+        - button:
+            x: 214
+            y: 76
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 0
+                  delta: -1
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - button:
+            x: 238
+            y: 76
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 0
+                  delta: 1
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            x: 262
+            y: 76
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 0
+                  delta: -16
+            widgets:
+              - label:
+                  text: "-16"
+                  align: CENTER
+        - button:
+            x: 286
+            y: 76
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 0
+                  delta: 16
+            widgets:
+              - label:
+                  text: "+16"
+                  align: CENTER
+        - label:
+            x: 104
+            y: 106
+            text: "G"
+        - slider:
+            id: theme_g_slider
+            x: 118
+            y: 104
+            width: 92
+            min_value: 0
+            max_value: 255
+            value: 37
+            group: nav_group
+            on_value:
+              - script.execute:
+                  id: theme_editor_set_rgb
+                  channel: 1
+                  val: !lambda "return (int)x;"
+        - button:
+            x: 214
+            y: 98
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 1
+                  delta: -1
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - button:
+            x: 238
+            y: 98
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 1
+                  delta: 1
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            x: 262
+            y: 98
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 1
+                  delta: -16
+            widgets:
+              - label:
+                  text: "-16"
+                  align: CENTER
+        - button:
+            x: 286
+            y: 98
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 1
+                  delta: 16
+            widgets:
+              - label:
+                  text: "+16"
+                  align: CENTER
+        - label:
+            x: 104
+            y: 130
+            text: "B"
+        - slider:
+            id: theme_b_slider
+            x: 118
+            y: 128
+            width: 92
+            min_value: 0
+            max_value: 255
+            value: 51
+            group: nav_group
+            on_value:
+              - script.execute:
+                  id: theme_editor_set_rgb
+                  channel: 2
+                  val: !lambda "return (int)x;"
+        - button:
+            x: 214
+            y: 122
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 2
+                  delta: -1
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - button:
+            x: 238
+            y: 122
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 2
+                  delta: 1
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            x: 262
+            y: 122
+            width: 22
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 2
+                  delta: -16
+            widgets:
+              - label:
+                  text: "-16"
+                  align: CENTER
+        - button:
+            x: 286
+            y: 122
+            width: 22
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: theme_editor_step_rgb
+                  channel: 2
+                  delta: 16
+            widgets:
+              - label:
+                  text: "+16"
+                  align: CENTER
+        - button:
+            x: 104
+            y: 150
+            width: 98
+            height: 24
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute: theme_editor_apply_to_token
+            widgets:
+              - label:
+                  text: "Apply"
+                  align: CENTER
+        - button:
+            x: 210
+            y: 150
+            width: 98
+            height: 24
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
+              - script.execute: theme_editor_revert_token
+            widgets:
+              - label:
+                  text: "Revert"
+                  align: CENTER
+        - button:
+            x: 104
+            y: 174
+            width: 98
+            height: 18
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: theme_icon_mode_toggle
+            widgets:
+              - label:
+                  text: "Icon Mode"
+                  align: CENTER
+        - button:
+            x: 210
+            y: 174
+            width: 98
+            height: 18
+            styles: [lv_style_btn]
+            group: nav_group
+            on_click:
+              - script.execute: open_shortcuts
+            widgets:
+              - label:
+                  text: "Help"
+                  align: CENTER
+        - label:
+            id: theme_status_lbl
+            x: 104
+            y: 194
+            width: 204
+            text: "Token Screen | Icon Text"
+        - label:
+            x: 104
+            y: 202
+            width: 98
+            text: "Border"
         - slider:
             id: theme_border_slider
-            x: 12
-            y: 116
-            width: 146
+            x: 104
+            y: 214
+            width: 98
             min_value: 1
             max_value: 4
             value: 2
@@ -5212,15 +5875,15 @@ lvgl:
                   id: set_theme_border_width
                   val: !lambda "return (int)x;"
         - label:
-            x: 166
-            y: 102
-            width: 146
-            text: "Corner Radius"
+            x: 210
+            y: 202
+            width: 98
+            text: "Radius"
         - slider:
             id: theme_radius_slider
-            x: 166
-            y: 116
-            width: 146
+            x: 210
+            y: 214
+            width: 98
             min_value: 4
             max_value: 16
             value: 10
@@ -5229,157 +5892,6 @@ lvgl:
               - script.execute:
                   id: set_theme_radius
                   val: !lambda "return (int)x;"
-        - label:
-            x: 12
-            y: 134
-            width: 296
-            text: "Accent Colors"
-        - button:
-            x: 12
-            y: 148
-            width: 56
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 0
-            widgets:
-              - label:
-                  text: "Blue"
-                  align: CENTER
-        - button:
-            x: 72
-            y: 148
-            width: 56
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 1
-            widgets:
-              - label:
-                  text: "Green"
-                  align: CENTER
-        - button:
-            x: 132
-            y: 148
-            width: 56
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 2
-            widgets:
-              - label:
-                  text: "Amber"
-                  align: CENTER
-        - button:
-            x: 192
-            y: 148
-            width: 56
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 3
-            widgets:
-              - label:
-                  text: "Rose"
-                  align: CENTER
-        - button:
-            x: 252
-            y: 148
-            width: 56
-            height: 20
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_accent_set
-                  idx: 4
-            widgets:
-              - label:
-                  text: "Mono"
-                  align: CENTER
-        - button:
-            x: 12
-            y: 174
-            width: 60
-            height: 22
-            styles: [lv_style_btn]
-            group: nav_group
-            on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "Help"
-                  align: CENTER
-        - button:
-            x: 76
-            y: 174
-            width: 56
-            height: 22
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: theme_accent_next
-            widgets:
-              - label:
-                  text: "Acc+"
-                  align: CENTER
-        - button:
-            x: 136
-            y: 174
-            width: 56
-            height: 22
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: theme_prev
-            widgets:
-              - label:
-                  text: "Th-"
-                  align: CENTER
-        - button:
-            x: 196
-            y: 174
-            width: 56
-            height: 22
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: theme_icon_mode_toggle
-            widgets:
-              - label:
-                  text: "Icon"
-                  align: CENTER
-        - button:
-            x: 256
-            y: 174
-            width: 52
-            height: 22
-            styles: [lv_style_btn_soft]
-            group: nav_group
-            on_click:
-              - script.execute: theme_next
-            widgets:
-              - label:
-                  text: "Th+"
-                  align: CENTER
-        - label:
-            id: theme_status_lbl
-            x: 12
-            y: 202
-            width: 296
-            text: "theme"
 
     - id: touch_cal_page
       styles: [lv_style_screen]
