@@ -32,6 +32,22 @@ Scope in v1:
 - Generate/export only.
 - Does not auto-overwrite `/config/esphome` files.
 
+## Troubleshooting add-on install
+
+If HA reports:
+
+- `... is not a valid add-on repository`
+- `unknown error occurred while trying to build the image`
+
+Use this recovery sequence:
+
+1. Remove the custom repository from Add-on Store.
+2. Restart Supervisor.
+3. Re-add repository URL:
+   - `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
+4. Install `T-Deck Admin Center` again.
+5. Open logs from the add-on page if build fails again and capture the first Python/Docker error block.
+
 ## Static generator companion
 
 Path: `tools/admin-center/`
