@@ -7,4 +7,4 @@ Open `index.html` in a browser to generate:
 
 This is the static companion. The HA Ingress add-on lives under:
 
-- `addons/tdeck-admin-center/`
+- `tdeck_admin_center/`

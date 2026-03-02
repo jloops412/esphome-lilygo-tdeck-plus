@@ -85,14 +85,14 @@ Changes:
 Files added:
 
 - `repository.yaml`
-- `tdeck-admin-center/config.yaml`
-- `tdeck-admin-center/Dockerfile`
-- `tdeck-admin-center/run.sh`
-- `tdeck-admin-center/rootfs/app/main.py`
-- `tdeck-admin-center/rootfs/app/static/index.html`
-- `tdeck-admin-center/rootfs/app/static/app.js`
-- `tdeck-admin-center/rootfs/app/static/styles.css`
-- `tdeck-admin-center/README.md`
+- `tdeck_admin_center/config.yaml`
+- `tdeck_admin_center/Dockerfile`
+- `tdeck_admin_center/run.sh`
+- `tdeck_admin_center/rootfs/app/main.py`
+- `tdeck_admin_center/rootfs/app/static/index.html`
+- `tdeck_admin_center/rootfs/app/static/app.js`
+- `tdeck_admin_center/rootfs/app/static/styles.css`
+- `tdeck_admin_center/README.md`
 
 Behavior:
 
@@ -115,9 +115,9 @@ Behavior:
 
 Files:
 
-- `tdeck-admin-center/config.yaml`
-- `tdeck-admin-center/build.yaml`
-- `tdeck-admin-center/Dockerfile`
+- `tdeck_admin_center/config.yaml`
+- `tdeck_admin_center/build.yaml`
+- `tdeck_admin_center/Dockerfile`
 - `README.md`
 - `docs/release.md`
 

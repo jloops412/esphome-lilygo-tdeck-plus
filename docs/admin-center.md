@@ -5,7 +5,7 @@
 Hybrid admin path is now implemented:
 
 1. Firmware runtime admin via ESPHome `web_server` entities.
-2. Home Assistant add-on (Ingress): `tdeck-admin-center`.
+2. Home Assistant add-on (Ingress): `tdeck_admin_center`.
 3. Static generator companion: `tools/admin-center/`.
 
 ## Firmware-side access
@@ -19,7 +19,7 @@ From the T-Deck device:
 
 ## HA Add-on (Ingress) v1
 
-Path: `tdeck-admin-center/`
+Path: `tdeck_admin_center/`
 
 Features:
 

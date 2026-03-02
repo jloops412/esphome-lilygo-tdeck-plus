@@ -21,13 +21,13 @@
   - border/radius/icon controls retained
 - HA add-on admin center v1 added:
   - `repository.yaml`
-  - `tdeck-admin-center/*`
+  - `tdeck_admin_center/*`
   - Ingress UI + discovery + YAML generation APIs
 - HA add-on repo/install compatibility fix:
-  - `tdeck-admin-center/config.yaml` removed `map` entirely (v1 is generate/export only)
+  - `tdeck_admin_center/config.yaml` removed `map` entirely (v1 is generate/export only)
   - removed `ports`/`i386` for cleaner ingress-only compatibility
-  - `tdeck-admin-center/build.yaml` now uses HA `*-base:3.20`
-  - `tdeck-admin-center/Dockerfile` now installs Python runtime on base image
+  - `tdeck_admin_center/build.yaml` now uses HA `*-base:3.20`
+  - `tdeck_admin_center/Dockerfile` now installs Python runtime on base image
 - docs and README refreshed for public install/admin/camera behavior
 
 ## Tagging process

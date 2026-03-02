@@ -4,8 +4,7 @@ FROM ${BUILD_FROM}
 ENV LANG=C.UTF-8
 ENV PYTHONUNBUFFERED=1
 
-RUN apk add --no-cache bash python3 py3-pip
-RUN pip3 install --no-cache-dir flask requests
+RUN apk add --no-cache bash python3 py3-flask py3-requests
 
 COPY rootfs/ /
 

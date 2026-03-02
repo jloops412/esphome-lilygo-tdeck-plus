@@ -10,9 +10,10 @@ STATIC_DIR = os.path.join(APP_DIR, "static")
 
 SUPERVISOR_URL = os.getenv("SUPERVISOR_URL", "http://supervisor")
 SUPERVISOR_TOKEN = os.getenv("SUPERVISOR_TOKEN", "") or os.getenv("HASSIO_TOKEN", "")
-ADDON_GITHUB_REF = os.getenv("ADDON_GITHUB_REF", "main")
-ADDON_GITHUB_REPO_URL = os.getenv(
-    "ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
+ADDON_GITHUB_REF = os.getenv("ADDON_GITHUB_REF", "main") or "main"
+ADDON_GITHUB_REPO_URL = (
+    os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
+    or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
 
 app = Flask(__name__, static_folder=STATIC_DIR)
