@@ -841,41 +841,41 @@ script:
           text: !lambda "return id(theme_preview_text);"
       - lvgl.style.update:
           id: lv_style_theme_preview
-          bg_color: !lambda "return ((id(theme_edit_r) & 0xFF) << 16) | ((id(theme_edit_g) & 0xFF) << 8) | (id(theme_edit_b) & 0xFF);"
-          border_color: !lambda "return id(theme_token_action_soft);"
+          bg_color: !lambda "return lv_color_hex((uint32_t)(((id(theme_edit_r) & 0xFF) << 16) | ((id(theme_edit_g) & 0xFF) << 8) | (id(theme_edit_b) & 0xFF)));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
 
   - id: theme_apply_tokens
     mode: restart
     then:
       - lvgl.style.update:
           id: lv_style_screen
-          bg_color: !lambda "return id(theme_token_screen_bg);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_screen_bg));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - lvgl.style.update:
           id: lv_style_card
-          bg_color: !lambda "return id(theme_token_surface);"
-          border_color: !lambda "return id(theme_token_action_soft);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_surface));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - lvgl.style.update:
           id: lv_style_btn
-          bg_color: !lambda "return id(theme_token_action);"
-          border_color: !lambda "return id(theme_token_action_soft);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - lvgl.style.update:
           id: lv_style_btn_soft
-          bg_color: !lambda "return id(theme_token_surface_alt);"
-          border_color: !lambda "return id(theme_token_action_soft);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_surface_alt));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - lvgl.style.update:
           id: lv_style_btn_ok
-          bg_color: !lambda "return id(theme_token_ok);"
-          border_color: !lambda "return id(theme_token_action_soft);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_ok));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - lvgl.style.update:
           id: lv_style_btn_warn
-          bg_color: !lambda "return id(theme_token_warn);"
-          border_color: !lambda "return id(theme_token_action_soft);"
-          text_color: !lambda "return id(theme_token_text_primary);"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_warn));"
+          border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
+          text_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
       - script.execute: apply_theme_shape
       - script.execute: apply_theme_icon
       - script.execute: theme_update_hex_and_preview
@@ -985,7 +985,7 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_icon
-                image_recolor: !lambda "return id(theme_token_text_primary);"
+                image_recolor: !lambda "return lv_color_hex((uint32_t) id(theme_token_text_primary));"
                 image_recolor_opa: 100%
       - if:
           condition:
@@ -993,7 +993,7 @@ script:
           then:
             - lvgl.style.update:
                 id: lv_style_icon
-                image_recolor: !lambda "return id(theme_token_action_soft);"
+                image_recolor: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
                 image_recolor_opa: 100%
 
   - id: open_detail_bbc

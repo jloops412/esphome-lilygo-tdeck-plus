@@ -2,10 +2,10 @@
 
 ## Repository state
 1. Branch: `main`
-2. Latest pushed LVGL tag: `v0.18.1-settings-screensaver-hotfix`
+2. Latest pushed LVGL tag: `v0.18.2-theme-color-cast-hotfix`
 3. Previous LVGL tag: `v0.15.1-lvgl-lighting-gps-kb-controls`
 4. Previous LVGL tag: `v0.15.0-lvgl-system-review-pass1`
-5. Current active install ref in install YAMLs: `v0.18.1-settings-screensaver-hotfix`
+5. Current active install ref in install YAMLs: `v0.18.2-theme-color-cast-hotfix`
 
 ## Process Contract
 1. Every code change must update documentation files in Git in the same iteration.
@@ -41,6 +41,14 @@
 ## Hotfix pass (`v0.18.1-settings-screensaver-hotfix`)
 1. Added missing script ID `toggle_screensaver_enabled` in `ui_lvgl.yaml`.
 2. Fixes ESPHome config failure in rebuilt Settings page Display section.
+
+## Hotfix pass (`v0.18.2-theme-color-cast-hotfix`)
+1. Fixed LVGL theme compile errors where style color lambdas returned raw `int`.
+2. Updated theme scripts to return `lv_color_t` via `lv_color_hex((uint32_t)...)` for:
+   - `bg_color`
+   - `border_color`
+   - `text_color`
+   - `image_recolor`
 
 ## Current in-progress pass (app-wide units + weather UX/framework, not tagged yet)
 1. App-wide units system:

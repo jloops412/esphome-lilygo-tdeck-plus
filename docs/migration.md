@@ -108,6 +108,8 @@
 60. Climate `+/-` reliability hardening:
     - switched climate-controller and climate-tools `+/-` taps to `on_click`
     - retained hold-repeat behavior for sustained presses
+61. Theme color compile hotfix:
+    - updated LVGL theme style color lambdas to return `lv_color_t` via `lv_color_hex(...)` to satisfy ESPHome 2026.2.2/LVGL type requirements.
 
 ## Migration steps for existing HA node
 

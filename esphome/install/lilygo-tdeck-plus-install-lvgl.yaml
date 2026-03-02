@@ -100,7 +100,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "v0.18.1-settings-screensaver-hotfix"
+    ref: "v0.18.2-theme-color-cast-hotfix"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml

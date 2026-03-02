@@ -30,6 +30,7 @@
 - `v0.17.0-units-weather-pass1`: app-wide units, weather overview/details rebuild, hybrid weather adapter, local weather icon mapping, and climate unit-aware display/commit behavior.
 - `v0.18.0-settings-theme-weather-pass1`: weather diagnostics cleanup on weather pages, scroll-safe weather details, full Settings list/detail IA rebuild, token-based Theme Studio rebuild, and climate `+/-` click reliability hardening.
 - `v0.18.1-settings-screensaver-hotfix`: adds missing `toggle_screensaver_enabled` script ID used by rebuilt settings page.
+- `v0.18.2-theme-color-cast-hotfix`: fixes LVGL compile errors by casting theme style color lambdas to `lv_color_t` using `lv_color_hex(...)`.
 
 Unreleased on `main` (candidate next tag):
 
