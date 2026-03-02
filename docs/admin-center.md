@@ -1,38 +1,39 @@
-# Admin Center v1
+# Admin Center
 
-## Scope
+## Current model
 
-Hybrid admin model:
+Hybrid admin path is now implemented:
 
-1. Runtime controls through ESPHome `web_server` entities.
-2. Install-time config generator under `tools/admin-center/`.
+1. Firmware runtime admin via ESPHome `web_server` entities.
+2. Home Assistant add-on (Ingress): `tdeck-admin-center`.
+3. Static generator companion: `tools/admin-center/`.
 
-## Runtime controls
+## Firmware-side access
 
-Exposed template entities include:
+From the T-Deck device:
 
-- display brightness
-- screensaver timeout/enable
-- wake-on touch/keyboard/trackball
-- units mode
-- theme border/radius/icon mode
-- camera auto-refresh + refresh button
-- climate retry sync button
+1. Open `Settings`.
+2. `System` panel shows:
+   - `Device: http://<device-ip>`
+   - `HA: Add-ons -> T-Deck Admin Center`
 
-## Config generator
+## HA Add-on (Ingress) v1
 
-Open `tools/admin-center/index.html` in a browser.
+Path: `tdeck-admin-center/`
 
-Outputs:
+Features:
 
-1. Drop-in install YAML
-2. Substitutions override block
+1. Discover entities from HA (`/api/discovery/*`).
+2. Generate drop-in install YAML (`/api/generate/install`).
+3. Generate substitutions overrides YAML (`/api/generate/overrides`).
 
-## Future extension hooks
+Scope in v1:
 
-`tools/admin-center/schema.json` includes:
+- Generate/export only.
+- Does not auto-overwrite `/config/esphome` files.
 
-- field grouping
-- component registry
-- starting point for a future UI-builder/config registry
+## Static generator companion
 
+Path: `tools/admin-center/`
+
+This remains useful outside HA add-on runtime (local browser use).

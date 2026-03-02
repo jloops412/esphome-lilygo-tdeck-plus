@@ -3,63 +3,127 @@
 ## Repo state
 
 - Branch: `main`
-- Last released tag in docs/install before this pass: `v0.18.3-reliability-core`
-- This pass is untagged local work pending validation/tag/push.
+- Last released install ref before this pass: `v0.19.1-select-template-hotfix`
+- This pass is local/unreleased until tagged.
 
 ## Implemented in this pass
 
-1. Reliability:
-   - Added stale-touch guard support (`touch_last_ms` updates in touch handlers).
-   - Climate adjust scripts switched to `mode: queued` for rapid tap reliability.
-2. Camera feature:
-   - Added camera substitutions and runtime globals.
-   - Added `http_request` + `online_image` camera assets.
-   - Added camera scripts (`build_urls`, snapshot trigger, refresh, page open/toggle).
-   - Added `cameras_page` and `camera_detail_page`.
-   - Added home camera launcher button (`home_cameras_btn`, auto-hidden when disabled).
-   - Added keyboard shortcuts:
-     - `Alt+5`: open Cameras
-     - `Alt+6`: refresh cameras
-3. UI safety/polish:
-   - Added non-overlap long mode for weather detail lines.
-   - Added `settings_diag_activity_lbl` and diagnostics updates.
-4. Public/private profile split:
-   - Public install file reset to generic defaults.
-   - Personal mapping moved to:
-     - `esphome/install/personal/jloops/lilygo-tdeck-plus-install-lvgl.yaml`
-     - `esphome/install/personal/jloops/entity-overrides.yaml`
-   - Removed `esphome/install/entity-overrides.jloops.yaml` from main install surface.
-5. Admin center v1:
-   - Added static generator app:
-     - `tools/admin-center/index.html`
-     - `tools/admin-center/app.js`
-     - `tools/admin-center/styles.css`
-     - `tools/admin-center/schema.json`
-6. Docs refresh:
-   - Rewrote README and core docs (`architecture`, `migration`, `release`).
-   - Added `docs/cameras.md` and `docs/admin-center.md`.
+### 1) Keyboard strict ALT reliability fix
 
-## Post-pass hotfix (ESPHome 2026.2.2 config validation)
+Files:
 
-1. Fixed `select.template` schema errors in `ui_lvgl.yaml`:
-   - removed `optimistic` and `initial_option` from selects that also use `lambda`.
-2. This resolves:
-   - `optimistic cannot be used with lambda`
-   - `initial_value cannot be used with lambda`
+- `esphome/packages/input_keyboard_i2c_lvgl.yaml`
+- `esphome/packages/persistence_globals.yaml`
+- `esphome/install/*.yaml`
+
+Changes:
+
+1. Fixed root-cause bug where ALT combos were published then returned early (commands never executed).
+2. Added tunable ALT arm timeout:
+   - `keyboard_alt_timeout_ms` (default `900`)
+3. Added diagnostics globals:
+   - `kb_alt_armed`
+   - `kb_alt_last_timeout_ms`
+   - `kb_last_shortcut_text`
+
+### 2) Home header overlap reduction
+
+File:
+
+- `esphome/packages/ui_lvgl.yaml`
+
+Changes:
+
+1. Tightened status/substatus text.
+2. Repositioned camera/sleep controls.
+3. Shifted home tile rows down for cleaner top header spacing.
+
+### 3) Settings admin clarity + diagnostics expansion
+
+File:
+
+- `esphome/packages/ui_lvgl.yaml`
+
+Changes:
+
+1. Added `Settings -> System` admin hints:
+   - `settings_admin_help_lbl`
+   - `settings_admin_device_url_lbl`
+   - `settings_admin_ha_addon_lbl`
+2. Added diagnostics labels:
+   - `settings_camera_state_lbl`
+   - `settings_camera_refresh_lbl`
+   - `settings_diag_shortcut_lbl`
+3. Added camera refresh diagnostics globals:
+   - `camera_refresh_status_text`
+   - `camera_last_snapshot_result`
+
+### 4) Theme Studio swatch rebuild
+
+Files:
+
+- `esphome/packages/ui_lvgl.yaml`
+- `esphome/packages/persistence_globals.yaml`
+
+Changes:
+
+1. Removed RGB slider UI from Theme Studio.
+2. Added swatch model:
+   - `theme_swatch_page` (3 pages)
+   - `theme_swatch_index`
+   - `theme_edit_color`
+3. Added scripts:
+   - `theme_swatch_page_prev`
+   - `theme_swatch_page_next`
+   - `theme_apply_swatch`
+   - `theme_render_swatch_page`
+4. Added 24 swatch buttons on page, with 3 pages (72 total colors).
+5. Kept token apply/revert and shape/icon controls.
+
+### 5) HA Add-on Admin Center v1
+
+Files added:
+
+- `repository.yaml`
+- `tdeck-admin-center/config.yaml`
+- `tdeck-admin-center/Dockerfile`
+- `tdeck-admin-center/run.sh`
+- `tdeck-admin-center/rootfs/app/main.py`
+- `tdeck-admin-center/rootfs/app/static/index.html`
+- `tdeck-admin-center/rootfs/app/static/app.js`
+- `tdeck-admin-center/rootfs/app/static/styles.css`
+- `tdeck-admin-center/README.md`
+
+Behavior:
+
+1. Ingress add-on UI.
+2. Discovery endpoints for HA entities/domains.
+3. Install YAML and overrides YAML generation endpoints.
+4. v1 is generate/export only (no automatic overwrite in `/config/esphome`).
+
+## Docs updated in this pass
+
+- `README.md`
+- `docs/admin-center.md`
+- `docs/cameras.md`
+- `docs/architecture.md`
+- `docs/migration.md`
+- `docs/release.md`
+- this handoff file
 
 ## Known constraints
 
-- Local environment here does not have `esphome` CLI, so no local compile gate was run in this pass.
-- Keyboard backlight firmware control remains intentionally deferred (manual keyboard `Alt+B`).
-- GPS fix behavior remains hardware/sky dependent.
+1. Local environment here does not include `esphome` CLI; compile/config validation was not run locally.
+2. GPS behavior still depends on hardware/antenna/sky visibility.
+3. Keyboard backlight firmware control remains deferred (manual keyboard `Alt+B`).
 
 ## Next recommended steps
 
-1. Run HA compile against updated package ref.
-2. OTA flash and validate:
-   - screensaver timeout behavior
-   - climate `+/-` rapid taps
-   - camera manual/auto refresh
-3. Tag and pin release:
-   - suggested tag `v0.19.0-ui-camera-admin-v1`
-   - then set install YAML package `ref` to that tag.
+1. Compile in HA ESPHome add-on against this commit.
+2. Validate on-device:
+   - strict ALT shortcuts
+   - home header layout
+   - theme swatch page behavior
+   - camera diagnostics lines
+3. Tag and pin:
+   - `v0.20.0-admin-addon-theme-swatch-camera-pass`

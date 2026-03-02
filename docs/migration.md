@@ -10,11 +10,14 @@
 ## Key behavioral changes
 
 - ALT-only keyboard shortcuts for command actions
+- keyboard ALT arm timeout is tunable (`keyboard_alt_timeout_ms`)
 - app-wide units model (metric/imperial)
 - climate uses optimistic local state + ack-based sync
 - weather split into overview/details
 - optional cameras page (off by default)
+- Theme Studio uses swatch pages (RGB sliders removed)
 - runtime admin controls available through ESPHome web server entities
+- HA add-on admin center available via Ingress
 
 ## Public profile cleanup
 
@@ -28,4 +31,5 @@
 2. old package cache: keep `refresh: 1min` while testing.
 3. parser errors before package merge: keep local `esphome:` and `esp32:` blocks in install YAML.
 4. screensaver not sleeping: verify wake toggles and check diagnostics activity source.
-
+5. cameras not visible: set `camera_slot_count` to `1` or `2`.
+6. ALT shortcuts not firing: verify ESC-prefix/ALT behavior and check `settings_diag_shortcut_lbl`.

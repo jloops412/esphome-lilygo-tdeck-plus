@@ -298,6 +298,14 @@ globals:
     type: std::string
     restore_value: no
     initial_value: '"--"'
+  - id: camera_refresh_status_text
+    type: std::string
+    restore_value: no
+    initial_value: '"idle"'
+  - id: camera_last_snapshot_result
+    type: std::string
+    restore_value: no
+    initial_value: '"none"'
   - id: weather_gps_text
     type: std::string
     restore_value: no
@@ -410,6 +418,21 @@ globals:
     restore_value: no
     initial_value: "false"
 
+  - id: theme_swatch_page
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
+  - id: theme_swatch_index
+    type: int
+    restore_value: no
+    initial_value: "0"
+
+  - id: theme_edit_color
+    type: int
+    restore_value: no
+    initial_value: "0x1B2533"
+
   - id: theme_edit_r
     type: int
     restore_value: no
@@ -494,6 +517,21 @@ globals:
     type: uint32_t
     restore_value: no
     initial_value: "0"
+
+  - id: kb_alt_armed
+    type: bool
+    restore_value: no
+    initial_value: "false"
+
+  - id: kb_alt_last_timeout_ms
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+  - id: kb_last_shortcut_text
+    type: std::string
+    restore_value: no
+    initial_value: '"-"'
 
   - id: kb_last_activity_key
     type: int

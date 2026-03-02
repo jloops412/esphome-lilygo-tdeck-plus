@@ -8,7 +8,7 @@ Public-ready ESPHome + LVGL firmware for LilyGO T-Deck Plus (ESP32-S3), built ar
 - Home Assistant entity control
 - modular package architecture with one install YAML
 
-## Install (One YAML)
+## Install (One YAML, Public)
 
 Use:
 
@@ -16,12 +16,34 @@ Use:
 
 This file is the public drop-in entrypoint and pulls modular package files from this repo.
 
-### Quick steps
+### Quick Start
 
 1. Copy `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml` into your HA ESPHome instance.
 2. Replace substitution placeholders (or paste values from `esphome/install/entity-overrides.template.yaml`).
 3. Keep Wi-Fi secrets in HA `secrets.yaml`.
-4. Compile and flash.
+4. Compile and flash (USB first flash, OTA after).
+
+### Required substitution groups
+
+1. Lights:
+   - `light_slot_count`, `light_slot_#_name`, `light_slot_#_entity`
+2. Weather:
+   - `entity_wx_main` and related weather sensors
+3. Climate:
+   - `entity_sensi_*` mappings
+4. Optional cameras:
+   - `camera_slot_count`, `camera_slot_#_entity`, `ha_base_url`
+
+### Common install errors
+
+1. `couldn't find remote ref`:
+   - update `ref:` to a valid pushed tag/branch
+2. `Component not found` in packages:
+   - ensure `packages` is list-form with `url/ref/files`
+3. Hidden camera UI:
+   - `camera_slot_count: "0"` intentionally hides cameras
+4. Shortcuts not firing:
+   - shortcuts are strict `ALT+key`
 
 ## Public vs Personal Profiles
 
@@ -46,9 +68,10 @@ Personal mappings live separately:
 - Climate Controller + Climate Tools pages
 - Reader page (news/word/quote feeds)
 - Settings with category panels
-- Theme Studio (token-based RGB editor)
+- Theme Studio (token-based swatch editor, 3 palettes)
 - Optional camera snapshots (up to 2 slots, manual + auto refresh)
 - Screensaver timeout + wake-source diagnostics
+- Strict ALT-only keyboard shortcut model
 
 ## Cameras
 
@@ -65,15 +88,30 @@ Snapshot flow:
 1. Device calls `camera.snapshot` in HA to `/config/www/tdeck/cam1.jpg` and `cam2.jpg`.
 2. Device loads images via `${ha_base_url}/local/tdeck/camX.jpg?...`.
 3. Auto-refresh interval is configurable (`camera_refresh_interval_s`, default `60`).
+4. Camera diagnostics surface in `Settings -> Diag`.
 
-## Admin Center v1
+## Admin Access
 
-Hybrid admin is included:
+Firmware (on-device):
 
-1. Runtime device controls via ESPHome `web_server` entities.
-2. Repo companion generator:
-   - `tools/admin-center/index.html`
-   - Generates install YAML + substitutions block.
+1. Settings page now includes direct admin hints:
+   - `Device: http://<device-ip>`
+   - `HA: Add-ons -> T-Deck Admin Center`
+2. ESPHome web server (`web_server: version: 3`) exposes runtime entities.
+
+Home Assistant add-on (Ingress):
+
+1. Add this repo URL directly as an add-on repository.
+2. Install `T-Deck Admin Center`.
+3. Open Web UI from the add-on panel.
+4. Use it to:
+   - discover entities
+   - generate drop-in install YAML
+   - generate overrides YAML
+
+Companion static generator (repo):
+
+- `tools/admin-center/index.html`
 
 ## Architecture
 
@@ -91,14 +129,14 @@ Core packages:
 ## Docs
 
 - `docs/architecture.md`
+- `docs/admin-center.md`
+- `docs/cameras.md`
 - `docs/migration.md`
 - `docs/release.md`
 - `docs/handoff-context.md`
 - `docs/entities-template.md`
 - `docs/ha-element-framework.md`
 - `docs/component-reference-checklist.md`
-- `docs/cameras.md`
-- `docs/admin-center.md`
 
 ## Process Contract
 
@@ -107,4 +145,3 @@ Every code pass updates:
 1. code
 2. docs
 3. handoff report (`docs/handoff-context.md`)
-

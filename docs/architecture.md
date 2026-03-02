@@ -29,6 +29,15 @@
    - optional camera refresh
 4. UI sync guards prevent script feedback loops.
 
+## Keyboard input model
+
+- Strict ALT-only command shortcuts (ESC-prefix arm behavior on this keyboard path).
+- ALT arm window is tunable (`keyboard_alt_timeout_ms`).
+- Diagnostic globals:
+  - `kb_alt_armed`
+  - `kb_alt_last_timeout_ms`
+  - `kb_last_shortcut_text`
+
 ## Climate reliability model
 
 - Device-led optimistic local targets
@@ -42,9 +51,25 @@
 - HA `camera.snapshot` writes files into `/config/www/tdeck`
 - `online_image` loads from `/local/tdeck/camX.jpg` with cache busting
 - manual and interval-driven refresh supported
+- camera diagnostics are surfaced in Settings diagnostics panel
+
+## Theme studio model
+
+- Token-based editor (9 theme tokens).
+- Swatch-based palette workflow (3 pages, 24 swatches/page).
+- Token apply/revert with immediate style refresh.
+- Shape controls remain live:
+  - border width
+  - radius
+  - icon recolor mode
 
 ## Public/private config strategy
 
 - Public install/template files are generic.
 - Personal mappings live under `esphome/install/personal/<profile>/`.
 
+## Admin center model
+
+1. Device runtime controls through ESPHome entities/web server.
+2. HA Ingress add-on for discover + config generation.
+3. Static generator tool in repo for offline use.

@@ -2,33 +2,32 @@
 
 ## Current baseline tag
 
-- `v0.18.3-reliability-core`
+- `v0.19.1-select-template-hotfix`
 
 ## Unreleased (current `main`)
 
-- camera snapshot subsystem (optional, slot-based)
-- camera pages + detail page + refresh flow
-- home camera launcher visibility when cameras enabled
-- ESPHome `web_server` runtime admin controls
-- screensaver hardening for stale touch-active state
-- climate adjust scripts moved to queued execution for rapid tap reliability
-- weather details labels set to non-overlap-safe mode
-- keyboard camera shortcuts (`Alt+5`, `Alt+6`)
-- public install defaults cleaned; personal mappings moved under `install/personal/jloops`
-- admin-center generator scaffold in `tools/admin-center`
-- docs refreshed and normalized
-
-## Hotfix candidate after `v0.19.0-ui-camera-admin-v1`
-
-- `select.template` compatibility fix for ESPHome 2026.2.2:
-  - removed `optimistic` and `initial_option` from template selects that use `lambda`
-  - affected IDs:
-    - `lvgl_units_mode_select`
-    - `lvgl_theme_icon_mode_select`
+- strict ALT shortcut reliability fix in keyboard parser (removed ALT path early-return)
+- ALT diagnostics surfaced in settings diagnostics
+- home header overlap reduction and tighter status text
+- settings system panel now includes concise admin access instructions
+- settings diagnostics expanded with camera and shortcut status lines
+- camera refresh diagnostics strings added:
+  - `camera_refresh_status_text`
+  - `camera_last_snapshot_result`
+- Theme Studio rebuilt to swatch-based workflow:
+  - RGB sliders removed
+  - 3 palette pages x 24 swatches
+  - apply/revert by token
+  - border/radius/icon controls retained
+- HA add-on admin center v1 added:
+  - `repository.yaml`
+  - `tdeck-admin-center/*`
+  - Ingress UI + discovery + YAML generation APIs
+- docs and README refreshed for public install/admin/camera behavior
 
 ## Tagging process
 
 1. Merge to `main`.
-2. Create new tag (recommended next: `v0.19.0-ui-camera-admin-v1`).
+2. Create new tag (recommended next: `v0.20.0-admin-addon-theme-swatch-camera-pass`).
 3. Update install YAML `ref` to the release tag.
 4. Publish release summary with migration notes.

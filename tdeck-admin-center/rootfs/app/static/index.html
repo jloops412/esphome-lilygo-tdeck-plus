@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>T-Deck Admin Center</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="hero">
+      <h1>T-Deck Admin Center v1</h1>
+      <p>Discover Home Assistant entities, then generate install and override YAML.</p>
+    </header>
+
+    <section class="panel">
+      <h2>Generate Config</h2>
+      <div class="grid2">
+        <label>Name <input id="name" value="lilygo-tdeck-plus" /></label>
+        <label>Friendly Name <input id="friendly_name" value="LilyGO T-Deck Plus" /></label>
+        <label>Git Ref <input id="git_ref" value="main" /></label>
+        <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
+        <label>Camera Slot Count
+          <select id="camera_slot_count">
+            <option>0</option>
+            <option>1</option>
+            <option selected>2</option>
+          </select>
+        </label>
+        <label>Light Slot Count
+          <select id="light_slot_count">
+            <option>1</option><option>2</option><option>3</option><option>4</option>
+            <option>5</option><option selected>6</option><option>7</option><option>8</option>
+          </select>
+        </label>
+        <label>Camera 1 Entity <input id="camera_slot_1_entity" value="camera.front_door" /></label>
+        <label>Camera 2 Entity <input id="camera_slot_2_entity" value="camera.outdoor" /></label>
+        <label>HA Base URL <input id="ha_base_url" value="http://homeassistant.local:8123" /></label>
+        <label>Keyboard ALT Timeout (ms) <input id="keyboard_alt_timeout_ms" value="900" /></label>
+      </div>
+      <div class="actions">
+        <button id="generate_btn">Generate YAML</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Install YAML (Drop-In)</h2>
+      <textarea id="install_out" rows="14" spellcheck="false"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Overrides YAML</h2>
+      <textarea id="overrides_out" rows="12" spellcheck="false"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Entity Discovery</h2>
+      <div class="toolbar">
+        <label>Domain
+          <select id="domain_filter"></select>
+        </label>
+        <label>Search <input id="search_filter" placeholder="climate, weather, camera..." /></label>
+        <button id="refresh_entities_btn">Refresh</button>
+      </div>
+      <div id="status_line" class="status">Loading...</div>
+      <table>
+        <thead>
+          <tr>
+            <th>Entity ID</th>
+            <th>Friendly Name</th>
+            <th>State</th>
+            <th>Unit</th>
+          </tr>
+        </thead>
+        <tbody id="entities_body"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

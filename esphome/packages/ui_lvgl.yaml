@@ -795,12 +795,43 @@ script:
           if (idx > 8) idx = 8;
           id(theme_token_index) = idx;
       - script.execute: theme_sync_editor_from_token
+      - script.execute: theme_render_swatch_page
+      - script.execute: lvgl_update_labels
+
+  - id: theme_swatch_page_prev
+    mode: restart
+    then:
+      - lambda: |-
+          id(theme_swatch_page) -= 1;
+          if (id(theme_swatch_page) < 0) id(theme_swatch_page) = 2;
+      - script.execute: theme_render_swatch_page
+      - script.execute: lvgl_update_labels
+
+  - id: theme_swatch_page_next
+    mode: restart
+    then:
+      - lambda: |-
+          id(theme_swatch_page) += 1;
+          if (id(theme_swatch_page) > 2) id(theme_swatch_page) = 0;
+      - script.execute: theme_render_swatch_page
       - script.execute: lvgl_update_labels
 
   - id: theme_sync_editor_from_token
     mode: restart
     then:
       - lambda: |-
+          static const uint32_t swatches[] = {
+            0x0B0F14, 0x111827, 0x1F2937, 0x273449, 0x334155, 0x475569, 0x64748B, 0x94A3B8,
+            0xE2E8F0, 0xF8FAFC, 0x1E293B, 0x0F172A, 0x2B3440, 0x364152, 0x4A5568, 0x64748B,
+            0x6B7280, 0x9CA3AF, 0xD1D5DB, 0xF3F4F6, 0x111111, 0x1F1F1F, 0x2D2D2D, 0x444444,
+            0x0A2239, 0x113355, 0x1A4A80, 0x2563A6, 0x2B7BC0, 0x3B92D1, 0x59A8DF, 0x7DC0EA,
+            0xA5D8F3, 0xCFE9FA, 0x0E2A1F, 0x134E3A, 0x1D6B4E, 0x2C8B66, 0x3FAA7F, 0x56C39A,
+            0x77D6B0, 0xA0E6C8, 0xCCF3E2, 0xE9FBF2, 0x17304D, 0x204675, 0x2B5CA0, 0x3674CC,
+            0x4C8EE6, 0x6AA6F0, 0x8BC0F7, 0xB1DAFB, 0xD6EEFE, 0xEEF7FF, 0x2D1B3D, 0x4A2A66,
+            0x6A3A90, 0x8A4DB8, 0xA961D4, 0xC078E8, 0xD79AF2, 0xE8C1F8, 0xF3DDFD, 0xFAEDFF,
+            0x3A2116, 0x5A3322, 0x7D452C, 0xA65B36, 0xCC7343, 0xE88A54, 0xF3A56F, 0xF7C08F
+          };
+          const int swatch_count = sizeof(swatches) / sizeof(swatches[0]);
           int color = id(theme_token_screen_bg);
           switch (id(theme_token_index)) {
             case 0: color = id(theme_token_screen_bg); break;
@@ -813,76 +844,125 @@ script:
             case 7: color = id(theme_token_ok); break;
             default: color = id(theme_token_warn); break;
           }
-          id(theme_ui_sync_in_progress) = true;
+          id(theme_edit_color) = color;
           id(theme_edit_r) = (color >> 16) & 0xFF;
           id(theme_edit_g) = (color >> 8) & 0xFF;
           id(theme_edit_b) = color & 0xFF;
-      - lvgl.slider.update:
-          id: theme_r_slider
-          value: !lambda "return id(theme_edit_r);"
-      - lvgl.slider.update:
-          id: theme_g_slider
-          value: !lambda "return id(theme_edit_g);"
-      - lvgl.slider.update:
-          id: theme_b_slider
-          value: !lambda "return id(theme_edit_b);"
-      - lambda: |-
-          id(theme_ui_sync_in_progress) = false;
+          int best_idx = 0;
+          int best_score = 1000000;
+          int tr = id(theme_edit_r);
+          int tg = id(theme_edit_g);
+          int tb = id(theme_edit_b);
+          for (int i = 0; i < swatch_count; i++) {
+            int sr = (swatches[i] >> 16) & 0xFF;
+            int sg = (swatches[i] >> 8) & 0xFF;
+            int sb = swatches[i] & 0xFF;
+            int dr = tr - sr; if (dr < 0) dr = -dr;
+            int dg = tg - sg; if (dg < 0) dg = -dg;
+            int db = tb - sb; if (db < 0) db = -db;
+            int score = dr + dg + db;
+            if (score < best_score) {
+              best_score = score;
+              best_idx = i;
+            }
+          }
+          id(theme_swatch_index) = best_idx;
+          id(theme_swatch_page) = best_idx / 24;
       - script.execute: theme_update_hex_and_preview
+      - script.execute: theme_render_swatch_page
 
-  - id: theme_editor_set_rgb
+  - id: theme_apply_swatch
     mode: restart
     parameters:
-      channel: int
-      val: int
-    then:
-      - if:
-          condition:
-            lambda: "return !id(theme_ui_sync_in_progress);"
-          then:
-            - lambda: |-
-                if (val < 0) val = 0;
-                if (val > 255) val = 255;
-                if (channel == 0) id(theme_edit_r) = val;
-                else if (channel == 1) id(theme_edit_g) = val;
-                else id(theme_edit_b) = val;
-            - script.execute: theme_update_hex_and_preview
-
-  - id: theme_editor_step_rgb
-    mode: restart
-    parameters:
-      channel: int
-      delta: int
+      idx: int
     then:
       - lambda: |-
-          int v = 0;
-          if (channel == 0) v = id(theme_edit_r);
-          else if (channel == 1) v = id(theme_edit_g);
-          else v = id(theme_edit_b);
-          v += delta;
-          if (v < 0) v = 0;
-          if (v > 255) v = 255;
-          if (channel == 0) id(theme_edit_r) = v;
-          else if (channel == 1) id(theme_edit_g) = v;
-          else id(theme_edit_b) = v;
-      - lvgl.slider.update:
-          id: theme_r_slider
-          value: !lambda "return id(theme_edit_r);"
-      - lvgl.slider.update:
-          id: theme_g_slider
-          value: !lambda "return id(theme_edit_g);"
-      - lvgl.slider.update:
-          id: theme_b_slider
-          value: !lambda "return id(theme_edit_b);"
+          static const uint32_t swatches[] = {
+            0x0B0F14, 0x111827, 0x1F2937, 0x273449, 0x334155, 0x475569, 0x64748B, 0x94A3B8,
+            0xE2E8F0, 0xF8FAFC, 0x1E293B, 0x0F172A, 0x2B3440, 0x364152, 0x4A5568, 0x64748B,
+            0x6B7280, 0x9CA3AF, 0xD1D5DB, 0xF3F4F6, 0x111111, 0x1F1F1F, 0x2D2D2D, 0x444444,
+            0x0A2239, 0x113355, 0x1A4A80, 0x2563A6, 0x2B7BC0, 0x3B92D1, 0x59A8DF, 0x7DC0EA,
+            0xA5D8F3, 0xCFE9FA, 0x0E2A1F, 0x134E3A, 0x1D6B4E, 0x2C8B66, 0x3FAA7F, 0x56C39A,
+            0x77D6B0, 0xA0E6C8, 0xCCF3E2, 0xE9FBF2, 0x17304D, 0x204675, 0x2B5CA0, 0x3674CC,
+            0x4C8EE6, 0x6AA6F0, 0x8BC0F7, 0xB1DAFB, 0xD6EEFE, 0xEEF7FF, 0x2D1B3D, 0x4A2A66,
+            0x6A3A90, 0x8A4DB8, 0xA961D4, 0xC078E8, 0xD79AF2, 0xE8C1F8, 0xF3DDFD, 0xFAEDFF,
+            0x3A2116, 0x5A3322, 0x7D452C, 0xA65B36, 0xCC7343, 0xE88A54, 0xF3A56F, 0xF7C08F
+          };
+          const int swatch_count = sizeof(swatches) / sizeof(swatches[0]);
+          int page = id(theme_swatch_page);
+          if (page < 0) page = 0;
+          if (page > 2) page = 2;
+          int slot = idx;
+          if (slot < 0) slot = 0;
+          if (slot > 23) slot = 23;
+          int abs_idx = page * 24 + slot;
+          if (abs_idx < 0) abs_idx = 0;
+          if (abs_idx >= swatch_count) abs_idx = swatch_count - 1;
+          id(theme_swatch_index) = abs_idx;
+          id(theme_edit_color) = (int) swatches[abs_idx];
+          id(theme_edit_r) = (id(theme_edit_color) >> 16) & 0xFF;
+          id(theme_edit_g) = (id(theme_edit_color) >> 8) & 0xFF;
+          id(theme_edit_b) = id(theme_edit_color) & 0xFF;
       - script.execute: theme_update_hex_and_preview
+      - script.execute: theme_render_swatch_page
+      - script.execute: lvgl_update_labels
+
+  - id: theme_render_swatch_page
+    mode: restart
+    then:
+      - lambda: |-
+          static const uint32_t swatches[] = {
+            0x0B0F14, 0x111827, 0x1F2937, 0x273449, 0x334155, 0x475569, 0x64748B, 0x94A3B8,
+            0xE2E8F0, 0xF8FAFC, 0x1E293B, 0x0F172A, 0x2B3440, 0x364152, 0x4A5568, 0x64748B,
+            0x6B7280, 0x9CA3AF, 0xD1D5DB, 0xF3F4F6, 0x111111, 0x1F1F1F, 0x2D2D2D, 0x444444,
+            0x0A2239, 0x113355, 0x1A4A80, 0x2563A6, 0x2B7BC0, 0x3B92D1, 0x59A8DF, 0x7DC0EA,
+            0xA5D8F3, 0xCFE9FA, 0x0E2A1F, 0x134E3A, 0x1D6B4E, 0x2C8B66, 0x3FAA7F, 0x56C39A,
+            0x77D6B0, 0xA0E6C8, 0xCCF3E2, 0xE9FBF2, 0x17304D, 0x204675, 0x2B5CA0, 0x3674CC,
+            0x4C8EE6, 0x6AA6F0, 0x8BC0F7, 0xB1DAFB, 0xD6EEFE, 0xEEF7FF, 0x2D1B3D, 0x4A2A66,
+            0x6A3A90, 0x8A4DB8, 0xA961D4, 0xC078E8, 0xD79AF2, 0xE8C1F8, 0xF3DDFD, 0xFAEDFF,
+            0x3A2116, 0x5A3322, 0x7D452C, 0xA65B36, 0xCC7343, 0xE88A54, 0xF3A56F, 0xF7C08F
+          };
+          lv_obj_t *buttons[24] = {
+            id(theme_swatch_0_btn), id(theme_swatch_1_btn), id(theme_swatch_2_btn), id(theme_swatch_3_btn),
+            id(theme_swatch_4_btn), id(theme_swatch_5_btn), id(theme_swatch_6_btn), id(theme_swatch_7_btn),
+            id(theme_swatch_8_btn), id(theme_swatch_9_btn), id(theme_swatch_10_btn), id(theme_swatch_11_btn),
+            id(theme_swatch_12_btn), id(theme_swatch_13_btn), id(theme_swatch_14_btn), id(theme_swatch_15_btn),
+            id(theme_swatch_16_btn), id(theme_swatch_17_btn), id(theme_swatch_18_btn), id(theme_swatch_19_btn),
+            id(theme_swatch_20_btn), id(theme_swatch_21_btn), id(theme_swatch_22_btn), id(theme_swatch_23_btn)
+          };
+
+          const int swatch_count = sizeof(swatches) / sizeof(swatches[0]);
+          int page = id(theme_swatch_page);
+          if (page < 0) page = 0;
+          if (page > 2) page = 2;
+          id(theme_swatch_page) = page;
+          int base = page * 24;
+          uint32_t border_default = (uint32_t) id(theme_token_action_soft);
+          uint32_t border_selected = (uint32_t) id(theme_token_text_primary);
+
+          for (int i = 0; i < 24; i++) {
+            int idx = base + i;
+            if (idx < 0) idx = 0;
+            if (idx >= swatch_count) idx = swatch_count - 1;
+            bool selected = (idx == id(theme_swatch_index));
+            lv_obj_set_style_bg_opa(buttons[i], LV_OPA_COVER, LV_PART_MAIN);
+            lv_obj_set_style_bg_color(buttons[i], lv_color_hex(swatches[idx]), LV_PART_MAIN);
+            lv_obj_set_style_radius(buttons[i], 6, LV_PART_MAIN);
+            lv_obj_set_style_border_width(buttons[i], selected ? 3 : 2, LV_PART_MAIN);
+            lv_obj_set_style_border_color(
+              buttons[i],
+              lv_color_hex(selected ? border_selected : border_default),
+              LV_PART_MAIN
+            );
+          }
 
   - id: theme_editor_apply_to_token
     mode: restart
     then:
       - lambda: |-
-          int color = ((id(theme_edit_r) & 0xFF) << 16) |
-                      ((id(theme_edit_g) & 0xFF) << 8) |
-                      (id(theme_edit_b) & 0xFF);
+          int color = id(theme_edit_color);
+          if (color < 0) color = 0;
+          if (color > 0xFFFFFF) color = 0xFFFFFF;
           switch (id(theme_token_index)) {
             case 0: id(theme_token_screen_bg) = color; break;
             case 1: id(theme_token_surface) = color; break;
@@ -908,16 +988,15 @@ script:
     mode: restart
     then:
       - lambda: |-
-          if (id(theme_edit_r) < 0) id(theme_edit_r) = 0;
-          if (id(theme_edit_r) > 255) id(theme_edit_r) = 255;
-          if (id(theme_edit_g) < 0) id(theme_edit_g) = 0;
-          if (id(theme_edit_g) > 255) id(theme_edit_g) = 255;
-          if (id(theme_edit_b) < 0) id(theme_edit_b) = 0;
-          if (id(theme_edit_b) > 255) id(theme_edit_b) = 255;
+          if (id(theme_edit_color) < 0) id(theme_edit_color) = 0;
+          if (id(theme_edit_color) > 0xFFFFFF) id(theme_edit_color) = 0xFFFFFF;
+          id(theme_edit_r) = (id(theme_edit_color) >> 16) & 0xFF;
+          id(theme_edit_g) = (id(theme_edit_color) >> 8) & 0xFF;
+          id(theme_edit_b) = id(theme_edit_color) & 0xFF;
           char hex_buf[16];
           char prev_buf[48];
           snprintf(hex_buf, sizeof(hex_buf), "#%02X%02X%02X", id(theme_edit_r), id(theme_edit_g), id(theme_edit_b));
-          snprintf(prev_buf, sizeof(prev_buf), "RGB %d / %d / %d", id(theme_edit_r), id(theme_edit_g), id(theme_edit_b));
+          snprintf(prev_buf, sizeof(prev_buf), "Swatch %d", id(theme_swatch_index) + 1);
           id(theme_hex_text) = std::string(hex_buf);
           id(theme_preview_text) = std::string(prev_buf);
       - lvgl.label.update:
@@ -928,7 +1007,7 @@ script:
           text: !lambda "return id(theme_preview_text);"
       - lvgl.style.update:
           id: lv_style_theme_preview
-          bg_color: !lambda "return lv_color_hex((uint32_t)(((id(theme_edit_r) & 0xFF) << 16) | ((id(theme_edit_g) & 0xFF) << 8) | (id(theme_edit_b) & 0xFF)));"
+          bg_color: !lambda "return lv_color_hex((uint32_t) id(theme_edit_color));"
           border_color: !lambda "return lv_color_hex((uint32_t) id(theme_token_action_soft));"
 
   - id: theme_apply_tokens
@@ -966,6 +1045,7 @@ script:
       - script.execute: apply_theme_shape
       - script.execute: apply_theme_icon
       - script.execute: theme_update_hex_and_preview
+      - script.execute: theme_render_swatch_page
       - script.execute: lvgl_update_labels
 
   - id: apply_theme_shape
@@ -1220,6 +1300,9 @@ script:
                   filename: !lambda |-
                     if (slot == 0) return std::string("${camera_snapshot_dir}/cam1.jpg");
                     return std::string("${camera_snapshot_dir}/cam2.jpg");
+          else:
+            - lambda: |-
+                id(camera_last_snapshot_result) = "camera slot not configured";
 
   - id: camera_snapshot_trigger_all
     mode: restart
@@ -1273,6 +1356,8 @@ script:
                 id(camera_last_refresh_ms) = esphome::millis();
                 id(camera_slot_1_status) = "Refreshing...";
                 id(camera_slot_2_status) = "Refreshing...";
+                id(camera_refresh_status_text) = "refreshing";
+                id(camera_last_snapshot_result) = "requested";
             - script.execute: camera_snapshot_trigger_all
             - delay: 900ms
             - script.execute: camera_images_pull
@@ -1280,6 +1365,11 @@ script:
                 id(camera_refresh_in_progress) = false;
                 id(camera_slot_1_status) = id(camera_slot_1_state).has_state() ? id(camera_slot_1_state).state : std::string("No state");
                 id(camera_slot_2_status) = id(camera_slot_2_state).has_state() ? id(camera_slot_2_state).state : std::string("No state");
+                uint32_t age = (esphome::millis() - id(camera_last_refresh_ms)) / 1000U;
+                char status[48];
+                snprintf(status, sizeof(status), "ok (%lus ago)", (unsigned long) age);
+                id(camera_refresh_status_text) = std::string(status);
+                id(camera_last_snapshot_result) = "snapshot+pull ok";
             - script.execute: lvgl_update_labels
 
   - id: camera_open_page
@@ -1420,10 +1510,43 @@ script:
           text: !lambda |-
             char buf[200];
             uint32_t age = (esphome::millis() - id(last_activity_ms)) / 1000U;
-            snprintf(buf, sizeof(buf), "Activity: %s:%d | idle %lus",
+            snprintf(buf, sizeof(buf), "Activity %s:%d | idle %lus",
                      id(last_activity_source).c_str(),
                      id(last_activity_code),
                      (unsigned long) age);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: settings_camera_state_lbl
+          text: !lambda |-
+            if (atoi("${camera_slot_count}") <= 0) return std::string("Camera slots disabled");
+            char buf[220];
+            std::string s1 = id(camera_slot_1_state).has_state() ? id(camera_slot_1_state).state : id(camera_slot_1_status);
+            std::string s2 = id(camera_slot_2_state).has_state() ? id(camera_slot_2_state).state : id(camera_slot_2_status);
+            if ((int) s1.size() > 9) s1 = s1.substr(0, 9) + ".";
+            if ((int) s2.size() > 9) s2 = s2.substr(0, 9) + ".";
+            if (atoi("${camera_slot_count}") >= 2) {
+              snprintf(buf, sizeof(buf), "Cam1:%s  Cam2:%s", s1.c_str(), s2.c_str());
+            } else {
+              snprintf(buf, sizeof(buf), "Cam1:%s", s1.c_str());
+            }
+            return std::string(buf);
+      - lvgl.label.update:
+          id: settings_camera_refresh_lbl
+          text: !lambda |-
+            char buf[220];
+            snprintf(buf, sizeof(buf), "Cam refresh %s | %s",
+                     id(camera_refresh_status_text).c_str(),
+                     id(camera_last_snapshot_result).c_str());
+            return std::string(buf);
+      - lvgl.label.update:
+          id: settings_diag_shortcut_lbl
+          text: !lambda |-
+            uint32_t alt_age = (esphome::millis() - id(kb_alt_last_timeout_ms)) / 1000U;
+            char buf[220];
+            snprintf(buf, sizeof(buf), "Shortcut %s | ALT %s | timeout %lus",
+                     id(kb_last_shortcut_text).c_str(),
+                     id(kb_alt_armed) ? "armed" : "idle",
+                     (unsigned long) alt_age);
             return std::string(buf);
 
   - id: toggle_weather_diagnostics
@@ -2553,12 +2676,16 @@ script:
       - script.execute: climate_commit_targets
 
   - id: climate_request_adjust
-    mode: queued
+    mode: restart
     parameters:
       zone: int
       delta: int
       immediate: bool
     then:
+      - lambda: |-
+          char buf[48];
+          snprintf(buf, sizeof(buf), "adjust z%d d%d", zone, delta);
+          id(climate_last_commit_result) = std::string(buf);
       - if:
           condition:
             lambda: "return zone == 0;"
@@ -2585,7 +2712,7 @@ script:
                 immediate: !lambda "return immediate;"
 
   - id: climate_adjust_single
-    mode: queued
+    mode: restart
     parameters:
       delta: int
       immediate: bool
@@ -2613,7 +2740,7 @@ script:
             - script.execute: climate_commit_debounced
 
   - id: climate_adjust_heat
-    mode: queued
+    mode: restart
     parameters:
       delta: int
       immediate: bool
@@ -2636,7 +2763,7 @@ script:
             - script.execute: climate_commit_debounced
 
   - id: climate_adjust_cool
-    mode: queued
+    mode: restart
     parameters:
       delta: int
       immediate: bool
@@ -2855,7 +2982,7 @@ script:
       - lvgl.label.update:
           id: home_status_lbl
           text: !lambda |-
-            char buf[160];
+            char buf[128];
             float sats = id(gps_satellites).state;
             float indoor = id(sensi_temperature).state;
             bool has_indoor = indoor == indoor;
@@ -2873,26 +3000,26 @@ script:
             const char *unit = app_metric ? "C" : "F";
             if (!gps_alive) {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS NO DATA",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS NO",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit);
               } else {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO DATA",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS NO",
                          id(battery_percent).state, id(wifi_signal_tdeck).state);
               }
             } else if (sats > 0.0f) {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS %.0f sat",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS %.0f",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit, sats);
               } else {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f sat",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS %.0f",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, sats);
               }
             } else {
               if (has_indoor) {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS searching",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  In %.1f%s  GPS ...",
                          id(battery_percent).state, id(wifi_signal_tdeck).state, indoor, unit);
               } else {
-                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS searching",
+                snprintf(buf, sizeof(buf), "Batt %.0f%%  WiFi %.0fdBm  GPS ...",
                          id(battery_percent).state, id(wifi_signal_tdeck).state);
               }
             }
@@ -2900,12 +3027,14 @@ script:
       - lvgl.label.update:
           id: home_substatus_lbl
           text: !lambda |-
-            char buf[160];
-            snprintf(buf, sizeof(buf), "Sleep %ds | Units %s | Cam %s | Last %s:%d",
+            char buf[128];
+            std::string src = id(last_activity_source);
+            if ((int) src.size() > 5) src = src.substr(0, 5);
+            snprintf(buf, sizeof(buf), "Sleep %ds | %s | Cam %s | %s:%d",
                      id(screensaver_timeout_s),
-                     id(app_units_mode) == 1 ? "Metric" : "Imperial",
+                     id(app_units_mode) == 1 ? "MET" : "IMP",
                      id(camera_auto_refresh_enabled) ? "Auto" : "Manual",
-                     id(last_activity_source).c_str(),
+                     src.c_str(),
                      id(last_activity_code));
             return std::string(buf);
       - lvgl.widget.update:
@@ -3133,6 +3262,21 @@ script:
             std::string src = id(app_units_source).empty() ? std::string("manual") : id(app_units_source);
             return std::string("Units source: ") + src;
       - lvgl.label.update:
+          id: settings_admin_help_lbl
+          text: "Admin Access:"
+      - lvgl.label.update:
+          id: settings_admin_device_url_lbl
+          text: !lambda |-
+            std::string host = std::string("${name}.local");
+            if (id(wifi_ip_address).has_state() && !id(wifi_ip_address).state.empty()) {
+              host = id(wifi_ip_address).state;
+            }
+            if ((int) host.size() > 28) host = host.substr(0, 28);
+            return std::string("Device: http://") + host;
+      - lvgl.label.update:
+          id: settings_admin_ha_addon_lbl
+          text: "HA: Add-ons -> T-Deck Admin Center"
+      - lvgl.label.update:
           id: settings_screensaver_toggle_lbl
           text: !lambda "return id(screensaver_enabled) ? std::string(\"Screensaver ON\") : std::string(\"Screensaver OFF\");"
       - lvgl.label.update:
@@ -3163,23 +3307,22 @@ script:
           id: settings_cat_diag_lbl
           text: !lambda "return id(settings_section_index) == 4 ? std::string(\"[Diag]\") : std::string(\"Diag\");"
       - lvgl.label.update:
-          id: theme_status_lbl
+          id: theme_swatch_page_lbl
           text: !lambda |-
-            const char *token = "Screen";
-            if (id(theme_token_index) == 1) token = "Surface";
-            else if (id(theme_token_index) == 2) token = "SurfaceAlt";
-            else if (id(theme_token_index) == 3) token = "Action";
-            else if (id(theme_token_index) == 4) token = "ActionSoft";
-            else if (id(theme_token_index) == 5) token = "Text";
-            else if (id(theme_token_index) == 6) token = "TextDim";
-            else if (id(theme_token_index) == 7) token = "Success";
-            else if (id(theme_token_index) == 8) token = "Warning";
-            char buf[192];
-            snprintf(buf, sizeof(buf), "Token %s | Icon %s | Border %d | Radius %d",
-                     token,
-                     id(theme_icon_mode) == 0 ? "Text" : "Accent",
-                     id(theme_border_width),
-                     id(theme_radius));
+            char buf[20];
+            snprintf(buf, sizeof(buf), "Palette %d/3", id(theme_swatch_page) + 1);
+            return std::string(buf);
+      - lvgl.label.update:
+          id: theme_border_lbl
+          text: !lambda |-
+            char buf[12];
+            snprintf(buf, sizeof(buf), "B%d", id(theme_border_width));
+            return std::string(buf);
+      - lvgl.label.update:
+          id: theme_radius_lbl
+          text: !lambda |-
+            char buf[12];
+            snprintf(buf, sizeof(buf), "R%d", id(theme_radius));
             return std::string(buf);
       - lvgl.label.update:
           id: theme_token_0_lbl
@@ -3621,12 +3764,6 @@ script:
       - lvgl.slider.update:
           id: display_brightness_slider
           value: !lambda "return id(backlight_percent);"
-      - lvgl.slider.update:
-          id: theme_border_slider
-          value: !lambda "return id(theme_border_width);"
-      - lvgl.slider.update:
-          id: theme_radius_slider
-          value: !lambda "return id(theme_radius);"
 
   - id: lvgl_update_dynamic
     mode: restart
@@ -3987,20 +4124,20 @@ lvgl:
             id: home_status_lbl
             x: 12
             y: 8
-            width: 236
+            width: 190
             text: "Status"
         - label:
             id: home_substatus_lbl
             x: 12
-            y: 24
-            width: 168
+            y: 32
+            width: 236
             text: "Sleep 45s | Units Imperial"
         - button:
             id: home_cameras_btn
-            x: 184
-            y: 22
-            width: 64
-            height: 18
+            x: 206
+            y: 6
+            width: 48
+            height: 26
             styles: [lv_style_btn_soft]
             hidden: true
             group: nav_group
@@ -4029,7 +4166,7 @@ lvgl:
         - button:
             id: home_lights_btn
             x: 12
-            y: 40
+            y: 44
             width: 96
             height: 92
             styles: [lv_style_btn_ok]
@@ -4044,7 +4181,7 @@ lvgl:
         - button:
             id: home_weather_btn
             x: 112
-            y: 40
+            y: 44
             width: 96
             height: 92
             styles: [lv_style_btn]
@@ -4114,7 +4251,7 @@ lvgl:
         - button:
             id: home_climate_btn
             x: 212
-            y: 40
+            y: 44
             width: 96
             height: 92
             styles: [lv_style_btn_ok]
@@ -4129,7 +4266,7 @@ lvgl:
         - button:
             id: home_reader_btn
             x: 12
-            y: 138
+            y: 142
             width: 96
             height: 92
             styles: [lv_style_btn_soft]
@@ -4144,7 +4281,7 @@ lvgl:
         - button:
             id: home_settings_btn
             x: 112
-            y: 138
+            y: 142
             width: 96
             height: 92
             styles: [lv_style_btn_soft]
@@ -4159,7 +4296,7 @@ lvgl:
         - button:
             id: home_theme_btn
             x: 212
-            y: 138
+            y: 142
             width: 96
             height: 92
             styles: [lv_style_btn_soft]
@@ -6233,6 +6370,26 @@ lvgl:
                   y: 78
                   width: 194
                   text: "Wake T/K/B ON/ON/ON"
+              - label:
+                  id: settings_admin_help_lbl
+                  x: 8
+                  y: 108
+                  width: 194
+                  text: "Admin Access:"
+              - label:
+                  id: settings_admin_device_url_lbl
+                  x: 8
+                  y: 128
+                  width: 194
+                  long_mode: DOT
+                  text: "Device: http://lilygo-tdeck-plus.local"
+              - label:
+                  id: settings_admin_ha_addon_lbl
+                  x: 8
+                  y: 148
+                  width: 194
+                  long_mode: DOT
+                  text: "HA: Add-ons -> T-Deck Admin Center"
         - obj:
             id: settings_panel_display
             x: 102
@@ -6457,24 +6614,45 @@ lvgl:
               - label:
                   id: settings_diag_gps_lbl
                   x: 8
-                  y: 86
+                  y: 66
                   width: 194
                   long_mode: DOT
                   text: "GPS waiting..."
               - label:
                   id: settings_diag_climate_lbl
                   x: 8
-                  y: 130
+                  y: 90
                   width: 194
                   long_mode: DOT
                   text: "Climate commit age 0s"
               - label:
                   id: settings_diag_activity_lbl
                   x: 8
-                  y: 168
+                  y: 114
                   width: 194
                   long_mode: DOT
                   text: "Activity --"
+              - label:
+                  id: settings_camera_state_lbl
+                  x: 8
+                  y: 138
+                  width: 194
+                  long_mode: DOT
+                  text: "Camera state --"
+              - label:
+                  id: settings_camera_refresh_lbl
+                  x: 8
+                  y: 156
+                  width: 194
+                  long_mode: DOT
+                  text: "Camera refresh --"
+              - label:
+                  id: settings_diag_shortcut_lbl
+                  x: 8
+                  y: 174
+                  width: 194
+                  long_mode: DOT
+                  text: "Shortcut --"
 
     - id: theme_page
       styles: [lv_style_screen]
@@ -6646,7 +6824,7 @@ lvgl:
             x: 104
             y: 38
             width: 56
-            height: 34
+            height: 30
             styles: [lv_style_theme_preview]
         - label:
             id: theme_hex_lbl
@@ -6659,258 +6837,68 @@ lvgl:
             x: 168
             y: 60
             width: 140
-            text: "RGB 27 / 37 / 51"
-        - label:
+            text: "Swatch 1"
+        - button:
             x: 104
+            y: 78
+            width: 52
+            height: 20
+            styles: [lv_style_btn_soft]
+            group: nav_group
+            on_click:
+              - script.execute: theme_swatch_page_prev
+            widgets:
+              - label:
+                  text: "<"
+                  align: CENTER
+        - label:
+            id: theme_swatch_page_lbl
+            x: 160
             y: 82
-            text: "R"
-        - slider:
-            id: theme_r_slider
-            x: 118
-            y: 80
             width: 92
-            min_value: 0
-            max_value: 255
-            value: 27
-            group: nav_group
-            on_value:
-              - script.execute:
-                  id: theme_editor_set_rgb
-                  channel: 0
-                  val: !lambda "return (int)x;"
+            text: "Palette 1/3"
         - button:
-            x: 214
-            y: 76
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
+            x: 256
+            y: 78
+            width: 52
+            height: 20
+            styles: [lv_style_btn_soft]
             group: nav_group
             on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 0
-                  delta: -1
+              - script.execute: theme_swatch_page_next
             widgets:
               - label:
-                  text: "-"
+                  text: ">"
                   align: CENTER
-        - button:
-            x: 238
-            y: 76
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 0
-                  delta: 1
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-        - button:
-            x: 262
-            y: 76
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 0
-                  delta: -16
-            widgets:
-              - label:
-                  text: "-16"
-                  align: CENTER
-        - button:
-            x: 286
-            y: 76
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 0
-                  delta: 16
-            widgets:
-              - label:
-                  text: "+16"
-                  align: CENTER
-        - label:
-            x: 104
-            y: 106
-            text: "G"
-        - slider:
-            id: theme_g_slider
-            x: 118
-            y: 104
-            width: 92
-            min_value: 0
-            max_value: 255
-            value: 37
-            group: nav_group
-            on_value:
-              - script.execute:
-                  id: theme_editor_set_rgb
-                  channel: 1
-                  val: !lambda "return (int)x;"
-        - button:
-            x: 214
-            y: 98
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 1
-                  delta: -1
-            widgets:
-              - label:
-                  text: "-"
-                  align: CENTER
-        - button:
-            x: 238
-            y: 98
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 1
-                  delta: 1
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-        - button:
-            x: 262
-            y: 98
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 1
-                  delta: -16
-            widgets:
-              - label:
-                  text: "-16"
-                  align: CENTER
-        - button:
-            x: 286
-            y: 98
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 1
-                  delta: 16
-            widgets:
-              - label:
-                  text: "+16"
-                  align: CENTER
-        - label:
-            x: 104
-            y: 130
-            text: "B"
-        - slider:
-            id: theme_b_slider
-            x: 118
-            y: 128
-            width: 92
-            min_value: 0
-            max_value: 255
-            value: 51
-            group: nav_group
-            on_value:
-              - script.execute:
-                  id: theme_editor_set_rgb
-                  channel: 2
-                  val: !lambda "return (int)x;"
-        - button:
-            x: 214
-            y: 122
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 2
-                  delta: -1
-            widgets:
-              - label:
-                  text: "-"
-                  align: CENTER
-        - button:
-            x: 238
-            y: 122
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 2
-                  delta: 1
-            widgets:
-              - label:
-                  text: "+"
-                  align: CENTER
-        - button:
-            x: 262
-            y: 122
-            width: 22
-            height: 18
-            styles: [lv_style_btn_warn]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 2
-                  delta: -16
-            widgets:
-              - label:
-                  text: "-16"
-                  align: CENTER
-        - button:
-            x: 286
-            y: 122
-            width: 22
-            height: 18
-            styles: [lv_style_btn_ok]
-            group: nav_group
-            on_click:
-              - script.execute:
-                  id: theme_editor_step_rgb
-                  channel: 2
-                  delta: 16
-            widgets:
-              - label:
-                  text: "+16"
-                  align: CENTER
+        - button: { id: theme_swatch_0_btn,  x: 104, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 0 } }] }
+        - button: { id: theme_swatch_1_btn,  x: 134, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 1 } }] }
+        - button: { id: theme_swatch_2_btn,  x: 164, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 2 } }] }
+        - button: { id: theme_swatch_3_btn,  x: 194, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 3 } }] }
+        - button: { id: theme_swatch_4_btn,  x: 224, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 4 } }] }
+        - button: { id: theme_swatch_5_btn,  x: 254, y: 102, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 5 } }] }
+        - button: { id: theme_swatch_6_btn,  x: 104, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 6 } }] }
+        - button: { id: theme_swatch_7_btn,  x: 134, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 7 } }] }
+        - button: { id: theme_swatch_8_btn,  x: 164, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 8 } }] }
+        - button: { id: theme_swatch_9_btn,  x: 194, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 9 } }] }
+        - button: { id: theme_swatch_10_btn, x: 224, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 10 } }] }
+        - button: { id: theme_swatch_11_btn, x: 254, y: 126, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 11 } }] }
+        - button: { id: theme_swatch_12_btn, x: 104, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 12 } }] }
+        - button: { id: theme_swatch_13_btn, x: 134, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 13 } }] }
+        - button: { id: theme_swatch_14_btn, x: 164, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 14 } }] }
+        - button: { id: theme_swatch_15_btn, x: 194, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 15 } }] }
+        - button: { id: theme_swatch_16_btn, x: 224, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 16 } }] }
+        - button: { id: theme_swatch_17_btn, x: 254, y: 150, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 17 } }] }
+        - button: { id: theme_swatch_18_btn, x: 104, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 18 } }] }
+        - button: { id: theme_swatch_19_btn, x: 134, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 19 } }] }
+        - button: { id: theme_swatch_20_btn, x: 164, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 20 } }] }
+        - button: { id: theme_swatch_21_btn, x: 194, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 21 } }] }
+        - button: { id: theme_swatch_22_btn, x: 224, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 22 } }] }
+        - button: { id: theme_swatch_23_btn, x: 254, y: 174, width: 26, height: 20, styles: [lv_style_btn_soft], group: nav_group, on_click: [{ script.execute: { id: theme_apply_swatch, idx: 23 } }] }
         - button:
             x: 104
-            y: 150
+            y: 198
             width: 98
-            height: 24
+            height: 20
             styles: [lv_style_btn_ok]
             group: nav_group
             on_click:
@@ -6921,9 +6909,9 @@ lvgl:
                   align: CENTER
         - button:
             x: 210
-            y: 150
+            y: 198
             width: 98
-            height: 24
+            height: 20
             styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
@@ -6934,8 +6922,8 @@ lvgl:
                   align: CENTER
         - button:
             x: 104
-            y: 174
-            width: 98
+            y: 220
+            width: 56
             height: 18
             styles: [lv_style_btn_soft]
             group: nav_group
@@ -6943,63 +6931,80 @@ lvgl:
               - script.execute: theme_icon_mode_toggle
             widgets:
               - label:
-                  text: "Icon Mode"
+                  text: "Icon"
                   align: CENTER
         - button:
-            x: 210
-            y: 174
-            width: 98
+            x: 164
+            y: 220
+            width: 20
             height: 18
-            styles: [lv_style_btn]
+            styles: [lv_style_btn_warn]
             group: nav_group
             on_click:
-              - script.execute: open_shortcuts
-            widgets:
-              - label:
-                  text: "Help"
-                  align: CENTER
-        - label:
-            id: theme_status_lbl
-            x: 104
-            y: 194
-            width: 204
-            text: "Token Screen | Icon Text"
-        - label:
-            x: 104
-            y: 202
-            width: 98
-            text: "Border"
-        - slider:
-            id: theme_border_slider
-            x: 104
-            y: 214
-            width: 98
-            min_value: 1
-            max_value: 4
-            value: 2
-            group: nav_group
-            on_release:
               - script.execute:
                   id: set_theme_border_width
-                  val: !lambda "return (int)x;"
+                  val: !lambda "return id(theme_border_width) - 1;"
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
         - label:
-            x: 210
-            y: 202
-            width: 98
-            text: "Radius"
-        - slider:
-            id: theme_radius_slider
-            x: 210
-            y: 214
-            width: 98
-            min_value: 4
-            max_value: 16
-            value: 10
+            id: theme_border_lbl
+            x: 186
+            y: 224
+            width: 34
+            text: "B2"
+        - button:
+            x: 220
+            y: 220
+            width: 20
+            height: 18
+            styles: [lv_style_btn_ok]
             group: nav_group
-            on_release:
+            on_click:
+              - script.execute:
+                  id: set_theme_border_width
+                  val: !lambda "return id(theme_border_width) + 1;"
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
+        - button:
+            x: 242
+            y: 220
+            width: 20
+            height: 18
+            styles: [lv_style_btn_warn]
+            group: nav_group
+            on_click:
               - script.execute:
                   id: set_theme_radius
-                  val: !lambda "return (int)x;"
+                  val: !lambda "return id(theme_radius) - 1;"
+            widgets:
+              - label:
+                  text: "-"
+                  align: CENTER
+        - label:
+            id: theme_radius_lbl
+            x: 264
+            y: 224
+            width: 28
+            text: "R10"
+        - button:
+            x: 288
+            y: 220
+            width: 20
+            height: 18
+            styles: [lv_style_btn_ok]
+            group: nav_group
+            on_click:
+              - script.execute:
+                  id: set_theme_radius
+                  val: !lambda "return id(theme_radius) + 1;"
+            widgets:
+              - label:
+                  text: "+"
+                  align: CENTER
 
     - id: touch_cal_page
       styles: [lv_style_screen]

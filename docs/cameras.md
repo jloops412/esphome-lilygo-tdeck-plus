@@ -1,8 +1,13 @@
 # Cameras
 
-## Goal
+## Goal and behavior
 
 Optional snapshot camera support that does not affect users who do not configure cameras.
+
+Key visibility rule:
+
+- `camera_slot_count: "0"` intentionally hides camera UI.
+- Set to `"1"` or `"2"` to enable camera launcher/pages.
 
 ## Substitutions
 
@@ -27,4 +32,9 @@ Optional snapshot camera support that does not affect users who do not configure
 - `Cameras` page with up to two snapshot cards.
 - `Camera Detail` page for focused view.
 - Manual refresh + auto-refresh toggle.
+- Settings diagnostics include camera state and refresh result text.
 
+## Diagnostics strings
+
+- `camera_refresh_status_text`
+- `camera_last_snapshot_result`
