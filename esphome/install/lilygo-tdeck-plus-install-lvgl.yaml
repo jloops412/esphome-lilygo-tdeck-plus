@@ -2,7 +2,7 @@ substitutions:
   name: lilygo-tdeck-plus
   friendly_name: "LilyGO T-Deck Plus"
   app_release_channel: "stable"
-  app_release_version: "v0.23.0"
+  app_release_version: "v0.23.1"
   # Keyboard backlight note:
   # Firmware control is currently disabled in LVGL path.
   # Use keyboard hardware Alt+B toggle directly for now.

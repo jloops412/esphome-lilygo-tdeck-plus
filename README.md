@@ -126,7 +126,7 @@ Home Assistant add-on (Ingress):
    - run Guided flow (`Device -> Features -> Entities -> Theme -> Layout -> Deploy`)
    - use Advanced tabs for profile, update, and raw YAML workflows
 
-Admin Center V5 (`0.23.0`) highlights:
+Admin Center V5 (`0.23.1`) highlights:
 
 1. Dashboard-first landing with action cards (`Connect Device`, `Map Entities`, `Theme`, `Layout`, `Deploy`, `Recover`).
 2. Guided UX remains default; Advanced mode is still available for power users.
@@ -149,13 +149,17 @@ Admin Center V5 (`0.23.0`) highlights:
    - `generated/pages/climate.generated.yaml`
 7. Apply, backup, and restore flows now preserve the expanded generated artifact set.
 8. Firmware workflow still uses capability-based auto-detect + fallback with legacy-safe status handling.
+9. Startup hotfix:
+   - fixed frontend bootstrap syntax regression that caused stuck `Status loading... / Initializing...`
+   - added explicit startup state (`booting/ready/error`) and retry button
+   - added versioned static assets (`app.js?v=<version>`, `styles.css?v=<version>`) and no-cache index delivery
 
 If HA says the repo is not valid or add-on build fails:
 
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.23.0`).
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.23.1`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
 
 If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
@@ -173,7 +177,19 @@ If HA still shows an old add-on version:
 
 1. Confirm GitHub `main` has the new `tdeck_admin_center/config.yaml` version committed.
 2. In HA Add-on Store: remove repo, restart Supervisor, re-add repo URL.
-3. Reopen store and verify version `0.23.0`.
+3. Reopen store and verify version `0.23.1`.
+
+If the add-on UI is stuck at `Status loading... / Initializing...`:
+
+1. Verify add-on version is `0.23.1` or newer.
+2. Open the add-on via Ingress and click `Retry Startup`.
+3. Check `System Health`:
+   - `Transport base hint`
+   - `Ingress expected prefix`
+   - `Last Path` / `Last Status` in transport diagnostics
+4. If stale frontend assets are suspected:
+   - reopen the add-on page in a new tab
+   - run Add-on Store cache refresh sequence (remove repo, restart Supervisor, re-add repo)
 
 Ingress/API 404 recovery (fixed in `0.21.0`):
 

@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Tuple
 from urllib.parse import quote, urlparse
 
 import requests
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, make_response, request, send_from_directory
 
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,8 +25,8 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.23.0")) or "0.23.0"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.23.0") or "v0.23.0"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.23.1")) or "0.23.1"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.23.1") or "v0.23.1"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
@@ -1968,7 +1968,7 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     if not app_release_version:
         errors.append("app_release_version is required.")
     elif not re.match(r"^v\d+\.\d+\.\d+([\-+].+)?$", app_release_version):
-        warnings.append("app_release_version should follow semantic tag style (for example v0.23.0).")
+        warnings.append("app_release_version should follow semantic tag style (for example v0.23.1).")
     if app_release_channel not in {"stable", "beta", "dev"}:
         warnings.append("app_release_channel should be stable, beta, or dev.")
 
@@ -3369,6 +3369,8 @@ def api_health() -> Any:
         {
             "ok": True,
             "addon_version": ADDON_VERSION,
+            "frontend_asset_version": ADDON_VERSION,
+            "ingress_expected_prefix": _infer_ingress_api_base(),
             "addon_updated_since_last_run": runtime.get("addon_updated_since_last_run", False),
             "firmware_status_summary": _runtime_firmware_summary(),
             "firmware_capability_summary": {
@@ -4754,15 +4756,40 @@ def api_backups_restore() -> Any:
 
 @app.get("/")
 def root() -> Any:
-    return send_from_directory(STATIC_DIR, "index.html")
+    return _index_response()
 
 
 @app.get("/<path:path>")
 def static_proxy(path: str) -> Any:
+    if path.lower() == "index.html":
+        return _index_response()
     full_path = os.path.join(STATIC_DIR, path)
     if os.path.isfile(full_path):
-        return send_from_directory(STATIC_DIR, path)
-    return send_from_directory(STATIC_DIR, "index.html")
+        return _static_file_response(path)
+    return _index_response()
+
+
+def _index_response() -> Any:
+    index_path = Path(STATIC_DIR) / "index.html"
+    html = index_path.read_text(encoding="utf-8")
+    html = html.replace("__ASSET_VERSION__", ADDON_VERSION)
+    html = html.replace("__INGRESS_EXPECTED_PREFIX__", _infer_ingress_api_base())
+    response = make_response(html)
+    response.headers["Content-Type"] = "text/html; charset=utf-8"
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+def _static_file_response(path: str) -> Any:
+    response = send_from_directory(STATIC_DIR, path)
+    lowered = path.lower()
+    if lowered.endswith((".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2")):
+        response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    else:
+        response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 if __name__ == "__main__":

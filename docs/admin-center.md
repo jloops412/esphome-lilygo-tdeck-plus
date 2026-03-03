@@ -27,7 +27,7 @@ The add-on now supports managed direct-apply in a guarded scope:
      - `Device: http://<device-ip>`
      - `HA: Add-ons -> T-Deck Admin Center`
 
-## Admin Center V5 UX (v0.23.0)
+## Admin Center V5 UX (v0.23.1)
 
 Dashboard + dual mode:
 
@@ -75,6 +75,7 @@ Guided mode keeps primary workflows obvious for first-time users while Dashboard
 ## API V4
 
 1. `GET /api/health`
+   - includes `frontend_asset_version` and `ingress_expected_prefix`
 2. `POST /api/discovery/jobs/start`
 3. `GET /api/discovery/jobs/<id>`
 4. `POST /api/discovery/jobs/<id>/cancel`
@@ -193,6 +194,24 @@ Fixed in add-on `0.21.0`:
 1. Frontend now uses ingress-relative API paths (`api/...`) instead of absolute `/api/...`.
 2. Overview includes transport diagnostics (`API Base`, `Last Path`, `Last Status`, `Last Error`).
 3. Health endpoint returns ingress/server diagnostics (`api_base_hint`, `request_path`, `script_root`).
+
+### UI stuck at `Status loading... / Initializing...`
+
+Fixed in add-on `0.23.1`:
+
+1. Startup now exposes explicit state (`booting`, `ready`, `error`) and an inline error banner.
+2. `Retry Startup` reruns startup once without page reload loops.
+3. Frontend assets are versioned and `index.html` is served with no-cache headers.
+4. Health now reports:
+   - `frontend_asset_version`
+   - `ingress_expected_prefix`
+
+Recovery sequence:
+
+1. Confirm add-on version `0.23.1` or newer.
+2. Open `System Health` and inspect transport diagnostics (`API Base`, `Last Path`, `Last Status`).
+3. Click `Retry Startup`.
+4. If still failing, run add-on store repo cache refresh (remove repo, restart Supervisor, re-add repo URL).
 
 ### Add-on build failure (`/run.sh` missing)
 

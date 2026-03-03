@@ -3,8 +3,10 @@ const state = {
   contracts: null,
   workspace: null,
   activeDeviceIndex: 0,
+  eventsBound: false,
   transport: {
     api_base_resolved: "",
+    ingress_hint: "",
     last_api_error: "",
     last_status_code: 0,
     last_path: "",
@@ -36,6 +38,11 @@ const state = {
   dashboardSummary: null,
   cameraAutodetect: null,
   additionalCollection: "weather_metrics",
+  startup: {
+    startup_state: "booting",
+    startup_error_text: "",
+    in_progress: false,
+  },
 };
 
 const WEATHER_FIELDS = [
@@ -130,6 +137,17 @@ function e(id) {
   return document.getElementById(id);
 }
 
+function metaContent(name) {
+  const node = document.querySelector(`meta[name="${name}"]`);
+  return node ? String(node.getAttribute("content") || "").trim() : "";
+}
+
+const INDEX_ASSET_VERSION = metaContent("tdeck-asset-version");
+const INDEX_INGRESS_HINT = metaContent("tdeck-ingress-prefix");
+if (INDEX_INGRESS_HINT) {
+  state.transport.ingress_hint = INDEX_INGRESS_HINT;
+}
+
 function deepClone(v) {
   return JSON.parse(JSON.stringify(v));
 }
@@ -177,6 +195,7 @@ function setTransportStatus() {
   const t = state.transport || {};
   const lines = [
     `API Base: ${t.api_base_resolved || "--"}`,
+    `Ingress Hint: ${t.ingress_hint || "--"}`,
     `Last Path: ${t.last_path || "--"}`,
     `Last Status: ${t.last_status_code || "--"}`,
     `Attempts: ${t.attempts || 0}`,
@@ -205,8 +224,18 @@ function ingressBasePath() {
 
 function buildApiCandidates(path) {
   const normalized = normalizeApiPath(path);
+  const normalizedTail = normalized.replace(/^api\//, "");
   const joined = `${ingressBasePath().replace(/\/+$/, "")}/${normalized}`.replace(/\/{2,}/g, "/");
   const candidates = [normalized, `./${normalized}`, joined];
+  const hint = String(state.transport.ingress_hint || INDEX_INGRESS_HINT || "").trim();
+  if (hint) {
+    const hintBase = hint.replace(/\/+$/, "");
+    if (hintBase === "api" || hintBase.endsWith("/api")) {
+      candidates.push(`${hintBase}/${normalizedTail}`);
+    } else {
+      candidates.push(`${hintBase}/${normalized}`);
+    }
+  }
   return Array.from(new Set(candidates));
 }
 
@@ -229,13 +258,47 @@ function setStatus(text, isError = false) {
   if (strip) {
     const t = state.transport || {};
     const fw = state.firmwareStatus || {};
+    const startup = state.startup || {};
     strip.textContent =
+      `Startup: ${startup.startup_state || "--"}\n` +
       `Status: ${text}\n` +
       `Mode: ${state.uiMode}\n` +
       `API: ${t.last_status_code || "--"} ${t.last_path || "--"}\n` +
       `FW: ${fw.status_text || "--"} (${fw.method || "--"})`;
     strip.style.color = isError ? "#ffb4c0" : "";
   }
+}
+
+function formatStartupError(label, err) {
+  const endpoint = state.transport.last_path || "--";
+  const code = state.transport.last_status_code || "--";
+  const base = state.transport.api_base_resolved || state.transport.ingress_hint || "--";
+  const detail = err?.message || "unknown error";
+  return `${label} failed (${detail}). endpoint=${endpoint} status=${code} base=${base}. Try Retry Startup.`;
+}
+
+function setStartupState(startupState, startupErrorText = "", isError = false) {
+  state.startup.startup_state = startupState;
+  state.startup.startup_error_text = startupErrorText;
+  const stateLabel = e("startup_state_lbl");
+  if (stateLabel) {
+    stateLabel.textContent = `Startup: ${startupState}`;
+    stateLabel.style.color = startupState === "error" ? "#ffb4c0" : "";
+  }
+  const errorLabel = e("startup_error_lbl");
+  if (errorLabel) {
+    if (startupErrorText) {
+      errorLabel.textContent = startupErrorText;
+      errorLabel.classList.remove("hidden");
+      errorLabel.style.color = isError ? "#ffb4c0" : "#ffd38a";
+    } else {
+      errorLabel.textContent = "";
+      errorLabel.classList.add("hidden");
+      errorLabel.style.color = "";
+    }
+  }
+  const retryBtn = e("retry_startup_btn");
+  if (retryBtn) retryBtn.disabled = startupState === "booting";
 }
 
 function setDiscoveryStatus(text, isError = false) {
@@ -567,7 +630,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.23.0";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.23.1";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -768,7 +831,7 @@ function ensureCollections(profile) {
     const limitKey = meta.limitKey;
     const current = Number(profile.entity_collections.limits[limitKey] || meta.defaultMax);
     profile.entity_collections.limits[limitKey] = Number.isFinite(current) ? current : meta.defaultMax;
-  }
+  });
   if (!profile.entity_collections.lights.length && Array.isArray(profile.slots?.lights)) {
     profile.slots.lights.forEach((slot, idx) => {
       profile.entity_collections.lights.push({
@@ -1356,7 +1419,7 @@ function updateProfileFromTopFields() {
   p.device.git_ref = e("git_ref").value.trim() || "stable";
   p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.0");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.1");
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
   if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
@@ -1618,16 +1681,23 @@ async function refreshHealth() {
   const cache = data.cache || {};
   const haStatus = data.ha_connected ? "connected" : `error (${data.ha_error || "unreachable"})`;
   const transport = data.transport || {};
+  if (transport.api_base_hint) {
+    state.transport.ingress_hint = transport.api_base_hint;
+  } else if (data.ingress_expected_prefix) {
+    state.transport.ingress_hint = data.ingress_expected_prefix;
+  }
   const discovery = data.discovery || {};
   const firmwareCaps = data.firmware_capability_summary || {};
   e("health_summary").textContent =
     `Addon version: ${data.addon_version || "--"}\n` +
+    `Frontend asset version: ${data.frontend_asset_version || INDEX_ASSET_VERSION || "--"}\n` +
     `Addon updated flag: ${data.addon_updated_since_last_run ? "yes" : "no"}\n` +
     `Firmware summary: ${data.firmware_status_summary || "--"}\n` +
     `Firmware method: ${firmwareCaps.recommended_method || "--"}\n` +
     `HA: ${haStatus}\n` +
     `Transport path: ${transport.request_path || "--"}\n` +
     `Transport base hint: ${transport.api_base_hint || "--"}\n` +
+    `Ingress expected prefix: ${data.ingress_expected_prefix || "--"}\n` +
     `Discovery status: ${discovery.status || "--"}\n` +
     `Discovery stage: ${discovery.stage || "--"}\n` +
     `Entities cached: ${cache.entities || 0}\n` +
@@ -1656,7 +1726,7 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.1"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1665,7 +1735,7 @@ function firmwareStatusQuery() {
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.1"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1729,7 +1799,7 @@ async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipCo
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.0");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.1");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -2117,6 +2187,13 @@ function bindProfileEvents() {
   e("refresh_runtime_btn").addEventListener("click", () => {
     refreshRuntimeDiagnostics().catch((err) => setStatus(`Runtime diagnostics error: ${err.message}`, true));
   });
+  e("retry_startup_btn")?.addEventListener("click", () => {
+    bootstrap({ retry: true }).catch((err) => {
+      const msg = formatStartupError("Retry startup", err);
+      setStartupState("error", msg, true);
+      setStatus(msg, true);
+    });
+  });
 
   e("template_domain_select")?.addEventListener("change", renderTemplateItems);
   e("template_item_select")?.addEventListener("change", renderTemplatePreview);
@@ -2165,58 +2242,89 @@ function bindProfileEvents() {
   });
 }
 
-async function bootstrap() {
+function bindEventsOnce() {
+  if (state.eventsBound) return;
   bindTabs();
   bindModeControls();
   bindExplorerEvents();
   bindProfileEvents();
-
-  const meta = await apiGet("api/meta/contracts");
-  state.contracts = meta.contracts || {};
-  state.templateCatalog = meta.templates || {};
-  state.themePalettes = Array.isArray(meta.theme_palettes) ? meta.theme_palettes : [];
-  state.workspace = ensureWorkspace(meta.default_workspace || meta.default_profile, meta.default_profile || {});
-  state.activeDeviceIndex = Number(state.workspace.active_device_index || 0);
-  try {
-    const persistedMode = window.localStorage.getItem("tdeck_admin_mode");
-    state.uiMode = persistedMode || state.workspace.mode_ui?.mode || "guided";
-  } catch (_err) {
-    state.uiMode = state.workspace.mode_ui?.mode || "guided";
-  }
-  state.guidedStep = Number(state.workspace.mode_ui?.guided_step || 0);
-  setMode(state.uiMode);
-  setGuidedStep(state.guidedStep);
-  syncProfileToForm();
   bindTopFieldEvents();
+  state.eventsBound = true;
+}
 
-  const runStep = async (label, fn) => {
+async function bootstrap(options = {}) {
+  const retry = asBool(options.retry, false);
+  if (state.startup.in_progress) return;
+  state.startup.in_progress = true;
+  state.bootErrors = [];
+  setStartupState("booting", retry ? "Retrying startup..." : "", false);
+  setStatus(retry ? "Retrying startup..." : "Initializing...");
+
+  try {
+    bindEventsOnce();
+
+    const meta = await apiGet("api/meta/contracts");
+    state.contracts = meta.contracts || {};
+    state.templateCatalog = meta.templates || {};
+    state.themePalettes = Array.isArray(meta.theme_palettes) ? meta.theme_palettes : [];
+    state.workspace = ensureWorkspace(meta.default_workspace || meta.default_profile, meta.default_profile || {});
+    state.activeDeviceIndex = Number(state.workspace.active_device_index || 0);
     try {
-      await fn();
-      return true;
-    } catch (err) {
-      state.bootErrors.push(`${label}: ${err.message}`);
-      setStatus(`${label} failed: ${err.message}`, true);
-      return false;
+      const persistedMode = window.localStorage.getItem("tdeck_admin_mode");
+      state.uiMode = persistedMode || state.workspace.mode_ui?.mode || "guided";
+    } catch (_err) {
+      state.uiMode = state.workspace.mode_ui?.mode || "guided";
     }
-  };
+    state.guidedStep = Number(state.workspace.mode_ui?.guided_step || 0);
+    setMode(state.uiMode);
+    setGuidedStep(state.guidedStep);
+    syncProfileToForm();
 
-  await runStep("Health", refreshHealth);
-  await runStep("Dashboard", refreshDashboardSummary);
-  await runStep("Firmware status", refreshFirmwareStatus);
-  await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
-  await runStep("Profile list", loadProfiles);
-  await runStep("Template catalog", refreshTemplateCatalog);
-  await runStep("Theme palettes", refreshThemePalettes);
-  await runStep("Discovery start", () => startDiscoveryJob(false, { wait_for_completion: false }));
-  await runStep("Latest release", refreshLatestRelease);
-  await runStep("Backup list", refreshBackups);
+    const runStep = async (label, fn) => {
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        const msg = formatStartupError(label, err);
+        state.bootErrors.push(msg);
+        setStatus(msg, true);
+        return false;
+      }
+    };
 
-  if (state.bootErrors.length > 0) {
-    setStatus(`Admin Center ready with issues (${state.bootErrors.length}). Check status/details.`, true);
-  } else {
-    setStatus("Admin Center ready");
+    await runStep("Health", refreshHealth);
+    await runStep("Dashboard", refreshDashboardSummary);
+    await runStep("Firmware status", refreshFirmwareStatus);
+    await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
+    await runStep("Profile list", loadProfiles);
+    await runStep("Template catalog", refreshTemplateCatalog);
+    await runStep("Theme palettes", refreshThemePalettes);
+    await runStep("Discovery start", () => startDiscoveryJob(false, { wait_for_completion: false }));
+    await runStep("Latest release", refreshLatestRelease);
+    await runStep("Backup list", refreshBackups);
+
+    if (state.bootErrors.length > 0) {
+      const warningText = `${state.bootErrors.length} startup task(s) failed. Check status and transport diagnostics.`;
+      setStartupState("ready", warningText, false);
+      setStatus(`Admin Center ready with issues (${state.bootErrors.length}).`, true);
+    } else {
+      setStartupState("ready", "", false);
+      setStatus("Admin Center ready");
+    }
+  } catch (err) {
+    const msg = formatStartupError("Bootstrap", err);
+    setStartupState("error", msg, true);
+    setStatus(msg, true);
+  } finally {
+    state.startup.in_progress = false;
+    const retryBtn = e("retry_startup_btn");
+    if (retryBtn) retryBtn.disabled = false;
   }
 }
 
-bootstrap().catch((err) => setStatus(`Startup error: ${err.message}`, true));
+bootstrap().catch((err) => {
+  const msg = formatStartupError("Startup", err);
+  setStartupState("error", msg, true);
+  setStatus(msg, true);
+});
 

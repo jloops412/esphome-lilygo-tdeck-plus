@@ -2,10 +2,36 @@
 
 ## Baseline
 
-- Current add-on manifest version in repo: `0.23.0`
+- Current add-on manifest version in repo: `0.23.1`
 - Public install templates now track `stable`.
 
 ## Unreleased (Current `main`)
+
+### Admin Center v0.23.1 robust startup hotfix
+
+1. Fixed frontend bootstrap regression in `ensureCollections()` (missing `);`) that could block app initialization.
+2. Added explicit startup state machine in UI:
+   - `booting`
+   - `ready`
+   - `error`
+3. Added startup failure banner with actionable diagnostics:
+   - failing endpoint/path
+   - HTTP status
+   - resolved transport base
+4. Added `Retry Startup` action for single-shot startup retry.
+5. Added versioned static asset contract:
+   - `styles.css?v=<addon_version>`
+   - `app.js?v=<addon_version>`
+6. Added script-load fallback banner (`onerror`) when frontend assets fail to load.
+7. Added backend health metadata:
+   - `frontend_asset_version`
+   - `ingress_expected_prefix`
+8. Added no-cache semantics for `index.html` and long-cache headers for versioned static assets.
+9. Added local JS parse gate script:
+   - `tdeck_admin_center/tools/check_js_syntax.py`
+10. Bumped add-on release metadata to `0.23.1`:
+    - `tdeck_admin_center/config.yaml`
+    - `tdeck_admin_center/Dockerfile`
 
 ### Admin Center v0.23.0 mega dashboard + schema 4.0 pass
 
@@ -147,10 +173,10 @@
 
 ## Next tag recommendation
 
-1. `v0.23.0-admin-dashboard-schema4-mega-pass`
-   - dashboard-first UX + schema 4.0 + expanded dynamic collections + generated pages contract
+1. `v0.23.1-admin-startup-hotfix`
+   - startup bootstrap fix + ingress/cache hardening + startup diagnostics UX
 2. next:
-   - `v0.23.1-firmware-modular-include-hooks`
+   - `v0.23.2-admin-guided-flow-polish`
    - `v0.24.0-canvas-advanced-layout-constraints`
 
 ## Tagging flow

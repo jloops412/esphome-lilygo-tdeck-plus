@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="tdeck-asset-version" content="__ASSET_VERSION__" />
+  <meta name="tdeck-ingress-prefix" content="__INGRESS_EXPECTED_PREFIX__" />
   <title>T-Deck Admin Center</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <link rel="stylesheet" href="./styles.css?v=__ASSET_VERSION__" />
 </head>
 <body>
   <main class="app">
@@ -17,7 +19,10 @@
       <div class="actions">
         <button id="mode_guided_btn">Guided Mode</button>
         <button id="mode_advanced_btn" class="btn-soft">Advanced Mode</button>
+        <button id="retry_startup_btn" class="btn-soft">Retry Startup</button>
       </div>
+      <div id="startup_state_lbl" class="mono compact">Startup: booting</div>
+      <div id="startup_error_lbl" class="mono compact startup-error hidden"></div>
       <div id="global_status_strip" class="mono compact">Status loading...</div>
       <div id="status_line" class="status">Initializing...</div>
     </section>
@@ -102,7 +107,7 @@
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
             <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-            <label>App Release Version <input id="app_release_version" value="v0.23.0" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.23.1" /></label>
           </div>
           <div class="card">
             <h3>System Health</h3>
@@ -500,6 +505,27 @@ When done, validate and deploy in Step 6.
     </section>
   </main>
 
-  <script src="./app.js"></script>
+  <script>
+    window.__tdeckScriptLoadError = function (message) {
+      var status = document.getElementById("status_line");
+      var strip = document.getElementById("global_status_strip");
+      var startup = document.getElementById("startup_state_lbl");
+      var startupError = document.getElementById("startup_error_lbl");
+      if (startup) startup.textContent = "Startup: error";
+      if (startupError) {
+        startupError.textContent = message;
+        startupError.classList.remove("hidden");
+      }
+      if (status) {
+        status.textContent = message;
+        status.style.color = "#ffb4c0";
+      }
+      if (strip) {
+        strip.textContent = "Startup: error\nStatus: frontend asset failed to load";
+        strip.style.color = "#ffb4c0";
+      }
+    };
+  </script>
+  <script src="./app.js?v=__ASSET_VERSION__" onerror="window.__tdeckScriptLoadError('Frontend asset failed to load. Refresh the add-on page or check add-on cache.');"></script>
 </body>
 </html>

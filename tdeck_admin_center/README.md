@@ -4,7 +4,7 @@ Home Assistant add-on (Ingress) for T-Deck workspace management, entity mapping,
 
 ## Version Track
 
-- Current add-on manifest version: `0.23.0`
+- Current add-on manifest version: `0.23.1`
 - API/UI model: V5 dashboard + guided + advanced workflows
 - Workspace/profile schema: `4.0` (legacy normalization retained)
 
@@ -107,3 +107,18 @@ Configured via add-on options (`/data/options.json`):
 
 1. Ingress API transport uses relative `api/...` paths (not absolute `/api/...`).
 2. Docker build includes explicit `run.sh` copy and CRLF normalization.
+3. Startup UX now exposes explicit startup states and actionable retry/error diagnostics.
+4. Frontend assets are versioned; index responses are no-cache to avoid stale bootstrap scripts after upgrade.
+
+## Startup Troubleshooting
+
+If the UI is stuck at `Status loading...` / `Initializing...`:
+
+1. Verify add-on version is `0.23.1` or newer.
+2. Click `Retry Startup` in the mode/status panel.
+3. Check transport diagnostics:
+   - `API Base`
+   - `Ingress Hint`
+   - `Last Path`
+   - `Last Status`
+4. If still stale, remove/re-add custom repo and restart Supervisor before reinstalling.

@@ -214,6 +214,13 @@ button:hover {
   color: var(--text-dim);
 }
 
+.startup-error {
+  border: 1px solid color-mix(in srgb, var(--danger) 65%, #fff 35%);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  border-radius: 8px;
+  padding: 8px;
+}
+
 .meta-line {
   margin: 10px 0;
   color: var(--text-dim);

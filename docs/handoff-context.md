@@ -2,17 +2,19 @@
 
 ## Scope Completed (This Pass)
 
-This pass implements the `v0.23.0` Admin Center/firmware contract rebuild layer focused on reliability, usability, and managed deployment safety:
+This pass implements the `v0.23.1` startup recovery hotfix and ingress/cache hardening for Admin Center:
 
-1. add-on version bumped to `0.23.0`
-2. workspace/profile contract advanced to schema `4.0`
-3. dashboard-first UX added with action cards + runtime summaries
-4. camera auto-detect onboarding wired (scan/accept/ignore)
-5. dynamic collections expanded beyond lights/cameras to all core collection groups
-6. managed generated artifact contract expanded to include page files
-7. apply/backup/restore paths fixed to match new generated layout/page filenames
-8. install generation include hooks updated to use new generated files
-9. release/version defaults aligned to `v0.23.0` in install/template/package substitutions
+1. fixed frontend bootstrap syntax regression in `ensureCollections()` (missing `);`)
+2. added explicit startup state model in frontend (`booting`, `ready`, `error`)
+3. added startup error banner with actionable diagnostics and `Retry Startup` action
+4. added versioned static asset loading in `index.html` (`app.js?v=...`, `styles.css?v=...`)
+5. added script-load failure fallback banner (`onerror`) for frontend asset failures
+6. added backend index no-cache semantics and cache-safe static asset headers
+7. added health metadata fields for startup diagnostics:
+   - `frontend_asset_version`
+   - `ingress_expected_prefix`
+8. bumped add-on metadata to `0.23.1`
+9. added local JS syntax gate script (`tdeck_admin_center/tools/check_js_syntax.py`)
 
 ## Key Backend Changes
 
@@ -21,19 +23,16 @@ File:
 
 Highlights:
 
-1. fixed dashboard summary firmware capability call (`_resolve_firmware_capabilities`)
-2. managed path contract now includes:
-   - `generated/layout.generated.yaml`
-   - `generated/pages/home.generated.yaml`
-   - `generated/pages/lights.generated.yaml`
-   - `generated/pages/weather.generated.yaml`
-   - `generated/pages/climate.generated.yaml`
-3. install YAML generator now includes generated page includes
-4. apply commit now writes generated page files and reports checksums/changed state
-5. backup/restore now includes generated page files and supports legacy fallback restore for `ui-layout.yaml`
-6. `/api/generate/install` now returns generated page outputs (`page_home`, `page_lights`, `page_weather`, `page_climate`)
-7. collection add/update now supports `role` field for dynamic substitution mapping
-8. `/api/health` payload version marker updated to `4`
+1. version defaults bumped:
+   - `ADDON_VERSION` fallback -> `0.23.1`
+   - `DEFAULT_APP_RELEASE_VERSION` fallback -> `v0.23.1`
+2. `/api/health` expanded with:
+   - `frontend_asset_version`
+   - `ingress_expected_prefix`
+3. root/static routing hardened:
+   - `index.html` rendered dynamically with `__ASSET_VERSION__` and `__INGRESS_EXPECTED_PREFIX__`
+   - index responses use no-cache headers
+   - static assets use long-lived cache headers (safe with versioned query strings)
 
 ## Key Frontend Changes
 
@@ -44,17 +43,30 @@ Files:
 
 Highlights:
 
-1. dashboard section added (status summaries + action cards)
-2. camera autodetect controls and status list added to dashboard
-3. guided step 2 now includes additional collection editor for:
-   - `weather_metrics`
-   - `climate_controls`
-   - `reader_feeds`
-   - `system_entities`
-4. collection health summary added
-5. guided/advanced mode behavior corrected so guided shell hides in advanced mode
-6. generated preview output now includes page-generated diffs
-7. generated output view now includes layout + generated page artifacts
+1. fixed `ensureCollections()` parse break.
+2. startup panel now includes:
+   - `startup_state_lbl`
+   - `startup_error_lbl`
+   - `retry_startup_btn`
+3. bootstrap flow now:
+   - sets startup state to `booting`
+   - surfaces explicit startup errors with path/status/base context
+   - transitions to `ready` or `error` deterministically
+4. transport fallback candidates now include backend ingress hint.
+5. startup and transport diagnostics remain visible through `System Health`.
+
+## New Validation Tool
+
+File:
+- `tdeck_admin_center/tools/check_js_syntax.py`
+
+Behavior:
+
+1. syntax-checks JS files using:
+   - `node --check` when Node.js is available
+   - QuickJS parse-only fallback when Node.js is unavailable
+   - Esprima as secondary fallback
+2. exits non-zero on syntax failure and is intended as a release gate.
 
 ## Manifest/Version
 
@@ -64,22 +76,8 @@ Files:
 
 Changes:
 
-1. add-on manifest version: `0.23.0`
-2. Docker build arg default: `BUILD_VERSION=0.23.0`
-
-## Public Install/Template Version Alignment
-
-Files:
-- `esphome/install/entity-overrides.template.yaml`
-- `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
-- `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
-- `esphome/install/lilygo-tdeck-plus-install.yaml`
-- `esphome/packages/ha_entities.yaml`
-- `docs/entities-template.md`
-
-Change:
-
-1. `app_release_version` defaults moved from `v0.20.4` to `v0.23.0`
+1. add-on manifest version: `0.23.1`
+2. Docker build arg default: `BUILD_VERSION=0.23.1`
 
 ## Docs Updated
 
@@ -92,21 +90,17 @@ Change:
 ## Validation Run
 
 1. `python -m py_compile tdeck_admin_center/rootfs/app/main.py` passed.
-2. Python module import smoke passed with expected route registration for:
-   - `api_dashboard_summary`
-   - `api_cameras_autodetect`
-   - `api_generate_install`
-   - `api_apply_commit`
+2. `python tdeck_admin_center/tools/check_js_syntax.py tdeck_admin_center/rootfs/app/static/app.js` passed (QuickJS parser).
+3. Python import smoke passed for `main.py` route registration.
 
 ## Not Run Here
 
-1. Live Home Assistant Supervisor add-on install/update cycle.
-2. Browser-driven ingress validation for all new dashboard and collection UX paths.
-3. End-to-end ESPHome compile/flash on physical hardware for generated page include files.
+1. Live HA Supervisor install/update cycle to verify new add-on card version propagation.
+2. Browser console inspection inside HA Ingress on target HA instance.
+3. Physical device firmware compile/flash path in this pass.
 
 ## Immediate Next Steps
 
-1. run ingress/manual QA against a large-entity HA instance to tune collection UX and discovery defaults
-2. continue firmware-side modular page include extraction from monolithic `ui_lvgl.yaml`
-3. wire generated page hooks into modular UI package includes for compile-time layout authority
-4. complete theme dual-authority conflict UX in frontend with explicit state indicator and apply strategy
+1. validate ingress startup on HA with stale-cache history to confirm no stuck `Initializing...` path.
+2. continue Guided UX simplification pass for first-run mapping/deploy clarity.
+3. continue firmware modular UI extraction from monolithic `ui_lvgl.yaml` while preserving reliability paths.
