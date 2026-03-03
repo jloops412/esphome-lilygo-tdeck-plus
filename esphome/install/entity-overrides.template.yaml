@@ -1,4 +1,6 @@
 substitutions:
+  app_release_channel: "stable"
+  app_release_version: "v0.23.0"
   light_name_foyer: "Foyer"
   light_name_vanity: "Vanity"
   light_name_bedroom: "Bedroom"
@@ -91,3 +93,31 @@ substitutions:
   camera_snapshot_enable: "true"
   camera_snapshot_dir: "/config/www/tdeck"
   ha_base_url: "http://homeassistant.local:8123"
+
+  # Optional page and home-tile visibility toggles
+  ui_show_lights: "true"
+  ui_show_weather: "true"
+  ui_show_climate: "true"
+  ui_show_reader: "true"
+  ui_show_cameras: "true"
+  ui_show_settings: "true"
+  ui_show_theme: "true"
+  home_tile_show_weather: "true"
+  home_tile_show_climate: "true"
+  home_tile_show_lights: "true"
+  home_tile_show_cameras: "true"
+  home_tile_show_reader: "true"
+
+  # Optional theme token defaults (hex RGB)
+  theme_token_screen_bg: "0x0B1117"
+  theme_token_surface: "0x121A23"
+  theme_token_surface_alt: "0x1A2431"
+  theme_token_action: "0x4F8FE6"
+  theme_token_action_soft: "0x3A6FAE"
+  theme_token_text_primary: "0xEDF4FF"
+  theme_token_text_dim: "0xBFD0E6"
+  theme_token_ok: "0x2F9F77"
+  theme_token_warn: "0xD88D38"
+  theme_border_width: "2"
+  theme_radius: "10"
+  theme_icon_mode: "0"

@@ -1,6 +1,9 @@
 esphome:
   name: ${name}
   friendly_name: ${friendly_name}
+  project:
+    name: "jloops412.tdeck_app"
+    version: "${app_release_version}"
   platformio_options:
     board_build.arduino.memory_type: qio_opi
   on_boot:

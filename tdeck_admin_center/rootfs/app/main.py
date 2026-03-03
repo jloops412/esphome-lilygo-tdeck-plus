@@ -25,8 +25,8 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.22.0")) or "0.22.0"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.22.0") or "v0.22.0"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.23.0")) or "0.23.0"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.23.0") or "v0.23.0"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
@@ -34,13 +34,18 @@ SERVICE_CACHE_TTL_SECONDS = 20
 DISCOVERY_JOB_POLL_TTL_SECONDS = 180
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
-PROFILE_SCHEMA_VERSION = "1.0"
-WORKSPACE_SCHEMA_VERSION = "3.0"
+PROFILE_SCHEMA_VERSION = "4.0"
+WORKSPACE_SCHEMA_VERSION = "4.0"
 ENTITY_COLLECTION_LIMITS = {
     "lights": {"default_max": 24, "hard_max": 64},
     "cameras": {"default_max": 8, "hard_max": 24},
+    "weather_metrics": {"default_max": 32, "hard_max": 64},
+    "climate_controls": {"default_max": 24, "hard_max": 64},
+    "reader_feeds": {"default_max": 16, "hard_max": 32},
+    "system_entities": {"default_max": 24, "hard_max": 64},
 }
 LAYOUT_GRID_DEFAULTS = {"cols": 4, "rows": 6}
+DEFAULT_LAYOUT_PAGE_IDS = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"]
 
 MAPPABLE_DOMAINS = {
     "light",
@@ -714,6 +719,8 @@ def _contracts() -> Dict[str, Any]:
             "ha_esphome_compile_service",
             "ha_esphome_install_service",
         ],
+        "dashboard_actions": ["connect_device", "map_entities", "theme", "layout", "deploy", "recover"],
+        "entity_collection_keys": list(ENTITY_COLLECTION_LIMITS.keys()),
         "entity_collection_limits": ENTITY_COLLECTION_LIMITS,
         "layout_pages": list(_default_layout_pages().keys()),
         "defaults": defaults,
@@ -722,7 +729,7 @@ def _contracts() -> Dict[str, Any]:
 
 def _default_template_catalog() -> Dict[str, Any]:
     return {
-        "version": "1",
+        "version": "2",
         "collections": {
             "lights": [
                 {"name": "Primary Lights", "items": [{"name": "Living Room", "entity_id": "light.replace_me_living_room"}]},
@@ -730,6 +737,18 @@ def _default_template_catalog() -> Dict[str, Any]:
             ],
             "cameras": [
                 {"name": "Door + Outdoor", "items": [{"name": "Front Door", "entity_id": "camera.front_door"}, {"name": "Outdoor", "entity_id": "camera.outdoor"}]},
+            ],
+            "weather_metrics": [
+                {"name": "Core Weather Metrics", "items": [{"name": "Temperature", "role": "entity_wx_temp_sensor"}, {"name": "Humidity", "role": "entity_wx_humidity_sensor"}]},
+            ],
+            "climate_controls": [
+                {"name": "Core Climate Control", "items": [{"name": "Thermostat", "role": "entity_sensi_climate"}, {"name": "Indoor Temp", "role": "entity_sensi_temperature_sensor"}]},
+            ],
+            "reader_feeds": [
+                {"name": "News Trio", "items": [{"name": "BBC", "role": "entity_feed_bbc"}, {"name": "DC", "role": "entity_feed_dc"}, {"name": "Loudoun", "role": "entity_feed_loudoun"}]},
+            ],
+            "system_entities": [
+                {"name": "System Basics", "items": [{"name": "Unit System", "role": "entity_ha_unit_system"}]},
             ],
         },
         "entities": {
@@ -750,6 +769,18 @@ def _default_template_catalog() -> Dict[str, Any]:
                         "entity_sensi_climate": "climate.sensi",
                         "entity_sensi_temperature_sensor": "sensor.sensi_temperature",
                         "entity_sensi_humidity_sensor": "sensor.sensi_humidity",
+                    },
+                }
+            ],
+            "reader": [
+                {
+                    "name": "Reader Core",
+                    "mappings": {
+                        "entity_word_of_day_sensor": "sensor.word_of_the_day",
+                        "entity_quote_of_hour_sensor": "sensor.quote_of_the_hour",
+                        "entity_feed_bbc": "event.bbc_top_story",
+                        "entity_feed_dc": "event.dc_top_story",
+                        "entity_feed_loudoun": "event.loudoun_top_story",
                     },
                 }
             ],
@@ -817,7 +848,7 @@ def _default_mode_ui() -> Dict[str, Any]:
 
 def _default_layout_pages() -> Dict[str, Any]:
     now = int(_now())
-    pages = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"]
+    pages = list(DEFAULT_LAYOUT_PAGE_IDS)
     out: Dict[str, Any] = {}
     for name in pages:
         out[name] = {
@@ -832,12 +863,54 @@ def _default_layout_pages() -> Dict[str, Any]:
     return out
 
 
+def _default_landing_state() -> Dict[str, Any]:
+    return {
+        "default_view": "dashboard",
+        "dashboard_cards": ["connect", "map", "theme", "layout", "deploy", "recover"],
+        "last_card": "",
+        "onboarding_step": 0,
+        "last_action": "",
+        "last_error": "",
+        "updated_at": int(_now()),
+    }
+
+
+def _default_theme_sync_state() -> Dict[str, Any]:
+    return {
+        "theme_revision_web": 0,
+        "theme_revision_device": 0,
+        "theme_last_writer": "web",
+        "theme_conflict_policy": "manual_merge",
+        "theme_conflict": False,
+        "theme_last_conflict_at": 0,
+        "device_snapshot": {},
+    }
+
+
+def _default_camera_autodetect_state() -> Dict[str, Any]:
+    return {
+        "enabled": True,
+        "last_scan_at": 0,
+        "detected": [],
+        "accepted": [],
+        "ignored": [],
+        "last_error": "",
+    }
+
+
 def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
     lights: List[Dict[str, Any]] = []
     cameras: List[Dict[str, Any]] = []
+    weather_metrics: List[Dict[str, Any]] = []
+    climate_controls: List[Dict[str, Any]] = []
+    reader_feeds: List[Dict[str, Any]] = []
+    system_entities: List[Dict[str, Any]] = []
     slots = profile.get("slots", {}) if isinstance(profile.get("slots"), dict) else {}
     slot_lights = slots.get("lights", []) if isinstance(slots.get("lights"), list) else []
     slot_cameras = slots.get("cameras", []) if isinstance(slots.get("cameras"), list) else []
+    entities = profile.get("entities", {}) if isinstance(profile.get("entities"), dict) else {}
+    settings = profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {}
+
     for idx, item in enumerate(slot_lights):
         lights.append(
             {
@@ -856,12 +929,100 @@ def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
                 "enabled": idx < _as_int(slots.get("camera_slot_count"), 0, 0, 2),
             }
         )
+    weather_map = {
+        "Main": "entity_wx_main",
+        "Condition": "entity_wx_condition_sensor",
+        "Weather": "entity_wx_weather_sensor",
+        "Temperature": "entity_wx_temp_sensor",
+        "Feels Like": "entity_wx_feels_sensor",
+        "Humidity": "entity_wx_humidity_sensor",
+        "Clouds": "entity_wx_clouds_sensor",
+        "Pressure": "entity_wx_pressure_sensor",
+        "UV": "entity_wx_uv_sensor",
+        "Visibility": "entity_wx_visibility_sensor",
+        "Wind Speed": "entity_wx_wind_speed_sensor",
+    }
+    for label, key in weather_map.items():
+        weather_metrics.append(
+            {
+                "id": _slugify(key, key),
+                "name": label,
+                "entity_id": _as_str(entities.get(key), ""),
+                "role": key,
+                "enabled": True,
+            }
+        )
+
+    climate_map = {
+        "Climate": "entity_sensi_climate",
+        "Indoor Temp": "entity_sensi_temperature_sensor",
+        "Indoor Humidity": "entity_sensi_humidity_sensor",
+        "Auto Cool Number": "entity_sensi_auto_cool_number",
+        "Auto Heat Number": "entity_sensi_auto_heat_number",
+        "Humidity Offset": "entity_sensi_humidity_offset_number",
+        "Temp Offset": "entity_sensi_temperature_offset_number",
+        "Aux Heat": "entity_sensi_aux_heat_switch",
+    }
+    for label, key in climate_map.items():
+        climate_controls.append(
+            {
+                "id": _slugify(key, key),
+                "name": label,
+                "entity_id": _as_str(entities.get(key), ""),
+                "role": key,
+                "enabled": True,
+            }
+        )
+
+    reader_map = {
+        "Word of Day": "entity_word_of_day_sensor",
+        "Quote of Hour": "entity_quote_of_hour_sensor",
+        "BBC": "entity_feed_bbc",
+        "DC": "entity_feed_dc",
+        "Loudoun": "entity_feed_loudoun",
+    }
+    for label, key in reader_map.items():
+        reader_feeds.append(
+            {
+                "id": _slugify(key, key),
+                "name": label,
+                "entity_id": _as_str(entities.get(key), ""),
+                "role": key,
+                "enabled": True,
+            }
+        )
+
+    system_map = {
+        "HA Unit System": "entity_ha_unit_system",
+        "Native Firmware Entity": "ha_native_firmware_entity",
+        "App Version Entity": "ha_app_version_entity",
+    }
+    for label, key in system_map.items():
+        value = _as_str(settings.get(key), "") if key.startswith("ha_") else _as_str(entities.get(key), "")
+        system_entities.append(
+            {
+                "id": _slugify(key, key),
+                "name": label,
+                "entity_id": value,
+                "role": key,
+                "enabled": True,
+            }
+        )
+
     return {
         "lights": lights,
         "cameras": cameras,
+        "weather_metrics": weather_metrics,
+        "climate_controls": climate_controls,
+        "reader_feeds": reader_feeds,
+        "system_entities": system_entities,
         "limits": {
             "lights_max": ENTITY_COLLECTION_LIMITS["lights"]["default_max"],
             "cameras_max": ENTITY_COLLECTION_LIMITS["cameras"]["default_max"],
+            "weather_metrics_max": ENTITY_COLLECTION_LIMITS["weather_metrics"]["default_max"],
+            "climate_controls_max": ENTITY_COLLECTION_LIMITS["climate_controls"]["default_max"],
+            "reader_feeds_max": ENTITY_COLLECTION_LIMITS["reader_feeds"]["default_max"],
+            "system_entities_max": ENTITY_COLLECTION_LIMITS["system_entities"]["default_max"],
         },
     }
 
@@ -871,6 +1032,7 @@ def _normalize_collection_item(item: Dict[str, Any], prefix: str, index: int) ->
         "id": _slugify(item.get("id"), f"{prefix}_{index+1}"),
         "name": _as_str(item.get("name"), f"{prefix.title()} {index+1}"),
         "entity_id": _as_str(item.get("entity_id") or item.get("entity"), ""),
+        "role": _as_str(item.get("role"), ""),
         "enabled": _as_bool(item.get("enabled"), True),
     }
 
@@ -881,15 +1043,38 @@ def _normalize_profile_collections(profile: Dict[str, Any]) -> Dict[str, Any]:
         raw = _profile_collections_default(profile)
     lights = raw.get("lights") if isinstance(raw.get("lights"), list) else []
     cameras = raw.get("cameras") if isinstance(raw.get("cameras"), list) else []
+    weather_metrics = raw.get("weather_metrics") if isinstance(raw.get("weather_metrics"), list) else []
+    climate_controls = raw.get("climate_controls") if isinstance(raw.get("climate_controls"), list) else []
+    reader_feeds = raw.get("reader_feeds") if isinstance(raw.get("reader_feeds"), list) else []
+    system_entities = raw.get("system_entities") if isinstance(raw.get("system_entities"), list) else []
     lights_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "light", idx) for idx, item in enumerate(lights)]
     cameras_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "camera", idx) for idx, item in enumerate(cameras)]
+    weather_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "weather_metric", idx) for idx, item in enumerate(weather_metrics)]
+    climate_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "climate_control", idx) for idx, item in enumerate(climate_controls)]
+    reader_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "reader_feed", idx) for idx, item in enumerate(reader_feeds)]
+    system_norm = [_normalize_collection_item(item if isinstance(item, dict) else {}, "system_entity", idx) for idx, item in enumerate(system_entities)]
     limits = raw.get("limits") if isinstance(raw.get("limits"), dict) else {}
     lights_max = _as_int(limits.get("lights_max"), ENTITY_COLLECTION_LIMITS["lights"]["default_max"], 1, ENTITY_COLLECTION_LIMITS["lights"]["hard_max"])
     cameras_max = _as_int(limits.get("cameras_max"), ENTITY_COLLECTION_LIMITS["cameras"]["default_max"], 0, ENTITY_COLLECTION_LIMITS["cameras"]["hard_max"])
+    weather_max = _as_int(limits.get("weather_metrics_max"), ENTITY_COLLECTION_LIMITS["weather_metrics"]["default_max"], 0, ENTITY_COLLECTION_LIMITS["weather_metrics"]["hard_max"])
+    climate_max = _as_int(limits.get("climate_controls_max"), ENTITY_COLLECTION_LIMITS["climate_controls"]["default_max"], 0, ENTITY_COLLECTION_LIMITS["climate_controls"]["hard_max"])
+    reader_max = _as_int(limits.get("reader_feeds_max"), ENTITY_COLLECTION_LIMITS["reader_feeds"]["default_max"], 0, ENTITY_COLLECTION_LIMITS["reader_feeds"]["hard_max"])
+    system_max = _as_int(limits.get("system_entities_max"), ENTITY_COLLECTION_LIMITS["system_entities"]["default_max"], 0, ENTITY_COLLECTION_LIMITS["system_entities"]["hard_max"])
     return {
         "lights": lights_norm[: ENTITY_COLLECTION_LIMITS["lights"]["hard_max"]],
         "cameras": cameras_norm[: ENTITY_COLLECTION_LIMITS["cameras"]["hard_max"]],
-        "limits": {"lights_max": lights_max, "cameras_max": cameras_max},
+        "weather_metrics": weather_norm[: ENTITY_COLLECTION_LIMITS["weather_metrics"]["hard_max"]],
+        "climate_controls": climate_norm[: ENTITY_COLLECTION_LIMITS["climate_controls"]["hard_max"]],
+        "reader_feeds": reader_norm[: ENTITY_COLLECTION_LIMITS["reader_feeds"]["hard_max"]],
+        "system_entities": system_norm[: ENTITY_COLLECTION_LIMITS["system_entities"]["hard_max"]],
+        "limits": {
+            "lights_max": lights_max,
+            "cameras_max": cameras_max,
+            "weather_metrics_max": weather_max,
+            "climate_controls_max": climate_max,
+            "reader_feeds_max": reader_max,
+            "system_entities_max": system_max,
+        },
     }
 
 
@@ -1330,6 +1515,7 @@ def _default_profile() -> Dict[str, Any]:
     return {
         "schema_version": PROFILE_SCHEMA_VERSION,
         "profile_name": "default",
+        "landing_state": _default_landing_state(),
         "device": {
             "name": defaults["name"],
             "friendly_name": defaults["friendly_name"],
@@ -1361,7 +1547,9 @@ def _default_profile() -> Dict[str, Any]:
             "custom_tokens": {},
             "last_contrast_ratio": 0.0,
             "palettes": _default_theme_palettes(),
+            "sync": _default_theme_sync_state(),
         },
+        "camera_autodetect": _default_camera_autodetect_state(),
         "mode_ui": _default_mode_ui(),
         "deployment_workflow": {
             "last_action": "",
@@ -1385,6 +1573,7 @@ def _default_workspace() -> Dict[str, Any]:
         "schema_version": WORKSPACE_SCHEMA_VERSION,
         "workspace_name": "default",
         "active_device_index": 0,
+        "landing_state": _default_landing_state(),
         "devices": [profile],
         "mode_ui": _default_mode_ui(),
         "templates": _default_template_catalog(),
@@ -1395,7 +1584,9 @@ def _default_workspace() -> Dict[str, Any]:
             "custom_tokens": {},
             "last_contrast_ratio": 0.0,
             "palettes": _default_theme_palettes(),
+            "sync": _default_theme_sync_state(),
         },
+        "camera_autodetect": _default_camera_autodetect_state(),
         "deployment_workflow": {
             "last_action": "",
             "last_result": "",
@@ -1425,6 +1616,7 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
             "schema_version": WORKSPACE_SCHEMA_VERSION,
             "workspace_name": _as_str(workspace.get("profile_name"), "default"),
             "active_device_index": 0,
+            "landing_state": _default_landing_state(),
             "devices": [workspace],
             "templates": {},
             "bindings": {},
@@ -1463,6 +1655,10 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["templates"] = _default_template_catalog()
     else:
         merged["templates"] = _deep_merge(_default_template_catalog(), merged["templates"])
+    if not isinstance(merged.get("landing_state"), dict):
+        merged["landing_state"] = _default_landing_state()
+    else:
+        merged["landing_state"] = _deep_merge(_default_landing_state(), merged["landing_state"])
     if not isinstance(merged.get("mode_ui"), dict):
         merged["mode_ui"] = _default_mode_ui()
     else:
@@ -1477,6 +1673,10 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["theme_studio"] = _default_workspace()["theme_studio"]
     else:
         merged["theme_studio"] = _deep_merge(_default_workspace()["theme_studio"], merged["theme_studio"])
+    if not isinstance(merged.get("camera_autodetect"), dict):
+        merged["camera_autodetect"] = _default_camera_autodetect_state()
+    else:
+        merged["camera_autodetect"] = _deep_merge(_default_camera_autodetect_state(), merged["camera_autodetect"])
     if not isinstance(merged.get("deployment_workflow"), dict):
         merged["deployment_workflow"] = _default_workspace()["deployment_workflow"]
     else:
@@ -1543,6 +1743,10 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
 
     merged["schema_version"] = _as_str(merged.get("schema_version") or PROFILE_SCHEMA_VERSION)
     merged["profile_name"] = _safe_profile_name(merged.get("profile_name"), "default")
+    if not isinstance(merged.get("landing_state"), dict):
+        merged["landing_state"] = _default_landing_state()
+    else:
+        merged["landing_state"] = _deep_merge(_default_landing_state(), merged["landing_state"])
     merged["device"]["name"] = _as_str(merged["device"].get("name"), "lilygo-tdeck-plus")
     merged["device"]["friendly_name"] = _as_str(merged["device"].get("friendly_name"), "LilyGO T-Deck Plus")
     merged["device"]["git_ref"] = _as_str(merged["device"].get("git_ref"), ADDON_GITHUB_REF)
@@ -1624,6 +1828,14 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["theme_studio"] = _default_profile().get("theme_studio", {})
     else:
         merged["theme_studio"] = _deep_merge(_default_profile().get("theme_studio", {}), merged["theme_studio"])
+    if not isinstance(merged["theme_studio"].get("sync"), dict):
+        merged["theme_studio"]["sync"] = _default_theme_sync_state()
+    else:
+        merged["theme_studio"]["sync"] = _deep_merge(_default_theme_sync_state(), merged["theme_studio"]["sync"])
+    if not isinstance(merged.get("camera_autodetect"), dict):
+        merged["camera_autodetect"] = _default_camera_autodetect_state()
+    else:
+        merged["camera_autodetect"] = _deep_merge(_default_camera_autodetect_state(), merged["camera_autodetect"])
     if not isinstance(merged.get("deployment_workflow"), dict):
         merged["deployment_workflow"] = _default_profile().get("deployment_workflow", {})
     else:
@@ -1714,6 +1926,23 @@ def _profile_to_substitutions(profile: Dict[str, Any], overrides: Dict[str, Any]
             else:
                 substitutions[key] = _as_str(settings[key], substitutions[key])
 
+    collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
+    for cname in ["weather_metrics", "climate_controls", "reader_feeds", "system_entities"]:
+        rows = collections.get(cname) if isinstance(collections.get(cname), list) else []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            if not _as_bool(row.get("enabled"), True):
+                continue
+            role = _as_str(row.get("role"), "").strip()
+            entity_id = _as_str(row.get("entity_id"), "").strip()
+            if not role or not entity_id:
+                continue
+            if role in substitutions:
+                substitutions[role] = entity_id
+            elif role in settings:
+                settings[role] = entity_id
+
     if overrides:
         for key, value in overrides.items():
             if key in substitutions:
@@ -1730,10 +1959,18 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
     cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
 
-    if p.get("schema_version") != PROFILE_SCHEMA_VERSION:
+    if _as_str(p.get("schema_version"), "") != PROFILE_SCHEMA_VERSION:
         warnings.append(
             f"schema_version '{p.get('schema_version')}' differs from expected '{PROFILE_SCHEMA_VERSION}'."
         )
+    app_release_version = _as_str(substitutions.get("app_release_version"), "").strip()
+    app_release_channel = _as_str(substitutions.get("app_release_channel"), "").strip().lower()
+    if not app_release_version:
+        errors.append("app_release_version is required.")
+    elif not re.match(r"^v\d+\.\d+\.\d+([\-+].+)?$", app_release_version):
+        warnings.append("app_release_version should follow semantic tag style (for example v0.23.0).")
+    if app_release_channel not in {"stable", "beta", "dev"}:
+        warnings.append("app_release_channel should be stable, beta, or dev.")
 
     features = p.get("features", {})
     if _as_bool(features.get("lights"), True):
@@ -1772,6 +2009,27 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         for key in ["entity_feed_bbc", "entity_feed_dc", "entity_feed_loudoun"]:
             if _is_placeholder(substitutions.get(key, "")):
                 warnings.append(f"{key} is unset; reader page may be partially empty.")
+
+    for cname, limit_meta in ENTITY_COLLECTION_LIMITS.items():
+        rows = collections.get(cname, []) if isinstance(collections.get(cname), list) else []
+        hard_max = _as_int(limit_meta.get("hard_max"), 64, 1, 4096)
+        if len(rows) > hard_max:
+            errors.append(f"{cname} collection exceeds hard limit {hard_max}.")
+        seen_ids: Dict[str, int] = {}
+        seen_entities: Dict[str, int] = {}
+        for idx, row in enumerate(rows):
+            rid = _slugify(row.get("id"), "")
+            entity_id = _as_str(row.get("entity_id"), "").strip().lower()
+            if rid:
+                if rid in seen_ids:
+                    warnings.append(f"{cname} duplicate id '{rid}' at positions {seen_ids[rid] + 1} and {idx + 1}.")
+                else:
+                    seen_ids[rid] = idx
+            if entity_id:
+                if entity_id in seen_entities:
+                    warnings.append(f"{cname} duplicate entity '{entity_id}' at positions {seen_entities[entity_id] + 1} and {idx + 1}.")
+                else:
+                    seen_entities[entity_id] = idx
 
     return {
         "ok": len(errors) == 0,
@@ -1880,6 +2138,15 @@ def _load_workspace(name: str) -> Dict[str, Any]:
     return _normalize_workspace(data)
 
 
+def _load_workspace_or_default(name: str = "default") -> Dict[str, Any]:
+    try:
+        return _load_workspace(name)
+    except Exception:
+        ws = _default_workspace()
+        ws["workspace_name"] = _safe_profile_name(name, "default")
+        return _normalize_workspace(ws)
+
+
 def _workspace_or_profile_from_payload(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any], int]:
     if isinstance(payload.get("workspace"), dict):
         workspace = _normalize_workspace(payload["workspace"])
@@ -1935,13 +2202,19 @@ def _managed_device_dir(device_slug: str) -> Path:
 def _managed_paths(device_slug: str) -> Dict[str, Path]:
     d = _managed_device_dir(device_slug)
     g = d / "generated"
+    p = g / "pages"
     g.mkdir(parents=True, exist_ok=True)
+    p.mkdir(parents=True, exist_ok=True)
     return {
         "install": d / "tdeck-install.yaml",
         "overrides": d / "tdeck-overrides.yaml",
         "generated_entities": g / "entities.generated.yaml",
         "generated_theme": g / "theme.generated.yaml",
-        "generated_layout": g / "ui-layout.yaml",
+        "generated_layout": g / "layout.generated.yaml",
+        "generated_page_home": p / "home.generated.yaml",
+        "generated_page_lights": p / "lights.generated.yaml",
+        "generated_page_weather": p / "weather.generated.yaml",
+        "generated_page_climate": p / "climate.generated.yaml",
     }
 
 
@@ -2046,6 +2319,30 @@ def _build_generated_layout_yaml(profile: Dict[str, Any], workspace: Dict[str, A
     return "\n".join(lines)
 
 
+def _build_generated_page_yaml(page_id: str, workspace: Dict[str, Any], profile: Dict[str, Any]) -> str:
+    p = _normalize_profile(profile)
+    pages = workspace.get("layout_pages", {}) if isinstance(workspace.get("layout_pages"), dict) else p.get("layout_pages", {})
+    val = _validate_layout_pages(pages)
+    page = (val.get("pages", {}) or {}).get(page_id, {})
+    sections = page.get("sections", []) if isinstance(page.get("sections"), list) else []
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        "substitutions:",
+        f"  generated_{page_id}_section_count: {_q(str(len(sections)))}",
+        f"  generated_{page_id}_layout_revision: {_q(str(int(_now())))}",
+        "",
+        f"# {page_id} sections",
+    ]
+    for idx, section in enumerate(sections):
+        sid = _as_str(section.get("id"), f"section_{idx+1}")
+        x = _as_int(section.get("x"), 0, 0, None)
+        y = _as_int(section.get("y"), 0, 0, None)
+        w = _as_int(section.get("w"), 1, 1, None)
+        h = _as_int(section.get("h"), 1, 1, None)
+        lines.append(f"# {sid}: x={x} y={y} w={w} h={h}")
+    return "\n".join(lines)
+
+
 def _preview_managed_apply(
     workspace: Dict[str, Any],
     profile: Dict[str, Any],
@@ -2060,18 +2357,30 @@ def _preview_managed_apply(
     generated_entities_new = _build_generated_entities_yaml(profile)
     generated_theme_new = _build_generated_theme_yaml(profile)
     generated_layout_new = _build_generated_layout_yaml(profile, workspace)
+    generated_page_home_new = _build_generated_page_yaml("home", workspace, profile)
+    generated_page_lights_new = _build_generated_page_yaml("lights", workspace, profile)
+    generated_page_weather_new = _build_generated_page_yaml("weather", workspace, profile)
+    generated_page_climate_new = _build_generated_page_yaml("climate", workspace, profile)
 
     install_cur = _read_text(paths["install"])
     overrides_cur = _read_text(paths["overrides"])
     generated_entities_cur = _read_text(paths["generated_entities"])
     generated_theme_cur = _read_text(paths["generated_theme"])
     generated_layout_cur = _read_text(paths["generated_layout"])
+    generated_page_home_cur = _read_text(paths["generated_page_home"])
+    generated_page_lights_cur = _read_text(paths["generated_page_lights"])
+    generated_page_weather_cur = _read_text(paths["generated_page_weather"])
+    generated_page_climate_cur = _read_text(paths["generated_page_climate"])
 
     install_changed = install_cur != install_new
     overrides_changed = overrides_cur != overrides_new
     generated_entities_changed = generated_entities_cur != generated_entities_new
     generated_theme_changed = generated_theme_cur != generated_theme_new
     generated_layout_changed = generated_layout_cur != generated_layout_new
+    generated_page_home_changed = generated_page_home_cur != generated_page_home_new
+    generated_page_lights_changed = generated_page_lights_cur != generated_page_lights_new
+    generated_page_weather_changed = generated_page_weather_cur != generated_page_weather_new
+    generated_page_climate_changed = generated_page_climate_cur != generated_page_climate_new
     return {
         "device_slug": device_slug,
         "managed_root": str(MANAGED_ROOT),
@@ -2116,6 +2425,38 @@ def _preview_managed_apply(
                 "diff": _unified_diff(generated_layout_cur, generated_layout_new, f"{paths['generated_layout']} (current)", f"{paths['generated_layout']} (new)") if generated_layout_changed else "",
                 "content_new": generated_layout_new,
             },
+            "page_home": {
+                "path": str(paths["generated_page_home"]),
+                "changed": generated_page_home_changed,
+                "checksum_current": _sha256_text(generated_page_home_cur) if generated_page_home_cur else "",
+                "checksum_new": _sha256_text(generated_page_home_new),
+                "diff": _unified_diff(generated_page_home_cur, generated_page_home_new, f"{paths['generated_page_home']} (current)", f"{paths['generated_page_home']} (new)") if generated_page_home_changed else "",
+                "content_new": generated_page_home_new,
+            },
+            "page_lights": {
+                "path": str(paths["generated_page_lights"]),
+                "changed": generated_page_lights_changed,
+                "checksum_current": _sha256_text(generated_page_lights_cur) if generated_page_lights_cur else "",
+                "checksum_new": _sha256_text(generated_page_lights_new),
+                "diff": _unified_diff(generated_page_lights_cur, generated_page_lights_new, f"{paths['generated_page_lights']} (current)", f"{paths['generated_page_lights']} (new)") if generated_page_lights_changed else "",
+                "content_new": generated_page_lights_new,
+            },
+            "page_weather": {
+                "path": str(paths["generated_page_weather"]),
+                "changed": generated_page_weather_changed,
+                "checksum_current": _sha256_text(generated_page_weather_cur) if generated_page_weather_cur else "",
+                "checksum_new": _sha256_text(generated_page_weather_new),
+                "diff": _unified_diff(generated_page_weather_cur, generated_page_weather_new, f"{paths['generated_page_weather']} (current)", f"{paths['generated_page_weather']} (new)") if generated_page_weather_changed else "",
+                "content_new": generated_page_weather_new,
+            },
+            "page_climate": {
+                "path": str(paths["generated_page_climate"]),
+                "changed": generated_page_climate_changed,
+                "checksum_current": _sha256_text(generated_page_climate_cur) if generated_page_climate_cur else "",
+                "checksum_new": _sha256_text(generated_page_climate_new),
+                "diff": _unified_diff(generated_page_climate_cur, generated_page_climate_new, f"{paths['generated_page_climate']} (current)", f"{paths['generated_page_climate']} (new)") if generated_page_climate_changed else "",
+                "content_new": generated_page_climate_new,
+            },
         },
         "workspace_name": _as_str(workspace.get("workspace_name"), "default"),
         "profile_name": _as_str(profile.get("profile_name"), "device"),
@@ -2149,6 +2490,10 @@ def _backup_files(
     generated_entities_file = paths["generated_entities"]
     generated_theme_file = paths["generated_theme"]
     generated_layout_file = paths["generated_layout"]
+    generated_page_home_file = paths["generated_page_home"]
+    generated_page_lights_file = paths["generated_page_lights"]
+    generated_page_weather_file = paths["generated_page_weather"]
+    generated_page_climate_file = paths["generated_page_climate"]
     if install_file.exists():
         shutil.copy2(install_file, snapshot / "tdeck-install.yaml")
     if overrides_file.exists():
@@ -2158,7 +2503,15 @@ def _backup_files(
     if generated_theme_file.exists():
         shutil.copy2(generated_theme_file, snapshot / "theme.generated.yaml")
     if generated_layout_file.exists():
-        shutil.copy2(generated_layout_file, snapshot / "ui-layout.yaml")
+        shutil.copy2(generated_layout_file, snapshot / "layout.generated.yaml")
+    if generated_page_home_file.exists():
+        shutil.copy2(generated_page_home_file, snapshot / "home.generated.yaml")
+    if generated_page_lights_file.exists():
+        shutil.copy2(generated_page_lights_file, snapshot / "lights.generated.yaml")
+    if generated_page_weather_file.exists():
+        shutil.copy2(generated_page_weather_file, snapshot / "weather.generated.yaml")
+    if generated_page_climate_file.exists():
+        shutil.copy2(generated_page_climate_file, snapshot / "climate.generated.yaml")
 
     manifest = {
         "timestamp": stamp,
@@ -2177,6 +2530,14 @@ def _backup_files(
             "generated_entities_after": preview.get("generated", {}).get("entities", {}).get("checksum_new", ""),
             "generated_theme_after": preview.get("generated", {}).get("theme", {}).get("checksum_new", ""),
             "generated_layout_after": preview.get("generated", {}).get("layout", {}).get("checksum_new", ""),
+            "generated_page_home_before": preview.get("generated", {}).get("page_home", {}).get("checksum_current", ""),
+            "generated_page_lights_before": preview.get("generated", {}).get("page_lights", {}).get("checksum_current", ""),
+            "generated_page_weather_before": preview.get("generated", {}).get("page_weather", {}).get("checksum_current", ""),
+            "generated_page_climate_before": preview.get("generated", {}).get("page_climate", {}).get("checksum_current", ""),
+            "generated_page_home_after": preview.get("generated", {}).get("page_home", {}).get("checksum_new", ""),
+            "generated_page_lights_after": preview.get("generated", {}).get("page_lights", {}).get("checksum_new", ""),
+            "generated_page_weather_after": preview.get("generated", {}).get("page_weather", {}).get("checksum_new", ""),
+            "generated_page_climate_after": preview.get("generated", {}).get("page_climate", {}).get("checksum_new", ""),
         },
         "paths": {
             "install": str(install_file),
@@ -2184,6 +2545,10 @@ def _backup_files(
             "generated_entities": str(generated_entities_file),
             "generated_theme": str(generated_theme_file),
             "generated_layout": str(generated_layout_file),
+            "generated_page_home": str(generated_page_home_file),
+            "generated_page_lights": str(generated_page_lights_file),
+            "generated_page_weather": str(generated_page_weather_file),
+            "generated_page_climate": str(generated_page_climate_file),
         },
         "context": context if isinstance(context, dict) else {},
     }
@@ -2224,7 +2589,11 @@ def _list_backups(device_slug: str) -> List[Dict[str, Any]]:
                 "has_overrides": (p / "tdeck-overrides.yaml").exists(),
                 "has_generated_entities": (p / "entities.generated.yaml").exists(),
                 "has_generated_theme": (p / "theme.generated.yaml").exists(),
-                "has_generated_layout": (p / "ui-layout.yaml").exists(),
+                "has_generated_layout": (p / "layout.generated.yaml").exists() or (p / "ui-layout.yaml").exists(),
+                "has_generated_page_home": (p / "home.generated.yaml").exists(),
+                "has_generated_page_lights": (p / "lights.generated.yaml").exists(),
+                "has_generated_page_weather": (p / "weather.generated.yaml").exists(),
+                "has_generated_page_climate": (p / "climate.generated.yaml").exists(),
                 "manifest": manifest,
             }
         )
@@ -2241,13 +2610,24 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     overrides_src = target / "tdeck-overrides.yaml"
     generated_entities_src = target / "entities.generated.yaml"
     generated_theme_src = target / "theme.generated.yaml"
-    generated_layout_src = target / "ui-layout.yaml"
+    generated_layout_src = target / "layout.generated.yaml"
+    # Backward-compatible fallback for earlier snapshots.
+    if not generated_layout_src.exists():
+        generated_layout_src = target / "ui-layout.yaml"
+    generated_page_home_src = target / "home.generated.yaml"
+    generated_page_lights_src = target / "lights.generated.yaml"
+    generated_page_weather_src = target / "weather.generated.yaml"
+    generated_page_climate_src = target / "climate.generated.yaml"
     restored = {
         "install": False,
         "overrides": False,
         "generated_entities": False,
         "generated_theme": False,
         "generated_layout": False,
+        "generated_page_home": False,
+        "generated_page_lights": False,
+        "generated_page_weather": False,
+        "generated_page_climate": False,
     }
     if install_src.exists():
         shutil.copy2(install_src, paths["install"])
@@ -2264,6 +2644,18 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     if generated_layout_src.exists():
         shutil.copy2(generated_layout_src, paths["generated_layout"])
         restored["generated_layout"] = True
+    if generated_page_home_src.exists():
+        shutil.copy2(generated_page_home_src, paths["generated_page_home"])
+        restored["generated_page_home"] = True
+    if generated_page_lights_src.exists():
+        shutil.copy2(generated_page_lights_src, paths["generated_page_lights"])
+        restored["generated_page_lights"] = True
+    if generated_page_weather_src.exists():
+        shutil.copy2(generated_page_weather_src, paths["generated_page_weather"])
+        restored["generated_page_weather"] = True
+    if generated_page_climate_src.exists():
+        shutil.copy2(generated_page_climate_src, paths["generated_page_climate"])
+        restored["generated_page_climate"] = True
     return {
         "device_slug": device_slug,
         "backup_id": backup_id,
@@ -2274,6 +2666,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
             "generated_entities": str(paths["generated_entities"]),
             "generated_theme": str(paths["generated_theme"]),
             "generated_layout": str(paths["generated_layout"]),
+            "generated_page_home": str(paths["generated_page_home"]),
+            "generated_page_lights": str(paths["generated_page_lights"]),
+            "generated_page_weather": str(paths["generated_page_weather"]),
+            "generated_page_climate": str(paths["generated_page_climate"]),
         },
         "checksums": {
             "install": _sha256_file(paths["install"]),
@@ -2281,6 +2677,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
             "generated_entities": _sha256_file(paths["generated_entities"]),
             "generated_theme": _sha256_file(paths["generated_theme"]),
             "generated_layout": _sha256_file(paths["generated_layout"]),
+            "generated_page_home": _sha256_file(paths["generated_page_home"]),
+            "generated_page_lights": _sha256_file(paths["generated_page_lights"]),
+            "generated_page_weather": _sha256_file(paths["generated_page_weather"]),
+            "generated_page_climate": _sha256_file(paths["generated_page_climate"]),
         },
     }
 
@@ -2355,7 +2755,11 @@ def _build_install_yaml(
             [
                 "  generated_entities: !include generated/entities.generated.yaml",
                 "  generated_theme: !include generated/theme.generated.yaml",
-                "  generated_layout: !include generated/ui-layout.yaml",
+                "  generated_layout: !include generated/layout.generated.yaml",
+                "  generated_page_home: !include generated/pages/home.generated.yaml",
+                "  generated_page_lights: !include generated/pages/lights.generated.yaml",
+                "  generated_page_weather: !include generated/pages/weather.generated.yaml",
+                "  generated_page_climate: !include generated/pages/climate.generated.yaml",
             ]
         )
     lines.extend(
@@ -3016,7 +3420,7 @@ def api_health() -> Any:
                 "last_error": _RELEASE_CACHE.get("last_error", ""),
             },
             "managed_root": str(MANAGED_ROOT),
-            "version": "3",
+            "version": "4",
         }
     )
 
@@ -3399,13 +3803,98 @@ def api_meta_templates() -> Any:
     return jsonify({"ok": True, "templates": _default_template_catalog()})
 
 
+@app.get("/api/dashboard/summary")
+def api_dashboard_summary() -> Any:
+    try:
+        health = api_health().get_json()  # type: ignore[union-attr]
+    except Exception:
+        health = {"ok": False, "ha_connected": False}
+    runtime = _runtime_state_snapshot()
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0))
+    validation = _validate_profile(profile)
+    caps = _resolve_firmware_capabilities(
+        device_slug=_managed_device_slug(profile),
+        settings=profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {},
+        native_firmware_entity=_as_str(profile.get("settings", {}).get("ha_native_firmware_entity"), ""),
+        app_version_entity=_as_str(profile.get("settings", {}).get("ha_app_version_entity"), ""),
+        target_version=_as_str(profile.get("settings", {}).get("app_release_version"), DEFAULT_APP_RELEASE_VERSION),
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "landing_state": ws.get("landing_state", _default_landing_state()),
+            "health": health,
+            "runtime_state": runtime,
+            "validation": {"ok": validation["ok"], "errors": validation["errors"], "warnings": validation["warnings"]},
+            "firmware_capabilities": caps,
+            "camera_autodetect": profile.get("camera_autodetect", _default_camera_autodetect_state()),
+        }
+    )
+
+
+@app.post("/api/dashboard/action")
+def api_dashboard_action() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    action = _as_str(payload.get("action"), "").strip().lower()
+    if not action:
+        return jsonify({"ok": False, "error": "action is required"}), 400
+    workspace.setdefault("landing_state", _default_landing_state())
+    landing = workspace["landing_state"]
+    landing["last_card"] = action
+    landing["last_action"] = action
+    landing["last_error"] = ""
+    landing["updated_at"] = int(_now())
+    step_map = {
+        "connect_device": 0,
+        "map_entities": 2,
+        "theme": 3,
+        "layout": 4,
+        "deploy": 5,
+        "recover": 5,
+    }
+    if action in step_map:
+        landing["onboarding_step"] = step_map[action]
+        workspace.setdefault("mode_ui", _default_mode_ui())
+        workspace["mode_ui"]["guided_step"] = step_map[action]
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "action": action, "workspace": workspace, "saved_workspace": saved})
+
+
+@app.get("/api/entities/collections")
+def api_entities_collections() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    collections = profile.get("entity_collections", {}) if isinstance(profile.get("entity_collections"), dict) else {}
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "collections": collections,
+            "limits": collections.get("limits", {}),
+            "contracts": {
+                "entity_collection_limits": ENTITY_COLLECTION_LIMITS,
+            },
+        }
+    )
+
+
 @app.post("/api/entities/add")
 def api_entities_add() -> Any:
     payload = request.get_json(silent=True) or {}
     workspace, profile, idx = _workspace_or_profile_from_payload(payload)
     collection = _as_str(payload.get("collection"), "").strip().lower()
-    if collection not in {"lights", "cameras"}:
-        return jsonify({"ok": False, "error": "collection must be lights or cameras"}), 400
+    if collection not in ENTITY_COLLECTION_LIMITS:
+        return jsonify({"ok": False, "error": f"collection must be one of: {', '.join(sorted(ENTITY_COLLECTION_LIMITS.keys()))}"}), 400
     item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
     profile["entity_collections"] = _normalize_profile_collections(profile)
     coll = profile["entity_collections"].get(collection, [])
@@ -3418,6 +3907,7 @@ def api_entities_add() -> Any:
             "id": _slugify(item.get("id"), f"{collection[:-1]}_{next_idx}"),
             "name": _as_str(item.get("name"), f"{collection[:-1].title()} {next_idx}"),
             "entity_id": _as_str(item.get("entity_id") or item.get("entity"), ""),
+            "role": _as_str(item.get("role"), ""),
             "enabled": _as_bool(item.get("enabled"), True),
         }
     )
@@ -3435,7 +3925,7 @@ def api_entities_update() -> Any:
     collection = _as_str(payload.get("collection"), "").strip().lower()
     item_id = _slugify(payload.get("item_id"), "")
     patch = payload.get("patch") if isinstance(payload.get("patch"), dict) else {}
-    if collection not in {"lights", "cameras"} or not item_id:
+    if collection not in ENTITY_COLLECTION_LIMITS or not item_id:
         return jsonify({"ok": False, "error": "collection and item_id are required"}), 400
     profile["entity_collections"] = _normalize_profile_collections(profile)
     coll = profile["entity_collections"].get(collection, [])
@@ -3447,6 +3937,8 @@ def api_entities_update() -> Any:
             item["name"] = _as_str(patch.get("name"), item.get("name"))
         if "entity_id" in patch or "entity" in patch:
             item["entity_id"] = _as_str(patch.get("entity_id") or patch.get("entity"), item.get("entity_id"))
+        if "role" in patch:
+            item["role"] = _as_str(patch.get("role"), item.get("role"))
         if "enabled" in patch:
             item["enabled"] = _as_bool(patch.get("enabled"), True)
         updated = True
@@ -3465,7 +3957,7 @@ def api_entities_remove() -> Any:
     workspace, profile, idx = _workspace_or_profile_from_payload(payload)
     collection = _as_str(payload.get("collection"), "").strip().lower()
     item_id = _slugify(payload.get("item_id"), "")
-    if collection not in {"lights", "cameras"} or not item_id:
+    if collection not in ENTITY_COLLECTION_LIMITS or not item_id:
         return jsonify({"ok": False, "error": "collection and item_id are required"}), 400
     profile["entity_collections"] = _normalize_profile_collections(profile)
     coll = profile["entity_collections"].get(collection, [])
@@ -3487,8 +3979,8 @@ def api_entities_reorder() -> Any:
     collection = _as_str(payload.get("collection"), "").strip().lower()
     from_index = _as_int(payload.get("from_index"), -1, -1, None)
     to_index = _as_int(payload.get("to_index"), -1, -1, None)
-    if collection not in {"lights", "cameras"}:
-        return jsonify({"ok": False, "error": "collection must be lights or cameras"}), 400
+    if collection not in ENTITY_COLLECTION_LIMITS:
+        return jsonify({"ok": False, "error": f"collection must be one of: {', '.join(sorted(ENTITY_COLLECTION_LIMITS.keys()))}"}), 400
     profile["entity_collections"] = _normalize_profile_collections(profile)
     coll = profile["entity_collections"].get(collection, [])
     if from_index < 0 or from_index >= len(coll) or to_index < 0 or to_index >= len(coll):
@@ -3500,6 +3992,153 @@ def api_entities_reorder() -> Any:
     workspace = _workspace_with_profile(workspace, profile, idx)
     workspace, saved = _maybe_persist_workspace(payload, workspace)
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
+
+
+def _camera_autodetect_candidates(limit: int = 12) -> List[Dict[str, Any]]:
+    snapshot = _discovery_cache_snapshot()
+    rows = snapshot.get("rows", []) if isinstance(snapshot.get("rows"), list) else []
+    scored: List[Tuple[int, Dict[str, Any]]] = []
+    for row in rows:
+        if _as_str(row.get("domain"), "").lower() != "camera":
+            continue
+        entity_id = _as_str(row.get("entity_id"), "")
+        friendly = _as_str(row.get("friendly_name"), entity_id)
+        state = _as_str(row.get("state"), "")
+        lower = f"{entity_id} {friendly}".lower()
+        score = 20
+        if any(x in lower for x in ["front", "door", "porch", "outdoor", "driveway", "backyard", "garage"]):
+            score += 30
+        if any(x in lower for x in ["snapshot", "still", "motion"]):
+            score += 15
+        if state.lower() in {"unavailable", "unknown"}:
+            score -= 20
+        scored.append(
+            (
+                score,
+                {
+                    "entity_id": entity_id,
+                    "friendly_name": friendly,
+                    "state": state,
+                    "score": score,
+                },
+            )
+        )
+    scored.sort(key=lambda x: (-x[0], _as_str(x[1].get("entity_id"), "")))
+    return [item for _, item in scored[: max(1, min(limit, 64))]]
+
+
+@app.post("/api/cameras/autodetect")
+def api_cameras_autodetect() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    limit = _as_int(payload.get("limit"), 12, 1, 64)
+    detected = _camera_autodetect_candidates(limit=limit)
+    profile.setdefault("camera_autodetect", _default_camera_autodetect_state())
+    cad = _deep_merge(_default_camera_autodetect_state(), profile.get("camera_autodetect", {}))
+    cad["last_scan_at"] = int(_now())
+    cad["detected"] = detected
+    cad["last_error"] = ""
+    profile["camera_autodetect"] = cad
+    workspace["camera_autodetect"] = cad
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify(
+        {
+            "ok": True,
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "camera_autodetect": cad,
+            "detected_count": len(detected),
+        }
+    )
+
+
+@app.post("/api/cameras/accept_detected")
+def api_cameras_accept_detected() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    requested = payload.get("entity_ids")
+    requested_set: set[str] = set()
+    if isinstance(requested, list):
+        for item in requested:
+            entity_id = _as_str(item, "").strip()
+            if entity_id:
+                requested_set.add(entity_id)
+    profile["entity_collections"] = _normalize_profile_collections(profile)
+    cameras = profile["entity_collections"].get("cameras", [])
+    cad = _deep_merge(_default_camera_autodetect_state(), profile.get("camera_autodetect", {}))
+    detected = cad.get("detected", []) if isinstance(cad.get("detected"), list) else []
+    accepted = cad.get("accepted", []) if isinstance(cad.get("accepted"), list) else []
+    accepted_set = set(_as_str(x, "") for x in accepted)
+    to_add = []
+    for row in detected:
+        if not isinstance(row, dict):
+            continue
+        entity_id = _as_str(row.get("entity_id"), "").strip()
+        if not entity_id:
+            continue
+        if requested_set and entity_id not in requested_set:
+            continue
+        to_add.append(row)
+    for row in to_add:
+        entity_id = _as_str(row.get("entity_id"), "")
+        if any(_as_str(item.get("entity_id"), "") == entity_id for item in cameras):
+            accepted_set.add(entity_id)
+            continue
+        idx_new = len(cameras) + 1
+        cameras.append(
+            {
+                "id": _slugify(f"camera_{idx_new}_{entity_id}", f"camera_{idx_new}"),
+                "name": _as_str(row.get("friendly_name"), f"Camera {idx_new}"),
+                "entity_id": entity_id,
+                "role": "camera_slot",
+                "enabled": True,
+            }
+        )
+        accepted_set.add(entity_id)
+    profile["entity_collections"]["cameras"] = cameras
+    _sync_slots_from_collections(profile)
+    cad["accepted"] = sorted(list(accepted_set))
+    cad["updated_at"] = int(_now())
+    profile["camera_autodetect"] = cad
+    workspace["camera_autodetect"] = cad
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "camera_autodetect": cad})
+
+
+@app.post("/api/cameras/ignore_detected")
+def api_cameras_ignore_detected() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    requested = payload.get("entity_ids")
+    requested_set: set[str] = set()
+    if isinstance(requested, list):
+        for item in requested:
+            entity_id = _as_str(item, "").strip()
+            if entity_id:
+                requested_set.add(entity_id)
+    cad = _deep_merge(_default_camera_autodetect_state(), profile.get("camera_autodetect", {}))
+    ignored = cad.get("ignored", []) if isinstance(cad.get("ignored"), list) else []
+    ignored_set = set(_as_str(x, "") for x in ignored)
+    detected = cad.get("detected", []) if isinstance(cad.get("detected"), list) else []
+    if not requested_set:
+        for row in detected:
+            if isinstance(row, dict):
+                entity_id = _as_str(row.get("entity_id"), "").strip()
+                if entity_id:
+                    ignored_set.add(entity_id)
+    else:
+        ignored_set.update(requested_set)
+    cad["ignored"] = sorted(list(ignored_set))
+    cad["updated_at"] = int(_now())
+    profile["camera_autodetect"] = cad
+    workspace["camera_autodetect"] = cad
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "camera_autodetect": cad})
 
 
 @app.get("/api/layout/load")
@@ -3565,9 +4204,86 @@ def api_layout_reset_page() -> Any:
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
 
 
+def _theme_tokens_from_payload(payload: Dict[str, Any], palette_fallback: str = "") -> Tuple[Dict[str, str], str, Dict[str, str]]:
+    palette_id = _as_str(payload.get("palette_id"), "").strip().lower() or palette_fallback
+    tokens: Dict[str, str] = {}
+    for p_item in _default_theme_palettes():
+        if _as_str(p_item.get("id"), "").lower() == palette_id:
+            tokens = dict(p_item.get("tokens", {}))
+            break
+    defaults = _default_substitutions()
+    if not tokens:
+        tokens = {k: defaults[k] for k in defaults.keys() if k.startswith("theme_token_")}
+    custom_tokens = payload.get("tokens") if isinstance(payload.get("tokens"), dict) else {}
+    for k, v in custom_tokens.items():
+        if k.startswith("theme_token_"):
+            tokens[k] = _normalize_color(v, tokens.get(k, "0x000000"))
+    return tokens, palette_id, custom_tokens
+
+
+def _apply_theme_to_workspace(
+    workspace: Dict[str, Any],
+    profile: Dict[str, Any],
+    idx: int,
+    tokens: Dict[str, str],
+    palette_id: str,
+    custom_tokens: Dict[str, str],
+    writer: str,
+) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    for k, v in tokens.items():
+        profile.setdefault("theme", {})
+        profile["theme"][k] = v
+    ratio = _contrast_ratio(tokens.get("theme_token_text_primary", "0xFFFFFF"), tokens.get("theme_token_screen_bg", "0x000000"))
+    profile.setdefault("theme_studio", {})
+    profile["theme_studio"]["active_palette"] = palette_id or _as_str(profile.get("theme_studio", {}).get("active_palette"), "ocean_dark")
+    profile["theme_studio"]["custom_tokens"] = custom_tokens
+    profile["theme_studio"]["last_contrast_ratio"] = ratio
+    sync = _deep_merge(_default_theme_sync_state(), profile.get("theme_studio", {}).get("sync", {}))
+    if writer == "device":
+        sync["theme_revision_device"] = _as_int(sync.get("theme_revision_device"), 0, 0, None) + 1
+        sync["device_snapshot"] = {k: v for k, v in tokens.items() if str(k).startswith("theme_token_")}
+    else:
+        sync["theme_revision_web"] = _as_int(sync.get("theme_revision_web"), 0, 0, None) + 1
+    sync["theme_last_writer"] = writer
+    sync["theme_conflict"] = _as_int(sync.get("theme_revision_web"), 0, 0, None) != _as_int(sync.get("theme_revision_device"), 0, 0, None)
+    if sync["theme_conflict"]:
+        sync["theme_last_conflict_at"] = int(_now())
+    profile["theme_studio"]["sync"] = sync
+    workspace.setdefault("theme_studio", {})
+    workspace["theme_studio"] = _deep_merge(workspace.get("theme_studio", {}), profile.get("theme_studio", {}))
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    meta = {
+        "tokens": tokens,
+        "contrast_ratio": ratio,
+        "wcag_aa_normal": ratio >= 4.5,
+        "wcag_aa_large": ratio >= 3.0,
+        "theme_sync": sync,
+    }
+    return workspace, profile, meta
+
+
 @app.get("/api/theme/palettes")
 def api_theme_palettes() -> Any:
     return jsonify({"ok": True, "palettes": _default_theme_palettes()})
+
+
+@app.get("/api/theme/state")
+def api_theme_state() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    sync = _deep_merge(_default_theme_sync_state(), profile.get("theme_studio", {}).get("sync", {}))
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "theme": profile.get("theme", {}),
+            "theme_studio": profile.get("theme_studio", {}),
+            "theme_sync": sync,
+        }
+    )
 
 
 @app.post("/api/theme/contrast_check")
@@ -3582,19 +4298,7 @@ def api_theme_contrast_check() -> Any:
 @app.post("/api/theme/preview")
 def api_theme_preview() -> Any:
     payload = request.get_json(silent=True) or {}
-    palette_id = _as_str(payload.get("palette_id"), "").strip().lower()
-    custom_tokens = payload.get("tokens") if isinstance(payload.get("tokens"), dict) else {}
-    tokens: Dict[str, str] = {}
-    for p in _default_theme_palettes():
-        if _as_str(p.get("id"), "").lower() == palette_id:
-            tokens = dict(p.get("tokens", {}))
-            break
-    defaults = _default_substitutions()
-    if not tokens:
-        tokens = {k: defaults[k] for k in defaults.keys() if k.startswith("theme_token_")}
-    for k, v in custom_tokens.items():
-        if k.startswith("theme_token_"):
-            tokens[k] = _normalize_color(v, tokens.get(k, "0x000000"))
+    tokens, _palette_id, _custom_tokens = _theme_tokens_from_payload(payload, "")
     ratio = _contrast_ratio(tokens.get("theme_token_text_primary", "0xFFFFFF"), tokens.get("theme_token_screen_bg", "0x000000"))
     return jsonify({"ok": True, "tokens": tokens, "contrast_ratio": ratio, "wcag_aa_normal": ratio >= 4.5, "wcag_aa_large": ratio >= 3.0})
 
@@ -3603,45 +4307,55 @@ def api_theme_preview() -> Any:
 def api_theme_apply() -> Any:
     payload = request.get_json(silent=True) or {}
     workspace, profile, idx = _workspace_or_profile_from_payload(payload)
-    palette_id = _as_str(payload.get("palette_id"), "").strip().lower()
-    tokens: Dict[str, str] = {}
-    for p_item in _default_theme_palettes():
-        if _as_str(p_item.get("id"), "").lower() == palette_id:
-            tokens = dict(p_item.get("tokens", {}))
-            break
-    defaults = _default_substitutions()
-    if not tokens:
-        tokens = {k: defaults[k] for k in defaults.keys() if k.startswith("theme_token_")}
-    custom_tokens = payload.get("tokens") if isinstance(payload.get("tokens"), dict) else {}
-    for k, v in custom_tokens.items():
-        if k.startswith("theme_token_"):
-            tokens[k] = _normalize_color(v, tokens.get(k, "0x000000"))
+    tokens, palette_id, custom_tokens = _theme_tokens_from_payload(payload, _as_str(profile.get("theme_studio", {}).get("active_palette"), ""))
+    workspace, profile, meta = _apply_theme_to_workspace(workspace, profile, idx, tokens, palette_id, custom_tokens, "web")
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, **meta})
 
-    for k, v in tokens.items():
-        profile.setdefault("theme", {})
-        profile["theme"][k] = v
-    ratio = _contrast_ratio(tokens.get("theme_token_text_primary", "0xFFFFFF"), tokens.get("theme_token_screen_bg", "0x000000"))
+
+@app.post("/api/theme/apply_web")
+def api_theme_apply_web() -> Any:
+    return api_theme_apply()
+
+
+@app.post("/api/theme/apply_device_sync")
+def api_theme_apply_device_sync() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    tokens, palette_id, custom_tokens = _theme_tokens_from_payload(payload, _as_str(profile.get("theme_studio", {}).get("active_palette"), ""))
+    workspace, profile, meta = _apply_theme_to_workspace(workspace, profile, idx, tokens, palette_id, custom_tokens, "device")
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, **meta})
+
+
+@app.post("/api/theme/resolve_conflict")
+def api_theme_resolve_conflict() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    policy = _as_str(payload.get("policy"), "manual_merge").strip().lower()
+    if policy not in {"prefer_web", "prefer_device", "manual_merge"}:
+        return jsonify({"ok": False, "error": "policy must be prefer_web, prefer_device, or manual_merge"}), 400
     profile.setdefault("theme_studio", {})
-    profile["theme_studio"]["active_palette"] = palette_id or _as_str(profile.get("theme_studio", {}).get("active_palette"), "ocean_dark")
-    profile["theme_studio"]["custom_tokens"] = custom_tokens
-    profile["theme_studio"]["last_contrast_ratio"] = ratio
+    sync = _deep_merge(_default_theme_sync_state(), profile.get("theme_studio", {}).get("sync", {}))
+    if policy == "prefer_device" and isinstance(sync.get("device_snapshot"), dict):
+        for key, value in sync["device_snapshot"].items():
+            if str(key).startswith("theme_token_"):
+                profile.setdefault("theme", {})
+                profile["theme"][key] = _normalize_color(value, _default_substitutions().get(key, "0x000000"))
+    elif policy == "prefer_web":
+        sync["device_snapshot"] = {k: v for k, v in profile.get("theme", {}).items() if str(k).startswith("theme_token_")}
+    sync["theme_conflict_policy"] = policy
+    sync["theme_conflict"] = False
+    merged_rev = max(_as_int(sync.get("theme_revision_web"), 0, 0, None), _as_int(sync.get("theme_revision_device"), 0, 0, None))
+    sync["theme_revision_web"] = merged_rev
+    sync["theme_revision_device"] = merged_rev
+    sync["theme_last_writer"] = "conflict_resolve"
+    profile["theme_studio"]["sync"] = sync
     workspace.setdefault("theme_studio", {})
     workspace["theme_studio"] = _deep_merge(workspace.get("theme_studio", {}), profile.get("theme_studio", {}))
     workspace = _workspace_with_profile(workspace, profile, idx)
     workspace, saved = _maybe_persist_workspace(payload, workspace)
-    return jsonify(
-        {
-            "ok": True,
-            "workspace": workspace,
-            "profile": profile,
-            "active_device_index": idx,
-            "saved_workspace": saved,
-            "tokens": tokens,
-            "contrast_ratio": ratio,
-            "wcag_aa_normal": ratio >= 4.5,
-            "wcag_aa_large": ratio >= 3.0,
-        }
-    )
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "theme_sync": sync})
 
 
 @app.get("/api/update/latest")
@@ -3793,6 +4507,10 @@ def api_generate_install() -> Any:
             "entities": _build_generated_entities_yaml(profile),
             "theme": _build_generated_theme_yaml(profile),
             "layout": _build_generated_layout_yaml(profile, workspace),
+            "page_home": _build_generated_page_yaml("home", workspace, profile),
+            "page_lights": _build_generated_page_yaml("lights", workspace, profile),
+            "page_weather": _build_generated_page_yaml("weather", workspace, profile),
+            "page_climate": _build_generated_page_yaml("climate", workspace, profile),
         }
         return jsonify(
             {
@@ -3924,9 +4642,17 @@ def api_apply_commit() -> Any:
         generated_entities_path_raw = _as_str(preview.get("generated", {}).get("entities", {}).get("path", ""))
         generated_theme_path_raw = _as_str(preview.get("generated", {}).get("theme", {}).get("path", ""))
         generated_layout_path_raw = _as_str(preview.get("generated", {}).get("layout", {}).get("path", ""))
+        generated_page_home_path_raw = _as_str(preview.get("generated", {}).get("page_home", {}).get("path", ""))
+        generated_page_lights_path_raw = _as_str(preview.get("generated", {}).get("page_lights", {}).get("path", ""))
+        generated_page_weather_path_raw = _as_str(preview.get("generated", {}).get("page_weather", {}).get("path", ""))
+        generated_page_climate_path_raw = _as_str(preview.get("generated", {}).get("page_climate", {}).get("path", ""))
         generated_entities_path = Path(generated_entities_path_raw) if generated_entities_path_raw else None
         generated_theme_path = Path(generated_theme_path_raw) if generated_theme_path_raw else None
         generated_layout_path = Path(generated_layout_path_raw) if generated_layout_path_raw else None
+        generated_page_home_path = Path(generated_page_home_path_raw) if generated_page_home_path_raw else None
+        generated_page_lights_path = Path(generated_page_lights_path_raw) if generated_page_lights_path_raw else None
+        generated_page_weather_path = Path(generated_page_weather_path_raw) if generated_page_weather_path_raw else None
+        generated_page_climate_path = Path(generated_page_climate_path_raw) if generated_page_climate_path_raw else None
         install_path.parent.mkdir(parents=True, exist_ok=True)
         overrides_path.parent.mkdir(parents=True, exist_ok=True)
         install_path.write_text(preview["install"]["content_new"], encoding="utf-8")
@@ -3940,6 +4666,18 @@ def api_apply_commit() -> Any:
         if generated_layout_path is not None:
             generated_layout_path.parent.mkdir(parents=True, exist_ok=True)
             generated_layout_path.write_text(preview.get("generated", {}).get("layout", {}).get("content_new", ""), encoding="utf-8")
+        if generated_page_home_path is not None:
+            generated_page_home_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_page_home_path.write_text(preview.get("generated", {}).get("page_home", {}).get("content_new", ""), encoding="utf-8")
+        if generated_page_lights_path is not None:
+            generated_page_lights_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_page_lights_path.write_text(preview.get("generated", {}).get("page_lights", {}).get("content_new", ""), encoding="utf-8")
+        if generated_page_weather_path is not None:
+            generated_page_weather_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_page_weather_path.write_text(preview.get("generated", {}).get("page_weather", {}).get("content_new", ""), encoding="utf-8")
+        if generated_page_climate_path is not None:
+            generated_page_climate_path.parent.mkdir(parents=True, exist_ok=True)
+            generated_page_climate_path.write_text(preview.get("generated", {}).get("page_climate", {}).get("content_new", ""), encoding="utf-8")
         return jsonify(
             {
                 "ok": True,
@@ -3951,6 +4689,10 @@ def api_apply_commit() -> Any:
                     "generated_entities": str(generated_entities_path) if generated_entities_path else "",
                     "generated_theme": str(generated_theme_path) if generated_theme_path else "",
                     "generated_layout": str(generated_layout_path) if generated_layout_path else "",
+                    "generated_page_home": str(generated_page_home_path) if generated_page_home_path else "",
+                    "generated_page_lights": str(generated_page_lights_path) if generated_page_lights_path else "",
+                    "generated_page_weather": str(generated_page_weather_path) if generated_page_weather_path else "",
+                    "generated_page_climate": str(generated_page_climate_path) if generated_page_climate_path else "",
                 },
                 "checksums": {
                     "install": _sha256_file(install_path),
@@ -3958,6 +4700,10 @@ def api_apply_commit() -> Any:
                     "generated_entities": _sha256_file(generated_entities_path) if generated_entities_path else "",
                     "generated_theme": _sha256_file(generated_theme_path) if generated_theme_path else "",
                     "generated_layout": _sha256_file(generated_layout_path) if generated_layout_path else "",
+                    "generated_page_home": _sha256_file(generated_page_home_path) if generated_page_home_path else "",
+                    "generated_page_lights": _sha256_file(generated_page_lights_path) if generated_page_lights_path else "",
+                    "generated_page_weather": _sha256_file(generated_page_weather_path) if generated_page_weather_path else "",
+                    "generated_page_climate": _sha256_file(generated_page_climate_path) if generated_page_climate_path else "",
                 },
                 "backup": backup,
                 "changed": {
@@ -3966,6 +4712,10 @@ def api_apply_commit() -> Any:
                     "generated_entities": _as_bool(preview.get("generated", {}).get("entities", {}).get("changed"), False),
                     "generated_theme": _as_bool(preview.get("generated", {}).get("theme", {}).get("changed"), False),
                     "generated_layout": _as_bool(preview.get("generated", {}).get("layout", {}).get("changed"), False),
+                    "generated_page_home": _as_bool(preview.get("generated", {}).get("page_home", {}).get("changed"), False),
+                    "generated_page_lights": _as_bool(preview.get("generated", {}).get("page_lights", {}).get("changed"), False),
+                    "generated_page_weather": _as_bool(preview.get("generated", {}).get("page_weather", {}).get("changed"), False),
+                    "generated_page_climate": _as_bool(preview.get("generated", {}).get("page_climate", {}).get("changed"), False),
                 },
                 "compile_hint": f"esphome run {install_path}",
             }

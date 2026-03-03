@@ -1,11 +1,40 @@
-﻿# Release Notes
+# Release Notes
 
 ## Baseline
 
-- Current add-on manifest version in repo: `0.22.0`
+- Current add-on manifest version in repo: `0.23.0`
 - Public install templates now track `stable`.
 
 ## Unreleased (Current `main`)
+
+### Admin Center v0.23.0 mega dashboard + schema 4.0 pass
+
+1. Dashboard-first UX:
+   - action cards (`Connect Device`, `Map Entities`, `Theme`, `Layout`, `Deploy`, `Recover`)
+   - workspace summary + validation + firmware capability strip
+   - camera auto-detect scan/accept/ignore controls
+2. Workspace/profile model upgraded:
+   - schema constants moved to `4.0`
+   - frontend fallback workspace schema moved to `4.0`
+   - landing and camera autodetect states normalized
+3. Dynamic collections expanded in frontend/backend:
+   - `lights`, `cameras`, `weather_metrics`, `climate_controls`, `reader_feeds`, `system_entities`
+   - role-aware mapping rows for non-slot collections
+4. Managed generated artifact contract expanded:
+   - `generated/layout.generated.yaml` (replaces `generated/ui-layout.yaml`)
+   - `generated/pages/home.generated.yaml`
+   - `generated/pages/lights.generated.yaml`
+   - `generated/pages/weather.generated.yaml`
+   - `generated/pages/climate.generated.yaml`
+5. Apply/backup/restore parity fixed:
+   - commit now writes page generated files
+   - backup manifests/checksums include page generated files
+   - restore now restores layout + page generated files (with legacy `ui-layout.yaml` fallback)
+6. Health/dashboard reliability fixes:
+   - fixed dashboard firmware-capability function call
+   - health payload version updated to `4`
+7. Install generation includes the new generated page include hooks.
+8. Release metadata defaults aligned to `v0.23.0` in install/template/package substitutions.
 
 ### Admin Center v0.22.0 mega UX/configuration upgrade
 
@@ -26,7 +55,7 @@
 6. Managed apply now previews and writes generated artifacts:
    - `generated/entities.generated.yaml`
    - `generated/theme.generated.yaml`
-   - `generated/ui-layout.yaml`
+   - `generated/layout.generated.yaml`
 7. Startup behavior simplified:
    - no heavy generation/apply calls during boot
    - health/runtime/discovery readiness first
@@ -118,12 +147,11 @@
 
 ## Next tag recommendation
 
-1. `v0.22.0-admin-guided-advanced-mega-upgrade`
-   - guided/advanced UX + schema 3.0 + dynamic entities + layout/theme workflows
-   - generated managed files and safer startup behavior
+1. `v0.23.0-admin-dashboard-schema4-mega-pass`
+   - dashboard-first UX + schema 4.0 + expanded dynamic collections + generated pages contract
 2. next:
-   - `v0.22.1-firmware-modular-include-hooks`
-   - `v0.23.0-canvas-advanced-layout-constraints`
+   - `v0.23.1-firmware-modular-include-hooks`
+   - `v0.24.0-canvas-advanced-layout-constraints`
 
 ## Tagging flow
 

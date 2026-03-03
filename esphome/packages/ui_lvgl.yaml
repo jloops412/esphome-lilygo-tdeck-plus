@@ -3038,8 +3038,76 @@ script:
                      id(last_activity_code));
             return std::string(buf);
       - lvgl.widget.update:
+          id: home_lights_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !(on("${ui_show_lights}") && on("${home_tile_show_lights}"));
+      - lvgl.widget.update:
+          id: home_weather_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !(on("${ui_show_weather}") && on("${home_tile_show_weather}"));
+      - lvgl.widget.update:
+          id: home_climate_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !(on("${ui_show_climate}") && on("${home_tile_show_climate}"));
+      - lvgl.widget.update:
+          id: home_reader_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !(on("${ui_show_reader}") && on("${home_tile_show_reader}"));
+      - lvgl.widget.update:
+          id: home_settings_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !on("${ui_show_settings}");
+      - lvgl.widget.update:
+          id: home_theme_btn
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            return !on("${ui_show_theme}");
+      - lvgl.widget.update:
           id: home_cameras_btn
-          hidden: !lambda "return atoi(\"${camera_slot_count}\") <= 0;"
+          hidden: !lambda |-
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            if (!on("${ui_show_cameras}") || !on("${home_tile_show_cameras}")) return true;
+            return atoi("${camera_slot_count}") <= 0;
       - lvgl.label.update:
           id: lights_selected_lbl
           text: !lambda |-
@@ -3246,11 +3314,21 @@ script:
       - lvgl.label.update:
           id: settings_status_lbl
           text: !lambda |-
-            char buf[160];
-            snprintf(buf, sizeof(buf), "Wake T/K/B %s/%s/%s",
+            auto on = [](const char *s) {
+              if (s == nullptr) return true;
+              std::string v(s);
+              for (char &c : v) c = (char) tolower(c);
+              return !(v == "0" || v == "false" || v == "off" || v == "no");
+            };
+            char buf[220];
+            snprintf(buf, sizeof(buf), "Wake T/K/B %s/%s/%s | UI L/W/C/R %s/%s/%s/%s",
                      id(wake_on_touch) ? "ON" : "OFF",
                      id(wake_on_keyboard) ? "ON" : "OFF",
-                     id(wake_on_trackball) ? "ON" : "OFF");
+                     id(wake_on_trackball) ? "ON" : "OFF",
+                     on("${ui_show_lights}") ? "ON" : "OFF",
+                     on("${ui_show_weather}") ? "ON" : "OFF",
+                     on("${ui_show_climate}") ? "ON" : "OFF",
+                     on("${ui_show_reader}") ? "ON" : "OFF");
             return std::string(buf);
       - lvgl.label.update:
           id: settings_units_lbl

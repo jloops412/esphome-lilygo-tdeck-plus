@@ -11,6 +11,7 @@ This framework standardizes how Home Assistant entities are brought into this ES
    - UI binding label/widget ID
 3. Unknown/unavailable values must degrade to `"--"` or fallback strings without conversion warnings.
 4. Physical-unit values are normalized before rendering and then converted to app-selected units for display.
+5. Public defaults must remain generic (`replace_me_*`); personal mappings stay under `esphome/install/personal/*`.
 
 ## Source Priority Pattern
 Use this order for robust adapters:
@@ -27,6 +28,14 @@ Use this order for robust adapters:
    - `entity_ha_unit_system` -> `sensor.unit_system`
 3. User override in Settings persists and becomes authoritative.
 
+## Update Metadata Pattern
+
+1. Firmware always publishes:
+   - `app_release_channel`
+   - `app_release_version`
+2. `esphome.project.version` is set from `${app_release_version}`.
+3. HA diagnostic text sensors expose installed app version/channel for template update workflows.
+
 ## Adding a New HA Element (Checklist)
 1. Add substitution key in:
    - `esphome/packages/ha_entities.yaml`
@@ -38,6 +47,25 @@ Use this order for robust adapters:
    - `docs/entities-template.md`
    - `docs/handoff-context.md`
    - `docs/release.md`
+
+## Admin Center V2 Profile Contract
+
+The HA add-on `T-Deck Admin Center` now generates config from a profile schema.
+
+Top-level sections:
+1. `schema_version`
+2. `profile_name`
+3. `device` (`name`, `friendly_name`, `git_ref`, `git_url`)
+4. `features` (`lights`, `weather`, `climate`, `cameras`, `reader`, `gps`)
+5. `slots` (`light_slot_count`, `camera_slot_count`, slot arrays)
+6. `entities` (`entity_*` mappings)
+7. `ui` (`ui_show_*`, `home_tile_show_*`)
+8. `theme` (`theme_token_*`, `theme_border_width`, `theme_radius`, `theme_icon_mode`)
+9. `settings` (camera and reliability knobs)
+
+Generated outputs:
+1. drop-in install YAML (`/api/generate/install`)
+2. substitutions overrides YAML (`/api/generate/overrides`)
 
 ## Template Pack
 Use reusable snippets under:

@@ -125,6 +125,30 @@ body {
   gap: 12px;
 }
 
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.dash-card {
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  min-height: 78px;
+}
+
+.dash-title {
+  font-weight: 700;
+}
+
+.dash-sub {
+  color: var(--text-dim);
+  font-weight: 500;
+  font-size: 12px;
+}
+
 .wizard-grid {
   margin-top: 12px;
   display: grid;
@@ -215,7 +239,8 @@ td {
 .w-10 { width: 10%; }
 
 td code {
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-all;
   color: #bfe2ff;
 }
 

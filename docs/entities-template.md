@@ -17,6 +17,8 @@ Add this block to your local install YAML (`lilygotdeckplus.yaml`) and set your 
 
 ```yaml
 substitutions:
+  app_release_channel: "stable"
+  app_release_version: "v0.23.0"
   entity_light_foyer: "light.replace_me_foyer"
   entity_light_vanity: "light.replace_me_vanity"
   entity_light_bedroom: "light.replace_me_bedroom"
@@ -96,6 +98,34 @@ substitutions:
   camera_snapshot_enable: "true"
   camera_snapshot_dir: "/config/www/tdeck"
   ha_base_url: "http://homeassistant.local:8123"
+
+  # Optional page/home tile visibility controls
+  ui_show_lights: "true"
+  ui_show_weather: "true"
+  ui_show_climate: "true"
+  ui_show_reader: "true"
+  ui_show_cameras: "true"
+  ui_show_settings: "true"
+  ui_show_theme: "true"
+  home_tile_show_weather: "true"
+  home_tile_show_climate: "true"
+  home_tile_show_lights: "true"
+  home_tile_show_cameras: "true"
+  home_tile_show_reader: "true"
+
+  # Optional theme token defaults
+  theme_token_screen_bg: "0x0B1117"
+  theme_token_surface: "0x121A23"
+  theme_token_surface_alt: "0x1A2431"
+  theme_token_action: "0x4F8FE6"
+  theme_token_action_soft: "0x3A6FAE"
+  theme_token_text_primary: "0xEDF4FF"
+  theme_token_text_dim: "0xBFD0E6"
+  theme_token_ok: "0x2F9F77"
+  theme_token_warn: "0xD88D38"
+  theme_border_width: "2"
+  theme_radius: "10"
+  theme_icon_mode: "0"
 ```
 
 ## Notes
@@ -105,3 +135,5 @@ substitutions:
 3. If substitutions are not overridden locally, the config will compile but controls will target placeholder entities.
 4. Keep local/private files outside Git or under ignored paths.
 5. App-wide units bootstrap from `entity_ha_unit_system` on first boot; users can then override units directly in Settings.
+6. You can hide/show top-level pages and home tiles with the `ui_show_*` and `home_tile_show_*` substitutions.
+7. Theme token substitutions are optional; if omitted, safe dark defaults are used.

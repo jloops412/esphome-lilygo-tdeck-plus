@@ -1,10 +1,10 @@
-# Admin Center (Static Companion)
+# Admin Center (Static Companion - Legacy)
 
-Open `index.html` in a browser to generate:
+This static tool is a lightweight fallback generator.
 
-1. a drop-in install YAML
-2. an entity/substitution overrides block
-
-This is the static companion. The HA Ingress add-on lives under:
+For the full experience (discovery cache, paging, profile save/load, validation),
+use the Home Assistant Ingress add-on in:
 
 - `tdeck_admin_center/`
+
+Use this static tool only when you need a quick offline YAML scaffold.

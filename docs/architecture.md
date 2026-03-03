@@ -88,7 +88,8 @@
 
 1. Device runtime controls through ESPHome entities/web server.
 2. HA Ingress add-on for discover + mapping studio + workspace/device management.
-3. V4 UX is dual-mode:
+3. V5 UX is dashboard-first with dual-mode controls:
+   - Dashboard: status/action launch and camera autodetect onboarding
    - Guided: step-by-step onboarding and deploy flow
    - Advanced: diagnostics + raw generation/update controls
 4. Discovery is job-based (`start/status/cancel`) to keep UI responsive on large HA installs.
@@ -96,6 +97,10 @@
 6. Generated managed files are emitted per-device:
    - `generated/entities.generated.yaml`
    - `generated/theme.generated.yaml`
-   - `generated/ui-layout.yaml`
+   - `generated/layout.generated.yaml`
+   - `generated/pages/home.generated.yaml`
+   - `generated/pages/lights.generated.yaml`
+   - `generated/pages/weather.generated.yaml`
+   - `generated/pages/climate.generated.yaml`
 7. Static generator tool in repo remains available for offline scaffolding.
 8. Updates tab generates HA package for update-button flow, proxied to native ESPHome firmware updater.

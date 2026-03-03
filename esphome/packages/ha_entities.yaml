@@ -1,4 +1,6 @@
 substitutions:
+  app_release_channel: "stable"
+  app_release_version: "v0.23.0"
   # Private/local entity mapping overrides.
   # Keep your real values in local install YAML, not in this repo.
   # Legacy names/entities are still supported for one transition release.
@@ -44,6 +46,30 @@ substitutions:
   screensaver_keyboard_repeat_suppress_ms: "1200"
   screensaver_keyboard_activity_min_interval_ms: "250"
   home_dynamic_weather_icon: "true"
+  ui_show_lights: "true"
+  ui_show_weather: "true"
+  ui_show_climate: "true"
+  ui_show_reader: "true"
+  ui_show_cameras: "true"
+  ui_show_settings: "true"
+  ui_show_theme: "true"
+  home_tile_show_weather: "true"
+  home_tile_show_climate: "true"
+  home_tile_show_lights: "true"
+  home_tile_show_cameras: "true"
+  home_tile_show_reader: "true"
+  theme_token_screen_bg: "0x0B1117"
+  theme_token_surface: "0x121A23"
+  theme_token_surface_alt: "0x1A2431"
+  theme_token_action: "0x4F8FE6"
+  theme_token_action_soft: "0x3A6FAE"
+  theme_token_text_primary: "0xEDF4FF"
+  theme_token_text_dim: "0xBFD0E6"
+  theme_token_ok: "0x2F9F77"
+  theme_token_warn: "0xD88D38"
+  theme_border_width: "2"
+  theme_radius: "10"
+  theme_icon_mode: "0"
   camera_slot_count: "0"
   camera_slot_1_name: "Front Door"
   camera_slot_2_name: "Outdoor"
@@ -122,6 +148,24 @@ text_sensor:
       if (id(page_index) == 4) return {"Settings"};
       return {"Theme"};
     update_interval: 1s
+
+  - platform: template
+    id: app_release_version_text
+    name: "${name} App Version"
+    icon: mdi:tag
+    entity_category: diagnostic
+    lambda: |-
+      return {"${app_release_version}"};
+    update_interval: never
+
+  - platform: template
+    id: app_release_channel_text
+    name: "${name} App Channel"
+    icon: mdi:source-branch
+    entity_category: diagnostic
+    lambda: |-
+      return {"${app_release_channel}"};
+    update_interval: never
 
   - platform: homeassistant
     id: foyer_state

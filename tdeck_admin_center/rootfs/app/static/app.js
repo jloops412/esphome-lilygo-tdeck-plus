@@ -33,6 +33,9 @@ const state = {
   layoutPages: {},
   themePalettes: [],
   templateCatalog: {},
+  dashboardSummary: null,
+  cameraAutodetect: null,
+  additionalCollection: "weather_metrics",
 };
 
 const WEATHER_FIELDS = [
@@ -100,6 +103,15 @@ const THEME_FIELDS = [
 ];
 
 const FEATURE_KEYS = ["lights", "weather", "climate", "cameras", "reader", "gps"];
+const COLLECTION_KEYS = ["lights", "cameras", "weather_metrics", "climate_controls", "reader_feeds", "system_entities"];
+const COLLECTION_META = {
+  lights: { label: "Lights", role: "light_slot", limitKey: "lights_max", defaultMax: 24 },
+  cameras: { label: "Cameras", role: "camera_slot", limitKey: "cameras_max", defaultMax: 8 },
+  weather_metrics: { label: "Weather Metrics", role: "", limitKey: "weather_metrics_max", defaultMax: 32 },
+  climate_controls: { label: "Climate Controls", role: "", limitKey: "climate_controls_max", defaultMax: 24 },
+  reader_feeds: { label: "Reader Feeds", role: "", limitKey: "reader_feeds_max", defaultMax: 16 },
+  system_entities: { label: "System Entities", role: "", limitKey: "system_entities_max", defaultMax: 24 },
+};
 const THEME_TOKEN_KEYS = [
   "theme_token_screen_bg",
   "theme_token_surface",
@@ -233,6 +245,143 @@ function setDiscoveryStatus(text, isError = false) {
   out.style.color = isError ? "#ffb4c0" : "";
 }
 
+function guidedStepFromDashboardAction(action) {
+  const map = {
+    connect_device: 0,
+    map_entities: 2,
+    theme: 3,
+    layout: 4,
+    deploy: 5,
+    recover: 5,
+  };
+  return Number.isFinite(map[action]) ? map[action] : null;
+}
+
+function renderCameraAutodetect(cad) {
+  const meta = e("camera_autodetect_meta");
+  const list = e("camera_autodetect_list");
+  const data = cad && typeof cad === "object" ? cad : {};
+  const detected = Array.isArray(data.detected) ? data.detected : [];
+  const accepted = Array.isArray(data.accepted) ? data.accepted : [];
+  const ignored = Array.isArray(data.ignored) ? data.ignored : [];
+
+  if (meta) {
+    const scanAt = Number(data.last_scan_at || 0);
+    const scanText = scanAt > 0 ? new Date(scanAt * 1000).toLocaleString() : "--";
+    meta.textContent =
+      `Enabled: ${asBool(data.enabled, true) ? "yes" : "no"}\n` +
+      `Last scan: ${scanText}\n` +
+      `Detected: ${detected.length} | Accepted: ${accepted.length} | Ignored: ${ignored.length}`;
+  }
+
+  if (list) {
+    if (!detected.length) {
+      list.textContent = "No camera candidates detected yet.";
+      return;
+    }
+    const lines = detected.map((row, idx) => {
+      const entity = row?.entity_id || "--";
+      const name = row?.friendly_name || entity;
+      const score = Number(row?.score || 0);
+      const stateText = row?.state || "";
+      const acceptedMark = accepted.includes(entity) ? " [accepted]" : "";
+      const ignoredMark = ignored.includes(entity) ? " [ignored]" : "";
+      return `${idx + 1}. ${name} -> ${entity} | score ${score}${stateText ? ` | state ${stateText}` : ""}${acceptedMark}${ignoredMark}`;
+    });
+    list.textContent = lines.join("\n");
+  }
+}
+
+function renderDashboardSummary(summary) {
+  const data = summary && typeof summary === "object" ? summary : {};
+  const health = data.health || {};
+  const validation = data.validation || {};
+  const firmware = data.firmware_capabilities || {};
+  const landing = data.landing_state || {};
+
+  const summaryOut = e("dashboard_summary");
+  if (summaryOut) {
+    summaryOut.textContent =
+      `Workspace: ${data.workspace_name || state.workspace?.workspace_name || "default"}\n` +
+      `Device: ${data.device_slug || getDeviceSlug()}\n` +
+      `HA Connected: ${health.ha_connected ? "yes" : "no"}\n` +
+      `Discovery: ${health.discovery?.status || "--"} / ${health.discovery?.stage || "--"}\n` +
+      `Onboarding Step: ${Number(landing.onboarding_step || 0) + 1}\n` +
+      `Last Action: ${landing.last_action || "--"}`;
+  }
+
+  const valOut = e("dashboard_validation");
+  if (valOut) {
+    valOut.textContent = `Validation: ${validation.ok ? "PASS" : "FAIL"} | errors ${(validation.errors || []).length} | warnings ${(validation.warnings || []).length}`;
+    valOut.style.color = validation.ok ? "" : "#ffb4c0";
+  }
+
+  const fwOut = e("dashboard_fw");
+  if (fwOut) {
+    fwOut.textContent =
+      `Firmware method: ${firmware.recommended_method || "--"}\n` +
+      `Build/install available: ${firmware.esphome_build_install_available ? "yes" : "no"}\n` +
+      `Native update available: ${firmware.native_update_available ? "yes" : "no"}`;
+  }
+
+  state.cameraAutodetect = data.camera_autodetect || {};
+  renderCameraAutodetect(state.cameraAutodetect);
+}
+
+async function refreshDashboardSummary() {
+  const workspaceName = encodeURIComponent(state.workspace?.workspace_name || "default");
+  const data = await apiGet(`api/dashboard/summary?workspace=${workspaceName}`);
+  state.dashboardSummary = data;
+  renderDashboardSummary(data);
+}
+
+async function runDashboardAction(action) {
+  if (!action) return;
+  const body = profilePayload();
+  body.action = action;
+  body.persist = true;
+  const data = await apiPost("api/dashboard/action", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  const step = guidedStepFromDashboardAction(action);
+  if (step !== null) setGuidedStep(step);
+  syncProfileToForm();
+  await refreshDashboardSummary();
+  setStatus(`Dashboard action '${action}' updated workspace${data.saved_workspace ? ` (${data.saved_workspace})` : ""}`);
+}
+
+async function scanCameraAutodetect() {
+  const body = profilePayload();
+  body.limit = 16;
+  const data = await apiPost("api/cameras/autodetect", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  state.cameraAutodetect = data.camera_autodetect || {};
+  syncProfileToForm();
+  renderCameraAutodetect(state.cameraAutodetect);
+  setStatus(`Camera autodetect found ${data.detected_count || 0} candidates`);
+}
+
+async function acceptDetectedCameras() {
+  const body = profilePayload();
+  const data = await apiPost("api/cameras/accept_detected", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  state.cameraAutodetect = data.camera_autodetect || {};
+  syncProfileToForm();
+  setStatus("Accepted detected cameras into camera collection");
+}
+
+async function ignoreDetectedCameras() {
+  const body = profilePayload();
+  const data = await apiPost("api/cameras/ignore_detected", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  state.cameraAutodetect = data.camera_autodetect || {};
+  syncProfileToForm();
+  setStatus("Ignored currently detected camera candidates");
+}
+
 function currentProfile() {
   if (!state.workspace || !Array.isArray(state.workspace.devices) || state.workspace.devices.length === 0) {
     return null;
@@ -246,7 +395,7 @@ function currentProfile() {
 function ensureWorkspace(ws, fallbackProfile) {
   if (!ws || typeof ws !== "object") {
     ws = {
-      schema_version: "3.0",
+      schema_version: "4.0",
       workspace_name: "default",
       active_device_index: 0,
       devices: [deepClone(fallbackProfile)],
@@ -255,6 +404,8 @@ function ensureWorkspace(ws, fallbackProfile) {
       entity_collections: {},
       layout_pages: {},
       theme_studio: {},
+      landing_state: {},
+      camera_autodetect: {},
       deployment_workflow: {},
       bindings: {},
       layout: {},
@@ -271,6 +422,8 @@ function ensureWorkspace(ws, fallbackProfile) {
   if (!ws.mode_ui || typeof ws.mode_ui !== "object") ws.mode_ui = { mode: "guided", guided_step: 0, show_advanced_diagnostics: false };
   if (!ws.layout_pages || typeof ws.layout_pages !== "object") ws.layout_pages = {};
   if (!ws.theme_studio || typeof ws.theme_studio !== "object") ws.theme_studio = {};
+  if (!ws.landing_state || typeof ws.landing_state !== "object") ws.landing_state = {};
+  if (!ws.camera_autodetect || typeof ws.camera_autodetect !== "object") ws.camera_autodetect = {};
   return ws;
 }
 
@@ -291,7 +444,7 @@ function setMode(mode) {
   state.uiMode = mode === "advanced" ? "advanced" : "guided";
   const guided = e("guided_shell");
   const advanced = e("advanced_shell");
-  if (guided) guided.classList.remove("hidden");
+  if (guided) guided.classList.toggle("hidden", state.uiMode !== "guided");
   if (advanced) advanced.classList.toggle("hidden", state.uiMode !== "advanced");
   e("mode_guided_btn")?.classList.toggle("active", state.uiMode === "guided");
   e("mode_advanced_btn")?.classList.toggle("active", state.uiMode === "advanced");
@@ -414,7 +567,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.22.0";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.23.0";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -573,6 +726,17 @@ function applySelectedTemplate() {
       }));
     }
   }
+  if (["weather_metrics", "climate_controls", "reader_feeds", "system_entities"].includes(domain)) {
+    ensureCollections(p);
+    const entries = Object.entries(mappings).filter(([, v]) => String(v || "").trim());
+    p.entity_collections[domain] = entries.map(([role, entityId], idx) => ({
+      id: `${domain}_${idx + 1}`,
+      name: role,
+      role,
+      entity_id: String(entityId || ""),
+      enabled: true,
+    }));
+  }
   syncSlotsFromCollections(p);
   syncProfileToForm();
   setStatus(`Applied template '${item.name || domain}'`);
@@ -587,13 +751,23 @@ function ensureCollections(profile) {
     profile.entity_collections = {
       lights: [],
       cameras: [],
-      limits: { lights_max: 24, cameras_max: 8 },
+      weather_metrics: [],
+      climate_controls: [],
+      reader_feeds: [],
+      system_entities: [],
+      limits: {},
     };
   }
-  if (!Array.isArray(profile.entity_collections.lights)) profile.entity_collections.lights = [];
-  if (!Array.isArray(profile.entity_collections.cameras)) profile.entity_collections.cameras = [];
+  COLLECTION_KEYS.forEach((key) => {
+    if (!Array.isArray(profile.entity_collections[key])) profile.entity_collections[key] = [];
+  });
   if (!profile.entity_collections.limits || typeof profile.entity_collections.limits !== "object") {
-    profile.entity_collections.limits = { lights_max: 24, cameras_max: 8 };
+    profile.entity_collections.limits = {};
+  }
+  Object.entries(COLLECTION_META).forEach(([key, meta]) => {
+    const limitKey = meta.limitKey;
+    const current = Number(profile.entity_collections.limits[limitKey] || meta.defaultMax);
+    profile.entity_collections.limits[limitKey] = Number.isFinite(current) ? current : meta.defaultMax;
   }
   if (!profile.entity_collections.lights.length && Array.isArray(profile.slots?.lights)) {
     profile.slots.lights.forEach((slot, idx) => {
@@ -601,6 +775,7 @@ function ensureCollections(profile) {
         id: `light_${idx + 1}`,
         name: slot.name || `Light ${idx + 1}`,
         entity_id: slot.entity || "",
+        role: "light_slot",
         enabled: idx < Number(profile.slots?.light_slot_count || 0),
       });
     });
@@ -611,6 +786,7 @@ function ensureCollections(profile) {
         id: `camera_${idx + 1}`,
         name: slot.name || `Camera ${idx + 1}`,
         entity_id: slot.entity || "",
+        role: "camera_slot",
         enabled: idx < Number(profile.slots?.camera_slot_count || 0),
       });
     });
@@ -709,18 +885,107 @@ function renderCollections() {
   if (e("cameras_max")) e("cameras_max").value = String(p.entity_collections.limits?.cameras_max || 8);
   renderCollectionRows("lights", "lights_collection_body");
   renderCollectionRows("cameras", "cameras_collection_body");
+  renderAdditionalCollectionRows();
   const summaryNode = e("advanced_collection_summary");
   if (summaryNode) {
-    summaryNode.textContent = `Lights: ${p.entity_collections.lights.length}\nCameras: ${p.entity_collections.cameras.length}\nMapped to FW slots: lights=${p.slots?.light_slot_count || 0}/8 cameras=${p.slots?.camera_slot_count || 0}/2`;
+    summaryNode.textContent =
+      `Lights: ${p.entity_collections.lights.length}\n` +
+      `Cameras: ${p.entity_collections.cameras.length}\n` +
+      `Weather Metrics: ${(p.entity_collections.weather_metrics || []).length}\n` +
+      `Climate Controls: ${(p.entity_collections.climate_controls || []).length}\n` +
+      `Reader Feeds: ${(p.entity_collections.reader_feeds || []).length}\n` +
+      `System Entities: ${(p.entity_collections.system_entities || []).length}\n` +
+      `Mapped to FW slots: lights=${p.slots?.light_slot_count || 0}/8 cameras=${p.slots?.camera_slot_count || 0}/2`;
   }
+  const health = e("collections_summary");
+  if (health) {
+    health.textContent =
+      `lights=${p.entity_collections.lights.length} | cameras=${p.entity_collections.cameras.length}\n` +
+      `weather_metrics=${(p.entity_collections.weather_metrics || []).length} | climate_controls=${(p.entity_collections.climate_controls || []).length}\n` +
+      `reader_feeds=${(p.entity_collections.reader_feeds || []).length} | system_entities=${(p.entity_collections.system_entities || []).length}`;
+  }
+}
+
+function currentAdditionalCollection() {
+  const selected = (e("additional_collection_select")?.value || state.additionalCollection || "weather_metrics").trim();
+  if (!COLLECTION_KEYS.includes(selected) || selected === "lights" || selected === "cameras") return "weather_metrics";
+  state.additionalCollection = selected;
+  return selected;
+}
+
+function renderAdditionalCollectionRows() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureCollections(p);
+  const body = e("additional_collection_body");
+  if (!body) return;
+  const collectionName = currentAdditionalCollection();
+  const rows = p.entity_collections?.[collectionName] || [];
+  const meta = COLLECTION_META[collectionName] || { label: collectionName, role: "", limitKey: `${collectionName}_max`, defaultMax: 24 };
+  const maxNode = e("additional_collection_max");
+  if (maxNode) maxNode.value = String(p.entity_collections?.limits?.[meta.limitKey] || meta.defaultMax);
+  const metaNode = e("additional_collection_meta");
+  if (metaNode) {
+    metaNode.textContent = `${meta.label} | rows ${rows.length} | max ${p.entity_collections?.limits?.[meta.limitKey] || meta.defaultMax}`;
+  }
+
+  body.innerHTML = "";
+  rows.forEach((item, idx) => {
+    const rid = `${collectionName}_${idx}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
+      <td><input id="${rid}_entity" value="${safeText(item.entity_id || "")}" /></td>
+      <td><input id="${rid}_role" value="${safeText(item.role || "")}" placeholder="entity_* substitution key" /></td>
+      <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
+      <td>
+        <button class="btn-soft" id="${rid}_up">Up</button>
+        <button class="btn-soft" id="${rid}_down">Down</button>
+        <button class="btn-warn" id="${rid}_del">Del</button>
+      </td>
+    `;
+    body.appendChild(tr);
+    e(`${rid}_name`)?.addEventListener("input", (ev) => {
+      item.name = ev.target.value;
+    });
+    e(`${rid}_entity`)?.addEventListener("input", (ev) => {
+      item.entity_id = ev.target.value;
+    });
+    e(`${rid}_entity`)?.addEventListener("focus", (ev) => markActiveInput(ev.target));
+    e(`${rid}_role`)?.addEventListener("input", (ev) => {
+      item.role = ev.target.value;
+    });
+    e(`${rid}_enabled`)?.addEventListener("change", (ev) => {
+      item.enabled = ev.target.checked;
+    });
+    e(`${rid}_up`)?.addEventListener("click", () => {
+      if (idx <= 0) return;
+      const temp = rows[idx - 1];
+      rows[idx - 1] = rows[idx];
+      rows[idx] = temp;
+      renderAdditionalCollectionRows();
+    });
+    e(`${rid}_down`)?.addEventListener("click", () => {
+      if (idx >= rows.length - 1) return;
+      const temp = rows[idx + 1];
+      rows[idx + 1] = rows[idx];
+      rows[idx] = temp;
+      renderAdditionalCollectionRows();
+    });
+    e(`${rid}_del`)?.addEventListener("click", () => {
+      rows.splice(idx, 1);
+      renderAdditionalCollectionRows();
+    });
+  });
 }
 
 function addCollectionItem(collectionName) {
   const p = currentProfile();
   if (!p) return;
   ensureCollections(p);
+  const meta = COLLECTION_META[collectionName] || { role: "", limitKey: `${collectionName}_max`, defaultMax: 24 };
   const limits = p.entity_collections?.limits || {};
-  const max = Number(collectionName === "lights" ? limits.lights_max || 24 : limits.cameras_max || 8);
+  const max = Number(limits[meta.limitKey] || meta.defaultMax);
   const rows = p.entity_collections[collectionName];
   if (rows.length >= max) {
     setStatus(`${collectionName} reached configured max ${max}`, true);
@@ -731,6 +996,7 @@ function addCollectionItem(collectionName) {
     id: `${collectionName.slice(0, -1)}_${idx}`,
     name: `${collectionName.slice(0, -1).toUpperCase()} ${idx}`,
     entity_id: "",
+    role: meta.role || "",
     enabled: true,
   });
   syncSlotsFromCollections(p);
@@ -1041,6 +1307,7 @@ function syncProfileToForm() {
   if (!p) return;
   ensureThemeStudio(p);
   ensureLayoutPages();
+  ensureCollections(p);
   applyProfileBasicsToForm();
   renderFeatureToggles();
   renderUiToggles();
@@ -1051,6 +1318,8 @@ function syncProfileToForm() {
   e("camera_snapshot_enable").checked = asBool(p.settings.camera_snapshot_enable);
 
   renderCollections();
+  state.cameraAutodetect = p.camera_autodetect || state.workspace?.camera_autodetect || {};
+  renderCameraAutodetect(state.cameraAutodetect);
   renderFieldGroup("weather_fields", WEATHER_FIELDS, "entities");
   renderFieldGroup("climate_fields", CLIMATE_FIELDS, "entities");
   renderFieldGroup("reader_fields", READER_FIELDS, "entities");
@@ -1087,10 +1356,15 @@ function updateProfileFromTopFields() {
   p.device.git_ref = e("git_ref").value.trim() || "stable";
   p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.22.0");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.0");
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
   if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
+  if (e("additional_collection_max")) {
+    const collection = currentAdditionalCollection();
+    const meta = COLLECTION_META[collection] || { limitKey: `${collection}_max`, defaultMax: 24 };
+    p.entity_collections.limits[meta.limitKey] = Number(e("additional_collection_max").value || String(meta.defaultMax));
+  }
   p.settings.ha_base_url = e("ha_base_url").value.trim();
   p.settings.camera_refresh_interval_s = e("camera_refresh_interval_s").value.trim();
   p.settings.camera_snapshot_dir = e("camera_snapshot_dir").value.trim();
@@ -1177,6 +1451,17 @@ function bindTopFieldEvents() {
   });
   e("lights_add_btn")?.addEventListener("click", () => addCollectionItem("lights"));
   e("cameras_add_btn")?.addEventListener("click", () => addCollectionItem("cameras"));
+  e("additional_collection_select")?.addEventListener("change", () => {
+    state.additionalCollection = currentAdditionalCollection();
+    renderAdditionalCollectionRows();
+  });
+  e("additional_collection_max")?.addEventListener("input", () => {
+    updateProfileFromTopFields();
+    renderAdditionalCollectionRows();
+  });
+  e("additional_collection_add_btn")?.addEventListener("click", () => {
+    addCollectionItem(currentAdditionalCollection());
+  });
 }
 
 function getDeviceSlug() {
@@ -1371,7 +1656,7 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.22.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1380,7 +1665,7 @@ function firmwareStatusQuery() {
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.22.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1444,7 +1729,7 @@ async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipCo
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.22.0");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.0");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -1556,7 +1841,21 @@ async function generate() {
   e("overrides_out").value = overrides.yaml || "";
   e("generated_entities_out").value = install.generated?.entities || "";
   e("generated_theme_out").value = install.generated?.theme || "";
-  e("generated_layout_out").value = install.generated?.layout || "";
+  e("generated_layout_out").value = [
+    install.generated?.layout || "",
+    "",
+    "# home.generated.yaml",
+    install.generated?.page_home || "",
+    "",
+    "# lights.generated.yaml",
+    install.generated?.page_lights || "",
+    "",
+    "# weather.generated.yaml",
+    install.generated?.page_weather || "",
+    "",
+    "# climate.generated.yaml",
+    install.generated?.page_climate || "",
+  ].join("\n");
   const validation = install.validation || overrides.validation || {};
   const errCount = (validation.errors || []).length;
   const warnCount = (validation.warnings || []).length;
@@ -1572,6 +1871,10 @@ async function previewApply() {
     preview.generated?.entities?.diff || "No generated entities changes",
     preview.generated?.theme?.diff || "No generated theme changes",
     preview.generated?.layout?.diff || "No generated layout changes",
+    preview.generated?.page_home?.diff || "No generated home page changes",
+    preview.generated?.page_lights?.diff || "No generated lights page changes",
+    preview.generated?.page_weather?.diff || "No generated weather page changes",
+    preview.generated?.page_climate?.diff || "No generated climate page changes",
   ].join("\n\n");
   e("apply_preview_generated_diff").value = generatedDiff;
   const validation = data.validation || {};
@@ -1655,6 +1958,7 @@ async function saveProfile() {
   payload.name = state.workspace.workspace_name;
   const data = await apiPost("api/profile/save", payload);
   await loadProfiles();
+  await refreshDashboardSummary().catch(() => {});
   setStatus(`Saved workspace ${data.workspace_name || data.profile_name}`);
 }
 
@@ -1667,6 +1971,7 @@ async function loadSelectedProfile() {
   setMode(state.workspace.mode_ui?.mode || "guided");
   setGuidedStep(Number(state.workspace.mode_ui?.guided_step || 0));
   syncProfileToForm();
+  await refreshDashboardSummary().catch(() => {});
   setStatus(`Loaded workspace ${selected}`);
 }
 
@@ -1745,6 +2050,25 @@ async function refreshThemePalettes() {
 }
 
 function bindProfileEvents() {
+  document.querySelectorAll("[data-dashboard-action]").forEach((node) => {
+    node.addEventListener("click", () => {
+      const action = node.getAttribute("data-dashboard-action") || "";
+      runDashboardAction(action).catch((err) => setStatus(`Dashboard action failed: ${err.message}`, true));
+    });
+  });
+  e("camera_autodetect_scan_btn")?.addEventListener("click", () => {
+    scanCameraAutodetect().catch((err) => setStatus(`Camera autodetect failed: ${err.message}`, true));
+  });
+  e("camera_autodetect_accept_btn")?.addEventListener("click", () => {
+    acceptDetectedCameras().catch((err) => setStatus(`Accept cameras failed: ${err.message}`, true));
+  });
+  e("camera_autodetect_ignore_btn")?.addEventListener("click", () => {
+    ignoreDetectedCameras().catch((err) => setStatus(`Ignore cameras failed: ${err.message}`, true));
+  });
+  e("dashboard_refresh_btn")?.addEventListener("click", () => {
+    refreshDashboardSummary().catch((err) => setStatus(`Dashboard refresh failed: ${err.message}`, true));
+  });
+
   e("profile_save_btn").addEventListener("click", saveProfile);
   e("profile_load_btn").addEventListener("click", loadSelectedProfile);
   e("profile_delete_btn").addEventListener("click", deleteSelectedProfile);
@@ -1877,6 +2201,7 @@ async function bootstrap() {
   };
 
   await runStep("Health", refreshHealth);
+  await runStep("Dashboard", refreshDashboardSummary);
   await runStep("Firmware status", refreshFirmwareStatus);
   await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
   await runStep("Profile list", loadProfiles);

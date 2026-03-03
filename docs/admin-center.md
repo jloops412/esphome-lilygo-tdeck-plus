@@ -27,14 +27,15 @@ The add-on now supports managed direct-apply in a guarded scope:
      - `Device: http://<device-ip>`
      - `HA: Add-ons -> T-Deck Admin Center`
 
-## Admin Center V4 UX (v0.22.0)
+## Admin Center V5 UX (v0.23.0)
 
-Dual mode:
+Dashboard + dual mode:
 
-1. `Guided` (default): `Device -> Features -> Entities -> Theme -> Layout -> Deploy`
-2. `Advanced`: tabbed controls for profiles, updates, generation, and diagnostics.
+1. `Dashboard` (default landing): status summary + action cards + camera auto-detect onboarding
+2. `Guided` (default workflow): `Device -> Features -> Entities -> Theme -> Layout -> Deploy`
+3. `Advanced`: tabbed controls for profiles, updates, generation, and diagnostics.
 
-Guided mode keeps primary workflows obvious for first-time users while Advanced exposes full power controls.
+Guided mode keeps primary workflows obvious for first-time users while Dashboard/Advanced expose full power controls and diagnostics.
 
 ## Admin Center Tabs
 
@@ -71,7 +72,7 @@ Guided mode keeps primary workflows obvious for first-time users while Advanced 
    - commit managed apply
    - backup list + restore
 
-## API V3
+## API V4
 
 1. `GET /api/health`
 2. `POST /api/discovery/jobs/start`
@@ -91,32 +92,42 @@ Guided mode keeps primary workflows obvious for first-time users while Advanced 
 16. `GET /api/workspace/load?name=`
 17. `POST /api/mapping/suggest`
 18. `GET /api/meta/contracts`
-19. `POST /api/generate/install`
-20. `POST /api/generate/overrides`
-21. `GET /api/update/latest?channel=stable`
-22. `POST /api/generate/ha_update_package`
-23. `POST /api/apply/preview`
-24. `POST /api/apply/commit`
-25. `GET /api/backups/list?device_slug=`
-26. `POST /api/backups/restore`
-27. `GET /api/firmware/status?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
-28. `GET /api/firmware/capabilities?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
-29. `POST /api/firmware/workflow`
-30. `POST /api/firmware/update` (compat alias to workflow install-only mode)
-31. `GET /api/diagnostics/runtime`
-32. `GET /api/meta/templates`
-33. `POST /api/entities/add`
-34. `POST /api/entities/update`
-35. `POST /api/entities/remove`
-36. `POST /api/entities/reorder`
-37. `GET /api/layout/load`
-38. `POST /api/layout/validate`
-39. `POST /api/layout/save`
-40. `POST /api/layout/reset_page`
-41. `GET /api/theme/palettes`
-42. `POST /api/theme/preview`
-43. `POST /api/theme/apply`
-44. `POST /api/theme/contrast_check`
+19. `GET /api/dashboard/summary`
+20. `POST /api/dashboard/action`
+21. `GET /api/entities/collections`
+22. `POST /api/cameras/autodetect`
+23. `POST /api/cameras/accept_detected`
+24. `POST /api/cameras/ignore_detected`
+25. `GET /api/theme/state`
+26. `POST /api/theme/apply_web`
+27. `POST /api/theme/apply_device_sync`
+28. `POST /api/theme/resolve_conflict`
+29. `POST /api/generate/install`
+30. `POST /api/generate/overrides`
+31. `GET /api/update/latest?channel=stable`
+32. `POST /api/generate/ha_update_package`
+33. `POST /api/apply/preview`
+34. `POST /api/apply/commit`
+35. `GET /api/backups/list?device_slug=`
+36. `POST /api/backups/restore`
+37. `GET /api/firmware/status?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
+38. `GET /api/firmware/capabilities?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
+39. `POST /api/firmware/workflow`
+40. `POST /api/firmware/update` (compat alias to workflow install-only mode)
+41. `GET /api/diagnostics/runtime`
+42. `GET /api/meta/templates`
+43. `POST /api/entities/add`
+44. `POST /api/entities/update`
+45. `POST /api/entities/remove`
+46. `POST /api/entities/reorder`
+47. `GET /api/layout/load`
+48. `POST /api/layout/validate`
+49. `POST /api/layout/save`
+50. `POST /api/layout/reset_page`
+51. `GET /api/theme/palettes`
+52. `POST /api/theme/preview`
+53. `POST /api/theme/apply`
+54. `POST /api/theme/contrast_check`
 
 ## Discovery Performance Model
 
@@ -144,7 +155,11 @@ This survives add-on restarts/upgrades unless add-on data is removed.
    - `/config/esphome/tdeck/<device_slug>/tdeck-overrides.yaml`
    - `/config/esphome/tdeck/<device_slug>/generated/entities.generated.yaml`
    - `/config/esphome/tdeck/<device_slug>/generated/theme.generated.yaml`
-   - `/config/esphome/tdeck/<device_slug>/generated/ui-layout.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/layout.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/pages/home.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/pages/lights.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/pages/weather.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/pages/climate.generated.yaml`
 3. Backup snapshots:
    - `/config/esphome/tdeck/.backups/<device_slug>/<timestamp>/`
 

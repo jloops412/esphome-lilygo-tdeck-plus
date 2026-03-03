@@ -2,42 +2,38 @@
 
 ## Scope Completed (This Pass)
 
-This pass implements the `v0.22.0` mega-upgrade focus for Admin Center usability and managed firmware customization:
+This pass implements the `v0.23.0` Admin Center/firmware contract rebuild layer focused on reliability, usability, and managed deployment safety:
 
-1. add-on version bumped to `0.22.0`
-2. Guided + Advanced dual-mode UI finished
-3. dynamic light/camera collections fully wired in frontend
-4. template catalog rendering/apply added (`/api/meta/templates`)
-5. layout builder workflow wired:
-   - load/edit/add/remove/reorder sections
-   - validate/save/reset page actions
-6. theme studio workflow wired:
-   - palette loading
-   - token color picker
-   - preview/apply with contrast feedback
-7. one-click guided deploy pipeline added:
-   - validate -> preview -> apply -> firmware workflow
-8. startup flow simplified to avoid heavy generation on boot
-9. generated managed files made compile-safe and theme-effective:
-   - removed risky generated inline lambda summaries
-   - generated theme emits canonical `theme_token_*` substitutions
+1. add-on version bumped to `0.23.0`
+2. workspace/profile contract advanced to schema `4.0`
+3. dashboard-first UX added with action cards + runtime summaries
+4. camera auto-detect onboarding wired (scan/accept/ignore)
+5. dynamic collections expanded beyond lights/cameras to all core collection groups
+6. managed generated artifact contract expanded to include page files
+7. apply/backup/restore paths fixed to match new generated layout/page filenames
+8. install generation include hooks updated to use new generated files
+9. release/version defaults aligned to `v0.23.0` in install/template/package substitutions
 
 ## Key Backend Changes
 
 File:
 - `tdeck_admin_center/rootfs/app/main.py`
 
-Changes:
+Highlights:
 
-1. generated file builders updated:
-   - `_build_generated_entities_yaml`
-   - `_build_generated_theme_yaml`
-   - `_build_generated_layout_yaml`
-2. generated theme now writes canonical theme substitution keys so deployed firmware styling follows Admin Center theme apply.
-3. generated entities/layout files now stay metadata/comment-only where appropriate for safer compile behavior.
-4. schema/version constants remain:
-   - add-on `0.22.0`
-   - workspace schema `3.0`
+1. fixed dashboard summary firmware capability call (`_resolve_firmware_capabilities`)
+2. managed path contract now includes:
+   - `generated/layout.generated.yaml`
+   - `generated/pages/home.generated.yaml`
+   - `generated/pages/lights.generated.yaml`
+   - `generated/pages/weather.generated.yaml`
+   - `generated/pages/climate.generated.yaml`
+3. install YAML generator now includes generated page includes
+4. apply commit now writes generated page files and reports checksums/changed state
+5. backup/restore now includes generated page files and supports legacy fallback restore for `ui-layout.yaml`
+6. `/api/generate/install` now returns generated page outputs (`page_home`, `page_lights`, `page_weather`, `page_climate`)
+7. collection add/update now supports `role` field for dynamic substitution mapping
+8. `/api/health` payload version marker updated to `4`
 
 ## Key Frontend Changes
 
@@ -46,26 +42,44 @@ Files:
 - `tdeck_admin_center/rootfs/app/static/app.js`
 - `tdeck_admin_center/rootfs/app/static/styles.css`
 
-Changes:
+Highlights:
 
-1. Guided flow completed with six practical steps.
-2. Advanced mode now augments guided controls (does not hide primary configuration forms).
-3. template domain/item selectors + apply workflow implemented.
-4. dynamic collection table actions implemented (up/down/delete/enable/edit).
-5. layout section editor implemented with per-row bounds clamping.
-6. theme preview/apply flow implemented with live preview card and contrast metadata.
-7. apply preview now includes generated-file diffs.
-8. generate now emits install + overrides + generated entities/theme/layout outputs.
-9. guided deploy action added (`Validate + Apply + Auto Deploy`).
+1. dashboard section added (status summaries + action cards)
+2. camera autodetect controls and status list added to dashboard
+3. guided step 2 now includes additional collection editor for:
+   - `weather_metrics`
+   - `climate_controls`
+   - `reader_feeds`
+   - `system_entities`
+4. collection health summary added
+5. guided/advanced mode behavior corrected so guided shell hides in advanced mode
+6. generated preview output now includes page-generated diffs
+7. generated output view now includes layout + generated page artifacts
 
 ## Manifest/Version
 
-File:
+Files:
 - `tdeck_admin_center/config.yaml`
+- `tdeck_admin_center/Dockerfile`
+
+Changes:
+
+1. add-on manifest version: `0.23.0`
+2. Docker build arg default: `BUILD_VERSION=0.23.0`
+
+## Public Install/Template Version Alignment
+
+Files:
+- `esphome/install/entity-overrides.template.yaml`
+- `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
+- `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+- `esphome/install/lilygo-tdeck-plus-install.yaml`
+- `esphome/packages/ha_entities.yaml`
+- `docs/entities-template.md`
 
 Change:
 
-1. `version: "0.22.0"`
+1. `app_release_version` defaults moved from `v0.20.4` to `v0.23.0`
 
 ## Docs Updated
 
@@ -78,25 +92,21 @@ Change:
 ## Validation Run
 
 1. `python -m py_compile tdeck_admin_center/rootfs/app/main.py` passed.
-2. Flask test-client smoke passed:
-   - `GET /api/health`
-   - `GET /api/meta/contracts`
-   - `GET /api/meta/templates`
-   - `GET /api/theme/palettes`
-   - `POST /api/theme/preview`
-   - `POST /api/layout/validate`
-   - `POST /api/generate/install`
-   - `POST /api/apply/preview`
+2. Python module import smoke passed with expected route registration for:
+   - `api_dashboard_summary`
+   - `api_cameras_autodetect`
+   - `api_generate_install`
+   - `api_apply_commit`
 
 ## Not Run Here
 
-1. Full HA Supervisor add-on install/update cycle on a live HA instance.
-2. Browser UX run-through through HA Ingress with real large-entity HA data.
-3. Full ESPHome compile/flash from generated managed files on hardware.
+1. Live Home Assistant Supervisor add-on install/update cycle.
+2. Browser-driven ingress validation for all new dashboard and collection UX paths.
+3. End-to-end ESPHome compile/flash on physical hardware for generated page include files.
 
 ## Immediate Next Steps
 
-1. Run live ingress smoke with a large HA entity set to tune defaults for page size/search UX.
-2. Add richer section templates in layout builder (header/content/footer presets by page type).
-3. Extend dynamic collections beyond lights/cameras (reader feeds and custom chips).
-4. Continue firmware modular include-hook rollout in ESPHome package docs and templates.
+1. run ingress/manual QA against a large-entity HA instance to tune collection UX and discovery defaults
+2. continue firmware-side modular page include extraction from monolithic `ui_lvgl.yaml`
+3. wire generated page hooks into modular UI package includes for compile-time layout authority
+4. complete theme dual-authority conflict UX in frontend with explicit state indicator and apply strategy

@@ -9,8 +9,8 @@
 <body>
   <main class="app">
     <header class="hero">
-      <h1>T-Deck Admin Center v4</h1>
-      <p>User-friendly guided flow with advanced controls for full firmware customization and safe one-click deploy.</p>
+      <h1>T-Deck Admin Center v5</h1>
+      <p>Dashboard-first workflow with guided setup, advanced tools, dynamic entity collections, camera onboarding, and safe managed deploy.</p>
     </header>
 
     <section class="panel mode-switch">
@@ -20,6 +20,57 @@
       </div>
       <div id="global_status_strip" class="mono compact">Status loading...</div>
       <div id="status_line" class="status">Initializing...</div>
+    </section>
+
+    <section class="panel" id="dashboard_shell">
+      <h2>Dashboard</h2>
+      <div class="dashboard-grid">
+        <button class="dash-card" data-dashboard-action="connect_device">
+          <span class="dash-title">Connect Device</span>
+          <span class="dash-sub">Device identity and release channel</span>
+        </button>
+        <button class="dash-card" data-dashboard-action="map_entities">
+          <span class="dash-title">Map Entities</span>
+          <span class="dash-sub">Dynamic collections and templates</span>
+        </button>
+        <button class="dash-card" data-dashboard-action="theme">
+          <span class="dash-title">Theme Studio</span>
+          <span class="dash-sub">Color tokens with contrast checks</span>
+        </button>
+        <button class="dash-card" data-dashboard-action="layout">
+          <span class="dash-title">Layout</span>
+          <span class="dash-sub">Grid sections with overlap validation</span>
+        </button>
+        <button class="dash-card" data-dashboard-action="deploy">
+          <span class="dash-title">Deploy</span>
+          <span class="dash-sub">Validate, backup, apply, firmware workflow</span>
+        </button>
+        <button class="dash-card" data-dashboard-action="recover">
+          <span class="dash-title">Recover</span>
+          <span class="dash-sub">Backup list and one-click restore</span>
+        </button>
+      </div>
+      <div class="actions">
+        <button id="dashboard_refresh_btn" class="btn-soft">Refresh Dashboard</button>
+      </div>
+      <div class="grid2">
+        <div class="card">
+          <h3>Workspace Status</h3>
+          <div id="dashboard_summary" class="mono compact">Loading dashboard...</div>
+          <div id="dashboard_validation" class="mono compact">Validation pending...</div>
+          <div id="dashboard_fw" class="mono compact">Firmware capability pending...</div>
+        </div>
+        <div class="card">
+          <h3>Camera Auto-Detect</h3>
+          <div class="actions">
+            <button id="camera_autodetect_scan_btn" class="btn-soft">Scan Cameras</button>
+            <button id="camera_autodetect_accept_btn" class="btn-soft">Accept Detected</button>
+            <button id="camera_autodetect_ignore_btn" class="btn-warn">Ignore Detected</button>
+          </div>
+          <div id="camera_autodetect_meta" class="mono compact">No scan yet.</div>
+          <div id="camera_autodetect_list" class="mono compact">No camera candidates yet.</div>
+        </div>
+      </div>
     </section>
 
     <section class="panel" id="guided_shell">
@@ -51,7 +102,7 @@
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
             <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-            <label>App Release Version <input id="app_release_version" value="v0.22.0" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.23.0" /></label>
           </div>
           <div class="card">
             <h3>System Health</h3>
@@ -113,6 +164,39 @@
               </thead>
               <tbody id="cameras_collection_body"></tbody>
             </table>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <h3>Additional Collections (Weather, Climate, Reader, System)</h3>
+            <label>Collection
+              <select id="additional_collection_select">
+                <option value="weather_metrics">Weather Metrics</option>
+                <option value="climate_controls">Climate Controls</option>
+                <option value="reader_feeds">Reader Feeds</option>
+                <option value="system_entities">System Entities</option>
+              </select>
+            </label>
+            <label>Collection Max <input id="additional_collection_max" type="number" min="0" max="64" value="32" /></label>
+            <div class="actions">
+              <button id="additional_collection_add_btn" class="btn-soft">Add Row</button>
+            </div>
+            <div id="additional_collection_meta" class="meta-line">No collection selected.</div>
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Entity</th><th>Role</th><th>On</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="additional_collection_body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3>Collection Health</h3>
+            <div id="collections_summary" class="mono compact">Collection summary loading...</div>
+            <div class="mono compact">
+Use the <code>Role</code> field for substitution keys (for example <code>entity_wx_temp_sensor</code>,
+<code>entity_sensi_climate</code>, <code>entity_feed_bbc</code>, <code>entity_ha_unit_system</code>).
+Enabled rows with matching roles are applied into generated substitutions automatically.
+            </div>
           </div>
         </div>
         <div class="grid2">

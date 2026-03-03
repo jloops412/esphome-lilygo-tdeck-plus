@@ -126,26 +126,36 @@ Home Assistant add-on (Ingress):
    - run Guided flow (`Device -> Features -> Entities -> Theme -> Layout -> Deploy`)
    - use Advanced tabs for profile, update, and raw YAML workflows
 
-Admin Center V4 (`0.22.0`) highlights:
+Admin Center V5 (`0.23.0`) highlights:
 
-1. Job-based discovery (`start/status/cancel`) with progress and timeout-safe UX.
-2. Health endpoint no longer blocks on full entity pulls.
-3. Cached HA discovery + paginated explorer + stale/fresh diagnostics.
-4. Manual cache refresh triggers explicit forced discovery jobs.
-5. Startup no longer masks discovery failures as generic success.
-6. Managed apply engine with pre-apply backups and restore.
-7. Workspace schema `3.0` auto-migration (legacy profiles load safely).
-8. Dynamic entity collections replace fixed slot editors in the admin UI.
-9. Layout Builder adds per-page section validation and overlap checks.
-10. Theme workflow supports palette selection plus per-token color overrides.
+1. Dashboard-first landing with action cards (`Connect Device`, `Map Entities`, `Theme`, `Layout`, `Deploy`, `Recover`).
+2. Guided UX remains default; Advanced mode is still available for power users.
+3. Dynamic entity collections now include:
+   - `lights`
+   - `cameras`
+   - `weather_metrics`
+   - `climate_controls`
+   - `reader_feeds`
+   - `system_entities`
+4. Camera auto-detect onboarding added with scan/accept/ignore flows.
+5. Workspace/profile schema moved to `4.0` with compatibility normalization.
+6. Managed generation now includes:
+   - `generated/entities.generated.yaml`
+   - `generated/theme.generated.yaml`
+   - `generated/layout.generated.yaml`
+   - `generated/pages/home.generated.yaml`
+   - `generated/pages/lights.generated.yaml`
+   - `generated/pages/weather.generated.yaml`
+   - `generated/pages/climate.generated.yaml`
+7. Apply, backup, and restore flows now preserve the expanded generated artifact set.
+8. Firmware workflow still uses capability-based auto-detect + fallback with legacy-safe status handling.
 
 If HA says the repo is not valid or add-on build fails:
 
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.21.0`).
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.22.0`).
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.23.0`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
 
 If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
@@ -163,7 +173,7 @@ If HA still shows an old add-on version:
 
 1. Confirm GitHub `main` has the new `tdeck_admin_center/config.yaml` version committed.
 2. In HA Add-on Store: remove repo, restart Supervisor, re-add repo URL.
-3. Reopen store and verify version `0.22.0`.
+3. Reopen store and verify version `0.23.0`.
 
 Ingress/API 404 recovery (fixed in `0.21.0`):
 

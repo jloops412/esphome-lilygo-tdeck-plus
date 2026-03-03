@@ -1,6 +1,8 @@
 substitutions:
   name: lilygo-tdeck-plus
   friendly_name: "LilyGO T-Deck Plus"
+  app_release_channel: "stable"
+  app_release_version: "v0.23.0"
   # Keyboard backlight note:
   # Firmware control is currently disabled in LVGL path.
   # Use keyboard hardware Alt+B toggle directly for now.
@@ -23,6 +25,30 @@ substitutions:
   screensaver_keyboard_repeat_suppress_ms: "1200"
   screensaver_keyboard_activity_min_interval_ms: "250"
   home_dynamic_weather_icon: "true"
+  ui_show_lights: "true"
+  ui_show_weather: "true"
+  ui_show_climate: "true"
+  ui_show_reader: "true"
+  ui_show_cameras: "true"
+  ui_show_settings: "true"
+  ui_show_theme: "true"
+  home_tile_show_weather: "true"
+  home_tile_show_climate: "true"
+  home_tile_show_lights: "true"
+  home_tile_show_cameras: "true"
+  home_tile_show_reader: "true"
+  theme_token_screen_bg: "0x0B1117"
+  theme_token_surface: "0x121A23"
+  theme_token_surface_alt: "0x1A2431"
+  theme_token_action: "0x4F8FE6"
+  theme_token_action_soft: "0x3A6FAE"
+  theme_token_text_primary: "0xEDF4FF"
+  theme_token_text_dim: "0xBFD0E6"
+  theme_token_ok: "0x2F9F77"
+  theme_token_warn: "0xD88D38"
+  theme_border_width: "2"
+  theme_radius: "10"
+  theme_icon_mode: "0"
   # Optional cameras (set camera_slot_count to 0, 1, or 2)
   camera_slot_count: "0"
   camera_slot_1_name: "Front Door"
@@ -75,7 +101,7 @@ substitutions:
   entity_wx_snow_intensity_sensor: "sensor.replace_me_weather_snow_intensity"
   entity_wx_weather_code_sensor: "sensor.replace_me_weather_code"
   entity_wx_wind_direction_sensor: "sensor.replace_me_weather_wind_direction"
-  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust"
+  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust_speed"
   entity_wx_today_high_sensor: "sensor.replace_me_weather_today_high"
   entity_wx_today_low_sensor: "sensor.replace_me_weather_today_low"
   entity_ha_unit_system: "sensor.unit_system"
@@ -94,7 +120,7 @@ esp32:
 
 packages:
   - url: https://github.com/jloops412/esphome-lilygo-tdeck-plus.git
-    ref: "main"
+    ref: "stable"
     refresh: 1min
     files:
       - esphome/packages/board_base.yaml
