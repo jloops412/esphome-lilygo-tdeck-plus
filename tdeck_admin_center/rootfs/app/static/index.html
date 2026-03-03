@@ -11,8 +11,8 @@
 <body>
   <main class="app">
     <header class="hero">
-      <h1>T-Deck Admin Center v5</h1>
-      <p>Dashboard-first workflow with guided setup, advanced tools, dynamic entity collections, camera onboarding, and safe managed deploy.</p>
+      <h1>T-Deck Admin Center</h1>
+      <p>Dashboard-first workflow with guided setup, typed HA elements, modular page layout, and safe managed deploy.</p>
     </header>
 
     <section class="panel mode-switch">
@@ -107,7 +107,19 @@
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
             <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-            <label>App Release Version <input id="app_release_version" value="v0.24.0" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.25.0" /></label>
+            <div class="actions">
+              <button id="onboarding_start_new_btn">Start New T-Deck</button>
+              <button id="onboarding_scan_nodes_btn" class="btn-soft">Scan Existing Nodes</button>
+            </div>
+            <label>Detected ESPHome Nodes
+              <select id="onboarding_nodes_select"></select>
+            </label>
+            <div class="actions">
+              <button id="onboarding_import_btn" class="btn-soft">Import Existing Node</button>
+              <button id="onboarding_migrate_btn" class="btn-soft">Migrate to Managed Files</button>
+            </div>
+            <div id="onboarding_status_lbl" class="mono compact">Use Start New for clean flash, or Import Existing to migrate an existing ESPHome node.</div>
           </div>
           <div class="card">
             <h3>System Health</h3>
@@ -139,9 +151,34 @@
       </div>
 
       <div class="guided-panel" id="guided-step-2">
+        <div class="card">
+          <h3>Typed Element Manager (Canonical)</h3>
+          <div class="grid2 compact-grid">
+            <label>Type
+              <select id="instance_type_select"></select>
+            </label>
+            <label>Name <input id="instance_name_input" placeholder="Living Room Light" /></label>
+            <label>Entity <input id="instance_entity_input" class="entity-combo-input" placeholder="light.living_room" /></label>
+            <label>Role (optional) <input id="instance_role_input" placeholder="entity_wx_temp_sensor" /></label>
+          </div>
+          <div class="actions">
+            <button id="instance_add_btn" class="btn-soft">Add Element</button>
+            <button id="instance_autodetect_btn" class="btn-soft">Auto-Detect by Type</button>
+            <button id="instance_accept_detected_btn" class="btn-soft">Accept Detected</button>
+            <button id="instance_ignore_detected_btn" class="btn-warn">Ignore Detected</button>
+          </div>
+          <div id="catalog_detected_meta" class="mono compact">No typed autodetect run yet.</div>
+          <div id="entity_instances_meta" class="mono compact">No instances loaded.</div>
+          <table>
+            <thead>
+              <tr><th>Type</th><th>Name</th><th>Entity</th><th>Role</th><th>Page</th><th>On</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="entity_instances_body"></tbody>
+          </table>
+        </div>
         <div class="grid2">
           <div class="card">
-            <h3>Dynamic Lights Collection</h3>
+            <h3>Legacy Role Collections (Lights Compatibility)</h3>
             <label>Collection Max <input id="lights_max" type="number" min="1" max="64" value="24" /></label>
             <div class="grid2 compact-grid">
               <label>FW Slot Cap <input id="light_slot_cap" type="number" min="8" max="24" value="24" /></label>
@@ -162,7 +199,7 @@
             </table>
           </div>
           <div class="card">
-            <h3>Dynamic Cameras Collection</h3>
+            <h3>Legacy Role Collections (Cameras Compatibility)</h3>
             <label>Collection Max <input id="cameras_max" type="number" min="0" max="24" value="8" /></label>
             <div class="grid2 compact-grid">
               <label>FW Slot Cap <input id="camera_slot_cap" type="number" min="2" max="8" value="8" /></label>
@@ -189,7 +226,7 @@
         </div>
         <div class="grid2">
           <div class="card">
-            <h3>Additional Collections (Weather, Climate, Reader, System)</h3>
+            <h3>Legacy Role Collections (Weather, Climate, Reader, System)</h3>
             <label>Collection
               <select id="additional_collection_select">
                 <option value="weather_metrics">Weather Metrics</option>
@@ -242,9 +279,9 @@ Enabled rows with matching roles are applied into generated substitutions automa
           <div class="card">
             <h3>Mapping Guidance</h3>
             <div class="mono compact">
-Use the Dynamic Lights/Cameras lists for slot-managed entities.
+Typed elements above are now the canonical model for new builds.
 
-Use template mappings to quickly seed Weather/Climate/Reader keys, then fine-tune in Step 4.
+Use legacy role collections only for transition compatibility with existing slot-driven firmware mappings.
 
 When done, validate and deploy in Step 6.
             </div>

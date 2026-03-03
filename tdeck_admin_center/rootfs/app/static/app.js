@@ -37,6 +37,8 @@ const state = {
   templateCatalog: {},
   dashboardSummary: null,
   cameraAutodetect: null,
+  onboardingNodes: [],
+  catalogDetected: [],
   additionalCollection: "weather_metrics",
   startup: {
     startup_state: "booting",
@@ -460,18 +462,23 @@ function currentProfile() {
 function ensureWorkspace(ws, fallbackProfile) {
   if (!ws || typeof ws !== "object") {
     ws = {
-      schema_version: "4.1",
+      schema_version: "5.0",
       workspace_name: "default",
       active_device_index: 0,
       devices: [deepClone(fallbackProfile)],
       mode_ui: { mode: "guided", guided_step: 0, show_advanced_diagnostics: false },
       templates: {},
       entity_collections: {},
+      entity_instances: {},
+      type_registry: {},
       layout_pages: {},
+      page_layouts: [],
       theme_studio: {},
       landing_state: {},
       camera_autodetect: {},
       deployment_workflow: {},
+      deployment_profile: {},
+      device_workspace: {},
       bindings: {},
       layout: {},
       theme: {},
@@ -484,11 +491,16 @@ function ensureWorkspace(ws, fallbackProfile) {
   if (typeof ws.active_device_index !== "number") ws.active_device_index = 0;
   if (typeof ws.workspace_name !== "string" || !ws.workspace_name.trim()) ws.workspace_name = "default";
   if (!ws.deployment || typeof ws.deployment !== "object") ws.deployment = {};
+  if (!ws.deployment_profile || typeof ws.deployment_profile !== "object") ws.deployment_profile = {};
   if (!ws.mode_ui || typeof ws.mode_ui !== "object") ws.mode_ui = { mode: "guided", guided_step: 0, show_advanced_diagnostics: false };
   if (!ws.layout_pages || typeof ws.layout_pages !== "object") ws.layout_pages = {};
+  if (!Array.isArray(ws.page_layouts)) ws.page_layouts = [];
   if (!ws.theme_studio || typeof ws.theme_studio !== "object") ws.theme_studio = {};
   if (!ws.landing_state || typeof ws.landing_state !== "object") ws.landing_state = {};
   if (!ws.camera_autodetect || typeof ws.camera_autodetect !== "object") ws.camera_autodetect = {};
+  if (!ws.entity_instances || typeof ws.entity_instances !== "object") ws.entity_instances = {};
+  if (!ws.type_registry || typeof ws.type_registry !== "object") ws.type_registry = {};
+  if (!ws.device_workspace || typeof ws.device_workspace !== "object") ws.device_workspace = {};
   return ws;
 }
 
@@ -632,14 +644,15 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.24.0";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.25.0";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
   e("device_name").value = p.device?.name || "";
   e("device_friendly_name").value = p.device?.friendly_name || "";
   e("git_ref").value = p.device?.git_ref || state.workspace.deployment?.git_ref || "stable";
-  e("git_url").value = p.device?.git_url || state.workspace.deployment?.git_url || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  e("git_url").value = p.device?.git_url || state.workspace.deployment?.git_url || defaultGitUrl;
   e("app_release_version").value = p.settings?.app_release_version || state.workspace.deployment?.app_release_version || defaultVersion;
 }
 
@@ -881,6 +894,307 @@ function ensureCollections(profile) {
       });
     });
   }
+}
+
+function ensureEntityInstances(profile) {
+  if (!profile || typeof profile !== "object") return;
+  if (!Array.isArray(profile.entity_instances)) {
+    profile.entity_instances = [];
+  }
+  if (!profile.type_registry || typeof profile.type_registry !== "object") {
+    profile.type_registry = state.contracts?.type_registry || {};
+  }
+  if (profile.entity_instances.length > 0) return;
+  ensureCollections(profile);
+  const collectionTypeMap = {
+    lights: "light",
+    cameras: "camera",
+    weather_metrics: "weather",
+    climate_controls: "climate",
+    reader_feeds: "sensor",
+    system_entities: "sensor",
+  };
+  COLLECTION_KEYS.forEach((collectionName) => {
+    const rows = Array.isArray(profile.entity_collections?.[collectionName]) ? profile.entity_collections[collectionName] : [];
+    rows.forEach((row, idx) => {
+      profile.entity_instances.push({
+        id: slugify(row.id || `${collectionName}_${idx + 1}`),
+        type: collectionTypeMap[collectionName] || "sensor",
+        name: row.name || `${collectionName}_${idx + 1}`,
+        entity_id: row.entity_id || "",
+        role: row.role || "",
+        enabled: asBool(row.enabled, true),
+        page: collectionName === "weather_metrics" ? "weather" : collectionName === "climate_controls" ? "climate" : collectionName === "reader_feeds" ? "reader" : collectionName,
+        section: "content",
+        icon: "",
+      });
+    });
+  });
+}
+
+function instanceCollectionHint(typeId, role = "") {
+  const roleLow = String(role || "").toLowerCase();
+  if (roleLow.startsWith("entity_wx_")) return "weather_metrics";
+  if (roleLow.startsWith("entity_sensi_")) return "climate_controls";
+  if (roleLow.startsWith("entity_feed_")) return "reader_feeds";
+  if (typeId === "light") return "lights";
+  if (typeId === "camera") return "cameras";
+  if (typeId === "weather") return "weather_metrics";
+  if (typeId === "climate") return "climate_controls";
+  return "system_entities";
+}
+
+function instanceDomainHint(typeId) {
+  if (typeId === "sensor") return "sensor";
+  return String(typeId || "");
+}
+
+async function refreshOnboardingNodes() {
+  const data = await apiGet("api/onboarding/esphome/nodes");
+  state.onboardingNodes = Array.isArray(data.nodes) ? data.nodes : [];
+  const select = e("onboarding_nodes_select");
+  if (!select) return;
+  select.innerHTML = "";
+  if (!state.onboardingNodes.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No ESPHome nodes detected";
+    select.appendChild(opt);
+  } else {
+    state.onboardingNodes.forEach((row) => {
+      const opt = document.createElement("option");
+      opt.value = row.device_slug || "";
+      opt.textContent = `${row.device_slug || "device"} | ${row.friendly_name || "Unknown"} | entities ${row.entities_count || 0}`;
+      select.appendChild(opt);
+    });
+  }
+  const out = e("onboarding_status_lbl");
+  if (out) out.textContent = state.onboardingNodes.length ? `Detected ${state.onboardingNodes.length} existing ESPHome node(s).` : "No existing ESPHome nodes were detected.";
+}
+
+async function onboardingStartNew() {
+  const payload = {
+    workspace_name: e("workspace_name")?.value?.trim() || "default",
+    device_name: e("device_name")?.value?.trim() || "lilygo-tdeck-plus",
+    friendly_name: e("device_friendly_name")?.value?.trim() || "LilyGO T-Deck Plus",
+    app_release_version: e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0"),
+    persist: true,
+  };
+  const data = await apiPost("api/onboarding/start_new", payload);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setStatus("Initialized new managed T-Deck workspace");
+  const out = e("onboarding_status_lbl");
+  if (out) out.textContent = data.message || "Start New completed.";
+}
+
+async function onboardingImportExisting() {
+  const slug = e("onboarding_nodes_select")?.value?.trim() || "";
+  const payload = {
+    workspace_name: e("workspace_name")?.value?.trim() || "imported",
+    device_slug: slug,
+    persist: true,
+  };
+  const data = await apiPost("api/onboarding/import_existing", payload);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setStatus("Imported existing ESPHome node into managed workspace");
+  const out = e("onboarding_status_lbl");
+  if (out) out.textContent = data.message || "Import completed.";
+}
+
+async function onboardingMigrateManaged() {
+  const body = profilePayload();
+  body.commit = true;
+  const data = await apiPost("api/onboarding/migrate_to_managed", body);
+  if (!data.ok) {
+    setStatus(`Migrate failed: ${data.error || "unknown error"}`, true);
+    return;
+  }
+  setStatus("Migration to managed files completed");
+  const out = e("onboarding_status_lbl");
+  if (out) out.textContent = `Managed files updated for ${data.result?.device_slug || getDeviceSlug()}.`;
+}
+
+function renderInstanceTypeOptions() {
+  const select = e("instance_type_select");
+  if (!select) return;
+  const registry = state.contracts?.type_registry || {};
+  const ids = state.contracts?.core_type_ids || Object.keys(registry);
+  const current = select.value || "light";
+  select.innerHTML = "";
+  ids.forEach((typeId) => {
+    const row = registry[typeId] || {};
+    const opt = document.createElement("option");
+    opt.value = typeId;
+    opt.textContent = row.label || typeId;
+    if (typeId === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+}
+
+async function queueInstanceSuggestions(inputNode, item) {
+  if (!inputNode || !item) return;
+  const key = inputNode.id;
+  if (state.rowSuggestTimers[key]) clearTimeout(state.rowSuggestTimers[key]);
+  state.rowSuggestTimers[key] = setTimeout(async () => {
+    try {
+      const payload = {
+        key: item.role || item.id || "",
+        q: inputNode.value || "",
+        limit: 10,
+        collection: instanceCollectionHint(item.type, item.role),
+        role: item.role || "",
+        domain_hint: instanceDomainHint(item.type),
+        exclude_assigned: true,
+        active_device_slug: getDeviceSlug(),
+        workspace: state.workspace?.workspace_name || "default",
+      };
+      const data = await apiPost("api/mapping/suggest", payload);
+      const listId = `${inputNode.id}_list`;
+      let datalist = e(listId);
+      if (!datalist) {
+        datalist = document.createElement("datalist");
+        datalist.id = listId;
+        inputNode.insertAdjacentElement("afterend", datalist);
+        inputNode.setAttribute("list", listId);
+      }
+      datalist.innerHTML = "";
+      (data.suggestions || []).forEach((row) => {
+        const opt = document.createElement("option");
+        opt.value = row.entity_id || "";
+        opt.label = `${row.friendly_name || row.entity_id || ""} | ${row.reason || "ranked"} | score ${row.score || 0}`;
+        datalist.appendChild(opt);
+      });
+    } catch (_err) {}
+  }, 220);
+}
+
+async function applyInstanceOp(ops, successText = "") {
+  const body = profilePayload();
+  body.ops = Array.isArray(ops) ? ops : [];
+  const data = await apiPost("api/entities/instances/bulk", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setCollectionDirty(true);
+  if (successText) setStatus(successText);
+  return data;
+}
+
+function renderEntityInstances() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureEntityInstances(p);
+  const body = e("entity_instances_body");
+  const meta = e("entity_instances_meta");
+  if (!body) return;
+  const rows = Array.isArray(p.entity_instances) ? p.entity_instances : [];
+  body.innerHTML = "";
+  rows.forEach((item, idx) => {
+    const rid = `inst_${idx}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input id="${rid}_type" value="${safeText(item.type || "sensor")}" /></td>
+      <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
+      <td><input id="${rid}_entity" class="entity-combo-input" value="${safeText(item.entity_id || "")}" /></td>
+      <td><input id="${rid}_role" value="${safeText(item.role || "")}" /></td>
+      <td><input id="${rid}_page" value="${safeText(item.page || "home")}" /></td>
+      <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
+      <td class="row-actions">
+        <button class="btn-soft" id="${rid}_up">Up</button>
+        <button class="btn-soft" id="${rid}_down">Down</button>
+        <button class="btn-warn" id="${rid}_del">Delete</button>
+      </td>
+    `;
+    body.appendChild(tr);
+    const updatePatch = (patch) =>
+      applyInstanceOp([{ op: "update", item_id: item.id || `${item.type}_${idx + 1}`, patch }]).catch((err) =>
+        setStatus(`Instance update failed: ${err.message}`, true)
+      );
+    e(`${rid}_type`)?.addEventListener("change", (ev) => updatePatch({ type: ev.target.value }));
+    e(`${rid}_name`)?.addEventListener("change", (ev) => updatePatch({ name: ev.target.value }));
+    const entityInput = e(`${rid}_entity`);
+    entityInput?.addEventListener("focus", () => queueInstanceSuggestions(entityInput, item));
+    entityInput?.addEventListener("input", () => queueInstanceSuggestions(entityInput, item));
+    entityInput?.addEventListener("change", (ev) => updatePatch({ entity_id: ev.target.value }));
+    e(`${rid}_role`)?.addEventListener("change", (ev) => updatePatch({ role: ev.target.value }));
+    e(`${rid}_page`)?.addEventListener("change", (ev) => updatePatch({ page: ev.target.value }));
+    e(`${rid}_enabled`)?.addEventListener("change", (ev) => updatePatch({ enabled: ev.target.checked }));
+    e(`${rid}_up`)?.addEventListener("click", () => {
+      if (idx <= 0) return;
+      applyInstanceOp([{ op: "reorder", from_index: idx, to_index: idx - 1 }], "Moved typed element").catch((err) =>
+        setStatus(`Reorder failed: ${err.message}`, true)
+      );
+    });
+    e(`${rid}_down`)?.addEventListener("click", () => {
+      if (idx >= rows.length - 1) return;
+      applyInstanceOp([{ op: "reorder", from_index: idx, to_index: idx + 1 }], "Moved typed element").catch((err) =>
+        setStatus(`Reorder failed: ${err.message}`, true)
+      );
+    });
+    e(`${rid}_del`)?.addEventListener("click", () => {
+      applyInstanceOp([{ op: "remove", item_id: item.id || `${item.type}_${idx + 1}` }], "Deleted typed element").catch((err) =>
+        setStatus(`Delete failed: ${err.message}`, true)
+      );
+    });
+  });
+  if (meta) {
+    const counts = {};
+    rows.forEach((row) => {
+      const t = row.type || "sensor";
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    const summary = Object.keys(counts).sort().map((k) => `${k}:${counts[k]}`).join(" | ");
+    meta.textContent = `Typed instances: ${rows.length}${summary ? ` | ${summary}` : ""}`;
+  }
+}
+
+async function addEntityInstance() {
+  const typeId = (e("instance_type_select")?.value || "light").trim();
+  const item = {
+    id: `${typeId}_${Date.now()}`,
+    type: typeId,
+    name: e("instance_name_input")?.value?.trim() || `${typeId} element`,
+    entity_id: e("instance_entity_input")?.value?.trim() || "",
+    role: e("instance_role_input")?.value?.trim() || "",
+    enabled: true,
+    page: typeId === "weather" ? "weather" : typeId === "climate" ? "climate" : typeId === "camera" ? "cameras" : typeId === "light" ? "lights" : "home",
+  };
+  await applyInstanceOp([{ op: "add", item }], "Added typed element");
+}
+
+async function catalogAutodetect() {
+  const data = await apiPost("api/catalog/autodetect", profilePayload());
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  state.catalogDetected = Array.isArray(data.detected) ? data.detected : [];
+  syncProfileToForm();
+  const out = e("catalog_detected_meta");
+  if (out) {
+    out.textContent = state.catalogDetected.length
+      ? `Detected ${state.catalogDetected.length} candidates. Top: ${state.catalogDetected.slice(0, 6).map((x) => `${x.type}:${x.entity_id}`).join(" | ")}`
+      : "No typed candidates detected.";
+  }
+  setStatus(`Typed autodetect completed (${state.catalogDetected.length} candidates)`);
+}
+
+async function catalogAcceptDetected() {
+  const data = await apiPost("api/catalog/accept_detected", profilePayload());
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setStatus(`Accepted detected typed elements (+${Number(data.added || 0)})`);
+}
+
+async function catalogIgnoreDetected() {
+  const data = await apiPost("api/catalog/ignore_detected", profilePayload());
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setStatus(`Ignored ${Array.isArray(data.ignored) ? data.ignored.length : 0} detected entities`);
 }
 
 function syncSlotsFromCollections(profile) {
@@ -1633,7 +1947,10 @@ function syncProfileToForm() {
   ensureThemeStudio(p);
   ensureLayoutPages();
   ensureCollections(p);
+  ensureEntityInstances(p);
   applyProfileBasicsToForm();
+  renderInstanceTypeOptions();
+  renderEntityInstances();
   renderFeatureToggles();
   renderUiToggles();
 
@@ -1679,9 +1996,10 @@ function updateProfileFromTopFields() {
   p.device.name = e("device_name").value.trim() || "lilygo-tdeck-plus";
   p.device.friendly_name = e("device_friendly_name").value.trim() || "LilyGO T-Deck Plus";
   p.device.git_ref = e("git_ref").value.trim() || "stable";
-  p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  p.device.git_url = e("git_url").value.trim() || defaultGitUrl;
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.24.0");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0");
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
   if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
@@ -2062,7 +2380,7 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.24.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -2071,7 +2389,7 @@ function firmwareStatusQuery() {
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.24.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -2135,7 +2453,7 @@ async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipCo
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.24.0");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -2428,10 +2746,28 @@ async function guidedDeploy() {
     setGuidedStep(5);
     return;
   }
-  await previewApply();
-  await commitApply(true);
-  await triggerFirmwareWorkflow("auto", true, true);
+  const body = profilePayload();
+  body.require_confirm = false;
+  body.confirmed = true;
+  body.run_firmware = true;
+  body.firmware_mode = "auto";
+  const data = await apiPost("api/deploy/run", body);
+  if (!data.ok) {
+    const reason = data.error || data.firmware?.error || "deploy_failed";
+    throw new Error(reason);
+  }
+  e("apply_preview_install_diff").textContent = data.preview?.install?.diff || "No install diff.";
+  e("apply_preview_overrides_diff").textContent = data.preview?.overrides?.diff || "No overrides diff.";
+  e("apply_preview_generated_diff").textContent = [
+    data.preview?.generated?.entities?.diff || "No generated entities diff.",
+    "",
+    data.preview?.generated?.theme?.diff || "No generated theme diff.",
+    "",
+    data.preview?.generated?.layout?.diff || "No generated layout diff.",
+  ].join("\n");
   await generate();
+  await refreshBackups();
+  await refreshFirmwareStatus();
   setStatus("Guided deploy completed");
 }
 
@@ -2470,6 +2806,38 @@ function bindProfileEvents() {
   });
   e("camera_autodetect_ignore_btn")?.addEventListener("click", () => {
     ignoreDetectedCameras().catch((err) => setStatus(`Ignore cameras failed: ${err.message}`, true));
+  });
+  e("onboarding_scan_nodes_btn")?.addEventListener("click", () => {
+    refreshOnboardingNodes().catch((err) => setStatus(`Node scan failed: ${err.message}`, true));
+  });
+  e("onboarding_start_new_btn")?.addEventListener("click", () => {
+    onboardingStartNew().catch((err) => setStatus(`Start New failed: ${err.message}`, true));
+  });
+  e("onboarding_import_btn")?.addEventListener("click", () => {
+    onboardingImportExisting().catch((err) => setStatus(`Import failed: ${err.message}`, true));
+  });
+  e("onboarding_migrate_btn")?.addEventListener("click", () => {
+    onboardingMigrateManaged().catch((err) => setStatus(`Migrate failed: ${err.message}`, true));
+  });
+  e("instance_add_btn")?.addEventListener("click", () => {
+    addEntityInstance().catch((err) => setStatus(`Add element failed: ${err.message}`, true));
+  });
+  e("instance_autodetect_btn")?.addEventListener("click", () => {
+    catalogAutodetect().catch((err) => setStatus(`Autodetect failed: ${err.message}`, true));
+  });
+  e("instance_accept_detected_btn")?.addEventListener("click", () => {
+    catalogAcceptDetected().catch((err) => setStatus(`Accept detected failed: ${err.message}`, true));
+  });
+  e("instance_ignore_detected_btn")?.addEventListener("click", () => {
+    catalogIgnoreDetected().catch((err) => setStatus(`Ignore detected failed: ${err.message}`, true));
+  });
+  e("instance_entity_input")?.addEventListener("focus", (ev) => {
+    const typeId = e("instance_type_select")?.value || "sensor";
+    queueInstanceSuggestions(ev.target, { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` });
+  });
+  e("instance_entity_input")?.addEventListener("input", (ev) => {
+    const typeId = e("instance_type_select")?.value || "sensor";
+    queueInstanceSuggestions(ev.target, { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` });
   });
   e("dashboard_refresh_btn")?.addEventListener("click", () => {
     refreshDashboardSummary().catch((err) => setStatus(`Dashboard refresh failed: ${err.message}`, true));
@@ -2632,6 +3000,7 @@ async function bootstrap(options = {}) {
     await runStep("Dashboard", refreshDashboardSummary);
     await runStep("Firmware status", refreshFirmwareStatus);
     await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
+    await runStep("Onboarding nodes", refreshOnboardingNodes);
     await runStep("Profile list", loadProfiles);
     await runStep("Template catalog", refreshTemplateCatalog);
     await runStep("Theme palettes", refreshThemePalettes);

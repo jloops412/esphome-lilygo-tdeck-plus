@@ -88,4 +88,3 @@ function generate() {
 
 document.getElementById("generate_btn").addEventListener("click", generate);
 generate();
-

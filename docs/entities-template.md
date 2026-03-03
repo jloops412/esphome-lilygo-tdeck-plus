@@ -1,139 +1,37 @@
 # Entity Mapping Template
 
-Use this pattern to map your Home Assistant entity IDs into substitutions.
+Use `esphome/install/entity-overrides.template.yaml` as the baseline for local substitutions.
 
-If you want an easy prefilled starting point, see:
-`esphome/install/personal/jloops/entity-overrides.yaml`
+## Recommended workflow
 
-## How to use
+1. Use Admin Center Guided Step 3 to map typed entities.
+2. Deploy through managed files.
+3. Use this template only when you need manual overrides.
 
-1. Start from this tokenized template.
-2. Replace placeholder IDs with your HA entities.
-3. Paste into your install YAML (or keep as a local include file).
-
-## Copy/Paste Block
-
-Add this block to your local install YAML (`lilygotdeckplus.yaml`) and set your real IDs:
+## Minimum local block example
 
 ```yaml
 substitutions:
   app_release_channel: "stable"
-  app_release_version: "v0.23.0"
-  entity_light_foyer: "light.replace_me_foyer"
-  entity_light_vanity: "light.replace_me_vanity"
-  entity_light_bedroom: "light.replace_me_bedroom"
-  entity_light_hall: "light.replace_me_hall"
-  entity_light_office: "light.replace_me_office"
-  entity_light_upstairs: "light.replace_me_upstairs"
+  app_release_version: "v0.25.0"
 
-  # Modular light slots (active in LVGL lights UX).
-  light_slot_count: "6"
-  light_slot_1_name: "Foyer"
-  light_slot_2_name: "Vanity"
-  light_slot_3_name: "Bedroom"
-  light_slot_4_name: "Hall"
-  light_slot_5_name: "Office"
-  light_slot_6_name: "Upstairs"
-  light_slot_7_name: "Spare 7"
-  light_slot_8_name: "Spare 8"
-  light_slot_1_entity: "light.replace_me_slot_1"
-  light_slot_2_entity: "light.replace_me_slot_2"
-  light_slot_3_entity: "light.replace_me_slot_3"
-  light_slot_4_entity: "light.replace_me_slot_4"
-  light_slot_5_entity: "light.replace_me_slot_5"
-  light_slot_6_entity: "light.replace_me_slot_6"
-  light_slot_7_entity: "light.replace_me_slot_7"
-  light_slot_8_entity: "light.replace_me_slot_8"
-
+  # Weather
   entity_wx_main: "weather.replace_me"
-  entity_wx_condition_sensor: "sensor.replace_me_weather_condition"
-  entity_wx_weather_sensor: "sensor.replace_me_weather_text"
   entity_wx_temp_sensor: "sensor.replace_me_weather_temperature"
-  entity_wx_feels_sensor: "sensor.replace_me_weather_feels_like"
-  entity_wx_humidity_sensor: "sensor.replace_me_weather_humidity"
-  entity_wx_clouds_sensor: "sensor.replace_me_weather_clouds"
-  entity_wx_pressure_sensor: "sensor.replace_me_weather_pressure"
-  entity_wx_uv_sensor: "sensor.replace_me_weather_uv"
-  entity_wx_visibility_sensor: "sensor.replace_me_weather_visibility"
-  entity_wx_wind_speed_sensor: "sensor.replace_me_weather_wind_speed"
-  entity_wx_apparent_sensor: "sensor.replace_me_weather_apparent_temperature"
-  entity_wx_dew_point_sensor: "sensor.replace_me_weather_dew_point"
-  entity_wx_precip_kind_sensor: "sensor.replace_me_weather_precipitation_kind"
-  entity_wx_rain_intensity_sensor: "sensor.replace_me_weather_rain_intensity"
-  entity_wx_snow_intensity_sensor: "sensor.replace_me_weather_snow_intensity"
-  entity_wx_weather_code_sensor: "sensor.replace_me_weather_code"
-  entity_wx_wind_direction_sensor: "sensor.replace_me_weather_wind_direction"
-  entity_wx_wind_gust_sensor: "sensor.replace_me_weather_wind_gust_speed"
-  entity_wx_today_high_sensor: "sensor.replace_me_weather_today_high"
-  entity_wx_today_low_sensor: "sensor.replace_me_weather_today_low"
-  entity_ha_unit_system: "sensor.unit_system"
 
-  entity_word_of_day_sensor: "sensor.replace_me_word_of_day"
-  entity_quote_of_hour_sensor: "sensor.replace_me_quote_of_hour"
-  entity_feed_bbc: "event.replace_me_bbc"
-  entity_feed_dc: "event.replace_me_dc"
-  entity_feed_loudoun: "event.replace_me_loudoun"
-
+  # Climate
   entity_sensi_climate: "climate.replace_me"
   entity_sensi_temperature_sensor: "sensor.replace_me_sensi_temperature"
-  entity_sensi_humidity_sensor: "sensor.replace_me_sensi_humidity"
-  entity_sensi_auto_cool_number: "number.replace_me_sensi_auto_cool"
-  entity_sensi_auto_heat_number: "number.replace_me_sensi_auto_heat"
-  entity_sensi_humidity_offset_number: "number.replace_me_sensi_humidity_offset"
-  entity_sensi_temperature_offset_number: "number.replace_me_sensi_temperature_offset"
-  entity_sensi_aux_heat_switch: "switch.replace_me_sensi_aux_heat"
-  entity_sensi_display_humidity_switch: "switch.replace_me_sensi_display_humidity"
-  entity_sensi_display_time_switch: "switch.replace_me_sensi_display_time"
-  entity_sensi_fan_support_switch: "switch.replace_me_sensi_fan_support"
-  entity_sensi_humidification_switch: "switch.replace_me_sensi_humidification"
-  entity_sensi_keypad_lockout_switch: "switch.replace_me_sensi_keypad_lockout"
 
-  # Optional camera snapshots
+  # Optional camera support
   camera_slot_count: "0"
-  camera_slot_1_name: "Front Door"
-  camera_slot_2_name: "Outdoor"
-  camera_slot_1_entity: "camera.replace_me_front_door"
-  camera_slot_2_entity: "camera.replace_me_outdoor"
-  camera_refresh_interval_s: "60"
-  camera_snapshot_enable: "true"
-  camera_snapshot_dir: "/config/www/tdeck"
+  camera_slot_1_entity: "camera.replace_me_1"
   ha_base_url: "http://homeassistant.local:8123"
-
-  # Optional page/home tile visibility controls
-  ui_show_lights: "true"
-  ui_show_weather: "true"
-  ui_show_climate: "true"
-  ui_show_reader: "true"
-  ui_show_cameras: "true"
-  ui_show_settings: "true"
-  ui_show_theme: "true"
-  home_tile_show_weather: "true"
-  home_tile_show_climate: "true"
-  home_tile_show_lights: "true"
-  home_tile_show_cameras: "true"
-  home_tile_show_reader: "true"
-
-  # Optional theme token defaults
-  theme_token_screen_bg: "0x0B1117"
-  theme_token_surface: "0x121A23"
-  theme_token_surface_alt: "0x1A2431"
-  theme_token_action: "0x4F8FE6"
-  theme_token_action_soft: "0x3A6FAE"
-  theme_token_text_primary: "0xEDF4FF"
-  theme_token_text_dim: "0xBFD0E6"
-  theme_token_ok: "0x2F9F77"
-  theme_token_warn: "0xD88D38"
-  theme_border_width: "2"
-  theme_radius: "10"
-  theme_icon_mode: "0"
 ```
 
 ## Notes
 
-1. This repo now uses substitution tokens for HA entity IDs in package files.
-2. Legacy `entity_light_*` fields are still accepted for compatibility; slot defaults can map from them.
-3. If substitutions are not overridden locally, the config will compile but controls will target placeholder entities.
-4. Keep local/private files outside Git or under ignored paths.
-5. App-wide units bootstrap from `entity_ha_unit_system` on first boot; users can then override units directly in Settings.
-6. You can hide/show top-level pages and home tiles with the `ui_show_*` and `home_tile_show_*` substitutions.
-7. Theme token substitutions are optional; if omitted, safe dark defaults are used.
+1. Public defaults stay generic (`replace_me_*`).
+2. Legacy slot substitutions still exist for transition firmware compatibility.
+3. Typed `entity_instances` in Admin Center are canonical for new deployments.
+4. If you deploy from Admin Center, generated managed files are preferred over manual edits.

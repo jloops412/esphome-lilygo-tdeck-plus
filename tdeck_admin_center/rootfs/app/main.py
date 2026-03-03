@@ -25,8 +25,8 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.24.0")) or "0.24.0"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.24.0") or "v0.24.0"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.25.0")) or "0.25.0"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.25.0") or "v0.25.0"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
@@ -34,8 +34,8 @@ SERVICE_CACHE_TTL_SECONDS = 20
 DISCOVERY_JOB_POLL_TTL_SECONDS = 180
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
-PROFILE_SCHEMA_VERSION = "4.1"
-WORKSPACE_SCHEMA_VERSION = "4.1"
+PROFILE_SCHEMA_VERSION = "5.0"
+WORKSPACE_SCHEMA_VERSION = "5.0"
 ENTITY_COLLECTION_LIMITS = {
     "lights": {"default_max": 24, "hard_max": 64},
     "cameras": {"default_max": 8, "hard_max": 24},
@@ -115,6 +115,92 @@ _RELEASE_CACHE: Dict[str, Any] = {
     "channels": {},
     "last_error": "",
 }
+
+TYPE_REGISTRY: Dict[str, Dict[str, Any]] = {
+    "light": {
+        "label": "Light",
+        "domains": ["light"],
+        "icon": "lightbulb",
+        "controls": ["toggle", "brightness", "color_temp", "color"],
+        "collection": "lights",
+    },
+    "switch": {
+        "label": "Switch",
+        "domains": ["switch"],
+        "icon": "toggle",
+        "controls": ["toggle"],
+        "collection": "system_entities",
+    },
+    "climate": {
+        "label": "Climate",
+        "domains": ["climate"],
+        "icon": "thermostat",
+        "controls": ["mode", "target", "fan"],
+        "collection": "climate_controls",
+    },
+    "weather": {
+        "label": "Weather",
+        "domains": ["weather"],
+        "icon": "weather-partly-cloudy",
+        "controls": ["current", "details"],
+        "collection": "weather_metrics",
+    },
+    "camera": {
+        "label": "Camera",
+        "domains": ["camera"],
+        "icon": "cctv",
+        "controls": ["snapshot", "refresh"],
+        "collection": "cameras",
+    },
+    "cover": {
+        "label": "Cover",
+        "domains": ["cover"],
+        "icon": "garage",
+        "controls": ["open_close", "position"],
+        "collection": "system_entities",
+    },
+    "lock": {
+        "label": "Lock",
+        "domains": ["lock"],
+        "icon": "lock",
+        "controls": ["lock_unlock"],
+        "collection": "system_entities",
+    },
+    "fan": {
+        "label": "Fan",
+        "domains": ["fan"],
+        "icon": "fan",
+        "controls": ["toggle", "speed", "direction"],
+        "collection": "system_entities",
+    },
+    "media_player": {
+        "label": "Media Player",
+        "domains": ["media_player"],
+        "icon": "play-box",
+        "controls": ["playback", "volume", "source"],
+        "collection": "system_entities",
+    },
+    "sensor": {
+        "label": "Sensor",
+        "domains": ["sensor", "binary_sensor"],
+        "icon": "gauge",
+        "controls": ["read"],
+        "collection": "system_entities",
+    },
+}
+
+CORE_TYPE_IDS: List[str] = [
+    "light",
+    "switch",
+    "climate",
+    "weather",
+    "camera",
+    "cover",
+    "lock",
+    "fan",
+    "media_player",
+    "sensor",
+]
 _SERVICE_LOCK = threading.Lock()
 _SERVICE_CACHE: Dict[str, Any] = {
     "fetched_at": 0.0,
@@ -543,6 +629,8 @@ def _default_substitutions() -> Dict[str, str]:
     out = {
         "name": "lilygo-tdeck-plus",
         "friendly_name": "LilyGO T-Deck Plus",
+        "git_url": ADDON_GITHUB_REPO_URL,
+        "repo_url": ADDON_GITHUB_REPO_URL,
         "app_release_channel": DEFAULT_RELEASE_CHANNEL,
         "app_release_version": DEFAULT_APP_RELEASE_VERSION,
         "generated_light_slot_cap": str(SLOT_RUNTIME_LIMITS["lights"]["default_cap"]),
@@ -696,8 +784,11 @@ def _contracts() -> Dict[str, Any]:
     return {
         "schema_version": PROFILE_SCHEMA_VERSION,
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
+        "canonical_model": "entity_instances",
         "required_by_feature": _required_by_feature(),
         "domain_hints": DOMAIN_HINTS,
+        "type_registry": _default_type_registry(),
+        "core_type_ids": CORE_TYPE_IDS,
         "ui_keys": [
             "ui_show_lights",
             "ui_show_weather",
@@ -741,6 +832,12 @@ def _contracts() -> Dict[str, Any]:
         "slot_runtime_defaults": _default_slot_runtime(),
         "entity_collections_meta_defaults": _default_entity_collections_meta(),
         "layout_pages": list(_default_layout_pages().keys()),
+        "generated_files": [
+            "generated/types.registry.yaml",
+            "generated/entities.instances.yaml",
+            "generated/layout.pages.yaml",
+            "generated/theme.tokens.yaml",
+        ],
         "defaults": defaults,
     }
 
@@ -1213,6 +1310,146 @@ def _sync_slots_from_collections(profile: Dict[str, Any]) -> None:
     profile["slots"] = slots
 
 
+def _default_type_registry() -> Dict[str, Any]:
+    out: Dict[str, Any] = {}
+    for type_id in CORE_TYPE_IDS:
+        item = TYPE_REGISTRY.get(type_id, {})
+        out[type_id] = {
+            "id": type_id,
+            "label": _as_str(item.get("label"), type_id.title()),
+            "domains": item.get("domains", []),
+            "icon": _as_str(item.get("icon"), "shape"),
+            "controls": item.get("controls", []),
+            "collection": _as_str(item.get("collection"), "system_entities"),
+        }
+    return out
+
+
+def _infer_type_id(entity_id: str, role: str = "", collection: str = "") -> str:
+    role_low = _as_str(role, "").strip().lower()
+    collection_low = _as_str(collection, "").strip().lower()
+    if role_low.startswith("entity_wx_") or collection_low == "weather_metrics":
+        return "weather"
+    if role_low.startswith("entity_sensi_") or collection_low == "climate_controls":
+        return "climate"
+    if collection_low == "lights":
+        return "light"
+    if collection_low == "cameras":
+        return "camera"
+    if collection_low == "reader_feeds":
+        return "sensor"
+    domain = _as_str(entity_id, "").split(".", 1)[0].lower()
+    if domain in {"light", "switch", "climate", "weather", "camera", "cover", "lock", "fan", "media_player"}:
+        return domain
+    if domain in {"sensor", "binary_sensor"}:
+        return "sensor"
+    return "sensor"
+
+
+def _collection_for_type(type_id: str, role: str = "") -> str:
+    role_low = _as_str(role, "").strip().lower()
+    if role_low.startswith("entity_feed_"):
+        return "reader_feeds"
+    if role_low.startswith("entity_wx_"):
+        return "weather_metrics"
+    if role_low.startswith("entity_sensi_"):
+        return "climate_controls"
+    if type_id in TYPE_REGISTRY:
+        return _as_str(TYPE_REGISTRY[type_id].get("collection"), "system_entities")
+    return "system_entities"
+
+
+def _normalize_entity_instance(item: Dict[str, Any], idx: int, collection_hint: str = "") -> Dict[str, Any]:
+    entity_id = _as_str(item.get("entity_id") or item.get("entity"), "").strip()
+    role = _as_str(item.get("role"), "").strip()
+    type_id_raw = _as_str(item.get("type"), "").strip().lower()
+    type_id = type_id_raw if type_id_raw in TYPE_REGISTRY else _infer_type_id(entity_id, role, collection_hint)
+    collection = _collection_for_type(type_id, role) or collection_hint or "system_entities"
+    name_default = entity_id or f"{type_id.title()} {idx + 1}"
+    name = _as_str(item.get("name"), name_default).strip() or name_default
+    instance_id = _slugify(item.get("id"), f"{type_id}_{idx + 1}")
+    page = _as_str(item.get("page"), "").strip().lower()
+    if not page:
+        if collection in {"lights", "cameras", "weather_metrics", "climate_controls", "reader_feeds"}:
+            page = {
+                "weather_metrics": "weather",
+                "climate_controls": "climate",
+                "reader_feeds": "reader",
+            }.get(collection, collection)
+        else:
+            page = "home"
+    return {
+        "id": instance_id,
+        "type": type_id,
+        "name": name,
+        "entity_id": entity_id,
+        "role": role,
+        "enabled": _as_bool(item.get("enabled"), True),
+        "icon": _as_str(item.get("icon"), _as_str(TYPE_REGISTRY.get(type_id, {}).get("icon"), "shape")),
+        "page": page,
+        "section": _as_str(item.get("section"), "content"),
+        "group": _as_str(item.get("group"), collection),
+        "meta": item.get("meta", {}) if isinstance(item.get("meta"), dict) else {},
+    }
+
+
+def _entity_instances_from_collections(profile: Dict[str, Any]) -> List[Dict[str, Any]]:
+    collections = _normalize_profile_collections(profile)
+    out: List[Dict[str, Any]] = []
+    for collection in ENTITY_COLLECTION_LIMITS.keys():
+        rows = collections.get(collection, []) if isinstance(collections.get(collection), list) else []
+        for idx, row in enumerate(rows):
+            if not isinstance(row, dict):
+                continue
+            normalized = _normalize_entity_instance(row, idx, collection_hint=collection)
+            normalized["group"] = collection
+            out.append(normalized)
+    return out
+
+
+def _sync_collections_from_entity_instances(profile: Dict[str, Any]) -> None:
+    collections = _normalize_profile_collections(profile)
+    for key in ENTITY_COLLECTION_LIMITS.keys():
+        collections[key] = []
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    for idx, instance in enumerate(instances):
+        if not isinstance(instance, dict):
+            continue
+        normalized = _normalize_entity_instance(instance, idx)
+        collection = _collection_for_type(_as_str(normalized.get("type"), "sensor"), _as_str(normalized.get("role"), ""))
+        collections.setdefault(collection, [])
+        collections[collection].append(
+            {
+                "id": _as_str(normalized.get("id"), f"{collection[:-1]}_{len(collections[collection]) + 1}"),
+                "name": _as_str(normalized.get("name"), ""),
+                "entity_id": _as_str(normalized.get("entity_id"), ""),
+                "role": _as_str(normalized.get("role"), ""),
+                "enabled": _as_bool(normalized.get("enabled"), True),
+            }
+        )
+    profile["entity_collections"] = collections
+
+
+def _normalize_entity_instances(profile: Dict[str, Any], incoming_has_instances: bool = False) -> None:
+    source = profile.get("entity_instances") if isinstance(profile.get("entity_instances"), list) else []
+    if incoming_has_instances:
+        out: List[Dict[str, Any]] = []
+        for idx, item in enumerate(source):
+            if not isinstance(item, dict):
+                continue
+            out.append(_normalize_entity_instance(item, idx))
+        profile["entity_instances"] = out
+    else:
+        profile["entity_instances"] = _entity_instances_from_collections(profile)
+    profile["type_registry"] = _default_type_registry()
+    if isinstance(profile.get("page_layouts"), list):
+        # keep existing provided page layouts
+        pass
+    else:
+        profile["page_layouts"] = []
+    _sync_collections_from_entity_instances(profile)
+
+
 def _hex_to_rgb_int(hex_color: str) -> Tuple[int, int, int]:
     raw = _as_str(hex_color).strip().lower()
     if raw.startswith("0x"):
@@ -1614,6 +1851,57 @@ def _default_profile() -> Dict[str, Any]:
         "ha_esphome_compile_service": "",
         "ha_esphome_install_service": "",
     }
+    entity_instances: List[Dict[str, Any]] = []
+    for idx, row in enumerate(lights):
+        entity_instances.append(
+            _normalize_entity_instance(
+                {
+                    "id": f"light_{idx + 1}",
+                    "type": "light",
+                    "name": row.get("name"),
+                    "entity_id": row.get("entity"),
+                    "enabled": idx < 6,
+                    "role": "light_slot",
+                    "page": "lights",
+                    "group": "lights",
+                },
+                idx,
+                collection_hint="lights",
+            )
+        )
+    for idx, row in enumerate(cameras):
+        entity_instances.append(
+            _normalize_entity_instance(
+                {
+                    "id": f"camera_{idx + 1}",
+                    "type": "camera",
+                    "name": row.get("name"),
+                    "entity_id": row.get("entity"),
+                    "enabled": False,
+                    "role": "camera_slot",
+                    "page": "cameras",
+                    "group": "cameras",
+                },
+                idx,
+                collection_hint="cameras",
+            )
+        )
+    for key in ["entity_wx_main", "entity_sensi_climate", "entity_feed_bbc", "entity_ha_unit_system"]:
+        entity_instances.append(
+            _normalize_entity_instance(
+                {
+                    "id": key,
+                    "type": _infer_type_id(defaults.get(key, ""), key),
+                    "name": key,
+                    "entity_id": defaults.get(key, ""),
+                    "enabled": True,
+                    "role": key,
+                    "page": "home",
+                    "group": _collection_for_type(_infer_type_id(defaults.get(key, ""), key), key),
+                },
+                len(entity_instances),
+            )
+        )
     return {
         "schema_version": PROFILE_SCHEMA_VERSION,
         "profile_name": "default",
@@ -1645,6 +1933,9 @@ def _default_profile() -> Dict[str, Any]:
             },
         },
         "entity_collections_meta": _default_entity_collections_meta(),
+        "type_registry": _default_type_registry(),
+        "entity_instances": entity_instances,
+        "page_layouts": [],
         "layout_pages": _default_layout_pages(),
         "theme_studio": {
             "active_palette": "ocean_dark",
@@ -1660,6 +1951,13 @@ def _default_profile() -> Dict[str, Any]:
             "last_result": "",
             "last_error": "",
             "updated_at": int(_now()),
+        },
+        "deployment_profile": {
+            "git_ref": ADDON_GITHUB_REF,
+            "git_url": ADDON_GITHUB_REPO_URL,
+            "app_release_channel": DEFAULT_RELEASE_CHANNEL,
+            "app_release_version": DEFAULT_APP_RELEASE_VERSION,
+            "build_settings": {"mode": "auto"},
         },
     }
 
@@ -1681,8 +1979,11 @@ def _default_workspace() -> Dict[str, Any]:
         "devices": [profile],
         "mode_ui": _default_mode_ui(),
         "templates": _default_template_catalog(),
+        "type_registry": _default_type_registry(),
         "entity_collections": {},
+        "entity_instances": {},
         "layout_pages": _default_layout_pages(),
+        "page_layouts": [],
         "theme_studio": {
             "active_palette": "ocean_dark",
             "custom_tokens": {},
@@ -1700,12 +2001,22 @@ def _default_workspace() -> Dict[str, Any]:
         "bindings": {},
         "layout": {},
         "theme": {},
+        "device_workspace": {
+            "devices": [profile],
+        },
         "migration": {"from_schema": "", "applied": False, "timestamp": int(_now())},
         "deployment": {
             "git_ref": ADDON_GITHUB_REF,
             "git_url": ADDON_GITHUB_REPO_URL,
             "app_release_channel": DEFAULT_RELEASE_CHANNEL,
             "app_release_version": DEFAULT_APP_RELEASE_VERSION,
+        },
+        "deployment_profile": {
+            "git_ref": ADDON_GITHUB_REF,
+            "git_url": ADDON_GITHUB_REPO_URL,
+            "app_release_channel": DEFAULT_RELEASE_CHANNEL,
+            "app_release_version": DEFAULT_APP_RELEASE_VERSION,
+            "build_settings": {"mode": "auto"},
         },
     }
 
@@ -1759,6 +2070,7 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["templates"] = _default_template_catalog()
     else:
         merged["templates"] = _deep_merge(_default_template_catalog(), merged["templates"])
+    merged["type_registry"] = _default_type_registry()
     if not isinstance(merged.get("landing_state"), dict):
         merged["landing_state"] = _default_landing_state()
     else:
@@ -1769,6 +2081,8 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["mode_ui"] = _deep_merge(_default_mode_ui(), merged["mode_ui"])
     if not isinstance(merged.get("entity_collections"), dict):
         merged["entity_collections"] = {}
+    if not isinstance(merged.get("entity_instances"), dict):
+        merged["entity_instances"] = {}
     if not isinstance(merged.get("layout_pages"), dict):
         merged["layout_pages"] = _default_layout_pages()
     else:
@@ -1795,6 +2109,7 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["devices"][idx] = profile
         dslug = _slugify(profile.get("device", {}).get("name"), f"device_{idx+1}")
         merged["entity_collections"][dslug] = _copy_obj(profile.get("entity_collections", {}))
+        merged["entity_instances"][dslug] = _copy_obj(profile.get("entity_instances", []))
 
     if source_schema and source_schema != WORKSPACE_SCHEMA_VERSION:
         migrated = True
@@ -1821,6 +2136,21 @@ def _normalize_workspace(workspace: Dict[str, Any]) -> Dict[str, Any]:
         merged["deployment"].get("app_release_version"),
         DEFAULT_APP_RELEASE_VERSION,
     )
+    if not isinstance(merged.get("deployment_profile"), dict):
+        merged["deployment_profile"] = {}
+    merged["deployment_profile"]["git_ref"] = _as_str(merged["deployment_profile"].get("git_ref"), merged["deployment"]["git_ref"])
+    merged["deployment_profile"]["git_url"] = _as_str(merged["deployment_profile"].get("git_url"), merged["deployment"]["git_url"])
+    merged["deployment_profile"]["app_release_channel"] = _as_str(
+        merged["deployment_profile"].get("app_release_channel"),
+        merged["deployment"]["app_release_channel"],
+    )
+    merged["deployment_profile"]["app_release_version"] = _as_str(
+        merged["deployment_profile"].get("app_release_version"),
+        merged["deployment"]["app_release_version"],
+    )
+    if not isinstance(merged["deployment_profile"].get("build_settings"), dict):
+        merged["deployment_profile"]["build_settings"] = {"mode": "auto"}
+    merged["device_workspace"] = {"devices": _copy_obj(merged["devices"])}
     return merged
 
 
@@ -1843,6 +2173,7 @@ def _workspace_active_profile(
 
 
 def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
+    incoming_has_instances = isinstance(profile, dict) and isinstance(profile.get("entity_instances"), list)
     merged = _deep_merge(json.loads(json.dumps(_default_profile())), profile or {})
 
     merged["schema_version"] = PROFILE_SCHEMA_VERSION
@@ -1904,6 +2235,7 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["theme"] = {}
     if not isinstance(merged.get("settings"), dict):
         merged["settings"] = {}
+    merged["type_registry"] = _default_type_registry()
     merged["entity_collections_meta"] = _normalize_entity_collections_meta(merged.get("entity_collections_meta"))
 
     for key in _contracts()["ui_keys"]:
@@ -1943,6 +2275,8 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["layout_pages"] = _default_layout_pages()
     else:
         merged["layout_pages"] = _deep_merge(_default_layout_pages(), merged["layout_pages"])
+    if not isinstance(merged.get("page_layouts"), list):
+        merged["page_layouts"] = []
     if not isinstance(merged.get("theme_studio"), dict):
         merged["theme_studio"] = _default_profile().get("theme_studio", {})
     else:
@@ -1959,7 +2293,12 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["deployment_workflow"] = _default_profile().get("deployment_workflow", {})
     else:
         merged["deployment_workflow"] = _deep_merge(_default_profile().get("deployment_workflow", {}), merged["deployment_workflow"])
+    if not isinstance(merged.get("deployment_profile"), dict):
+        merged["deployment_profile"] = _default_profile().get("deployment_profile", {})
+    else:
+        merged["deployment_profile"] = _deep_merge(_default_profile().get("deployment_profile", {}), merged["deployment_profile"])
     merged["entity_collections"] = _normalize_profile_collections(merged)
+    _normalize_entity_instances(merged, incoming_has_instances=incoming_has_instances)
     _sync_slots_from_collections(merged)
     return merged
 
@@ -2119,17 +2458,20 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     )
     lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
     cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+    instances = p.get("entity_instances", []) if isinstance(p.get("entity_instances"), list) else []
 
     if _as_str(p.get("schema_version"), "") != PROFILE_SCHEMA_VERSION:
         warnings.append(
             f"schema_version '{p.get('schema_version')}' differs from expected '{PROFILE_SCHEMA_VERSION}'."
         )
+    if not instances:
+        warnings.append("entity_instances is empty; deploy will rely on migrated legacy collections.")
     app_release_version = _as_str(substitutions.get("app_release_version"), "").strip()
     app_release_channel = _as_str(substitutions.get("app_release_channel"), "").strip().lower()
     if not app_release_version:
         errors.append("app_release_version is required.")
     elif not re.match(r"^v\d+\.\d+\.\d+([\-+].+)?$", app_release_version):
-        warnings.append("app_release_version should follow semantic tag style (for example v0.24.0).")
+        warnings.append("app_release_version should follow semantic tag style (for example v0.25.0).")
     if app_release_channel not in {"stable", "beta", "dev"}:
         warnings.append("app_release_channel should be stable, beta, or dev.")
 
@@ -2199,6 +2541,25 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
                     warnings.append(f"{cname} duplicate entity '{entity_id}' at positions {seen_entities[entity_id] + 1} and {idx + 1}.")
                 else:
                     seen_entities[entity_id] = idx
+
+    seen_instance_ids: set[str] = set()
+    for idx, inst in enumerate(instances):
+        if not isinstance(inst, dict):
+            errors.append(f"entity_instances[{idx}] is not an object.")
+            continue
+        inst_id = _slugify(inst.get("id"), "")
+        if not inst_id:
+            errors.append(f"entity_instances[{idx}] missing id.")
+            continue
+        if inst_id in seen_instance_ids:
+            warnings.append(f"entity_instances duplicate id '{inst_id}'.")
+        seen_instance_ids.add(inst_id)
+        type_id = _as_str(inst.get("type"), "").strip().lower()
+        if type_id not in TYPE_REGISTRY:
+            warnings.append(f"entity_instances[{idx}] uses unsupported type '{type_id}', expected one of core registry types.")
+        entity_id = _as_str(inst.get("entity_id"), "").strip()
+        if _as_bool(inst.get("enabled"), True) and _is_placeholder(entity_id):
+            warnings.append(f"entity_instances[{idx}] enabled but entity_id is placeholder.")
 
     return {
         "ok": len(errors) == 0,
@@ -2385,7 +2746,13 @@ def _workspace_with_profile(workspace: Dict[str, Any], profile: Dict[str, Any], 
     slug = _slugify(p.get("device", {}).get("name"), f"device_{idx+1}")
     if not isinstance(ws.get("entity_collections"), dict):
         ws["entity_collections"] = {}
+    if not isinstance(ws.get("entity_instances"), dict):
+        ws["entity_instances"] = {}
     ws["entity_collections"][slug] = _copy_obj(p.get("entity_collections", {}))
+    ws["entity_instances"][slug] = _copy_obj(p.get("entity_instances", []))
+    ws["device_workspace"] = {"devices": _copy_obj(ws.get("devices", []))}
+    if not isinstance(ws.get("deployment_profile"), dict):
+        ws["deployment_profile"] = _copy_obj(p.get("deployment_profile", {}))
     return ws
 
 
@@ -2421,6 +2788,10 @@ def _managed_paths(device_slug: str) -> Dict[str, Path]:
     return {
         "install": d / "tdeck-install.yaml",
         "overrides": d / "tdeck-overrides.yaml",
+        "generated_types_registry": g / "types.registry.yaml",
+        "generated_entities_instances": g / "entities.instances.yaml",
+        "generated_layout_pages": g / "layout.pages.yaml",
+        "generated_theme_tokens": g / "theme.tokens.yaml",
         "generated_entities": g / "entities.generated.yaml",
         "generated_theme": g / "theme.generated.yaml",
         "generated_layout": g / "layout.generated.yaml",
@@ -2463,6 +2834,109 @@ def _unified_diff(old: str, new: str, old_name: str, new_name: str) -> str:
     new_lines = new.splitlines()
     diff = difflib.unified_diff(old_lines, new_lines, fromfile=old_name, tofile=new_name, lineterm="")
     return "\n".join(diff)
+
+
+def _build_generated_types_registry_yaml(profile: Dict[str, Any]) -> str:
+    p = _normalize_profile(profile)
+    registry = p.get("type_registry", {}) if isinstance(p.get("type_registry"), dict) else _default_type_registry()
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        "type_registry:",
+    ]
+    for type_id in CORE_TYPE_IDS:
+        item = registry.get(type_id, {}) if isinstance(registry.get(type_id), dict) else {}
+        domains = item.get("domains", []) if isinstance(item.get("domains"), list) else []
+        controls = item.get("controls", []) if isinstance(item.get("controls"), list) else []
+        lines.append(f"  {type_id}:")
+        lines.append(f"    label: {_q(_as_str(item.get('label'), type_id.title()))}")
+        lines.append(f"    icon: {_q(_as_str(item.get('icon'), 'shape'))}")
+        lines.append(f"    collection: {_q(_as_str(item.get('collection'), 'system_entities'))}")
+        lines.append(f"    domains: [{', '.join(_q_single(x) for x in domains)}]")
+        lines.append(f"    controls: [{', '.join(_q_single(x) for x in controls)}]")
+    return "\n".join(lines)
+
+
+def _build_generated_entities_instances_yaml(profile: Dict[str, Any]) -> str:
+    p = _normalize_profile(profile)
+    instances = p.get("entity_instances", []) if isinstance(p.get("entity_instances"), list) else []
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        f"generated_entities_instances_revision: {_q(str(int(_now())))}",
+        "entity_instances:",
+    ]
+    for row in instances:
+        if not isinstance(row, dict):
+            continue
+        lines.append("  -")
+        lines.append(f"    id: {_q(_as_str(row.get('id'), ''))}")
+        lines.append(f"    type: {_q(_as_str(row.get('type'), 'sensor'))}")
+        lines.append(f"    name: {_q(_as_str(row.get('name'), ''))}")
+        lines.append(f"    entity_id: {_q(_as_str(row.get('entity_id'), ''))}")
+        lines.append(f"    role: {_q(_as_str(row.get('role'), ''))}")
+        lines.append(f"    enabled: {'true' if _as_bool(row.get('enabled'), True) else 'false'}")
+        lines.append(f"    page: {_q(_as_str(row.get('page'), 'home'))}")
+        lines.append(f"    section: {_q(_as_str(row.get('section'), 'content'))}")
+        lines.append(f"    icon: {_q(_as_str(row.get('icon'), 'shape'))}")
+    return "\n".join(lines)
+
+
+def _build_generated_layout_pages_yaml(profile: Dict[str, Any], workspace: Dict[str, Any]) -> str:
+    val = _validate_layout_pages(workspace.get("layout_pages", {}))
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        f"generated_layout_pages_revision: {_q(str(int(_now())))}",
+        "layout_pages:",
+    ]
+    for page_id, page in (val.get("pages", {}) or {}).items():
+        if not isinstance(page, dict):
+            continue
+        grid = page.get("grid", {}) if isinstance(page.get("grid"), dict) else {}
+        sections = page.get("sections", []) if isinstance(page.get("sections"), list) else []
+        lines.append(f"  {page_id}:")
+        lines.append(f"    grid:")
+        lines.append(f"      cols: {_as_int(grid.get('cols'), LAYOUT_GRID_DEFAULTS['cols'], 1, 12)}")
+        lines.append(f"      rows: {_as_int(grid.get('rows'), LAYOUT_GRID_DEFAULTS['rows'], 1, 20)}")
+        lines.append("    sections:")
+        for sec in sections:
+            if not isinstance(sec, dict):
+                continue
+            lines.append("      -")
+            lines.append(f"        id: {_q(_as_str(sec.get('id'), 'section'))}")
+            lines.append(f"        x: {_as_int(sec.get('x'), 0, 0, None)}")
+            lines.append(f"        y: {_as_int(sec.get('y'), 0, 0, None)}")
+            lines.append(f"        w: {_as_int(sec.get('w'), 1, 1, None)}")
+            lines.append(f"        h: {_as_int(sec.get('h'), 1, 1, None)}")
+    if not val.get("ok"):
+        lines.append("# validation_errors:")
+        for err in val.get("errors", []):
+            lines.append(f"# - {err}")
+    return "\n".join(lines)
+
+
+def _build_generated_theme_tokens_yaml(profile: Dict[str, Any]) -> str:
+    p = _normalize_profile(profile)
+    theme = p.get("theme", {}) if isinstance(p.get("theme"), dict) else {}
+    defaults = _default_substitutions()
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        "theme_tokens:",
+    ]
+    for key in [
+        "theme_token_screen_bg",
+        "theme_token_surface",
+        "theme_token_surface_alt",
+        "theme_token_action",
+        "theme_token_action_soft",
+        "theme_token_text_primary",
+        "theme_token_text_dim",
+        "theme_token_ok",
+        "theme_token_warn",
+    ]:
+        lines.append(f"  {key}: {_q(_as_str(theme.get(key), defaults.get(key, '0x000000')))}")
+    lines.append(f"  theme_border_width: {_q(_as_str(theme.get('theme_border_width'), defaults.get('theme_border_width', '2')))}")
+    lines.append(f"  theme_radius: {_q(_as_str(theme.get('theme_radius'), defaults.get('theme_radius', '10')))}")
+    lines.append(f"  theme_icon_mode: {_q(_as_str(theme.get('theme_icon_mode'), defaults.get('theme_icon_mode', '0')))}")
+    return "\n".join(lines)
 
 
 def _build_generated_entities_yaml(profile: Dict[str, Any]) -> str:
@@ -2572,6 +3046,10 @@ def _preview_managed_apply(
     substitutions = _profile_to_substitutions(profile)
     install_new = _build_install_yaml(substitutions, git_ref, git_url, include_generated=True)
     overrides_new = _build_overrides_yaml(substitutions)
+    generated_types_registry_new = _build_generated_types_registry_yaml(profile)
+    generated_entities_instances_new = _build_generated_entities_instances_yaml(profile)
+    generated_layout_pages_new = _build_generated_layout_pages_yaml(profile, workspace)
+    generated_theme_tokens_new = _build_generated_theme_tokens_yaml(profile)
     generated_entities_new = _build_generated_entities_yaml(profile)
     generated_theme_new = _build_generated_theme_yaml(profile)
     generated_layout_new = _build_generated_layout_yaml(profile, workspace)
@@ -2582,6 +3060,10 @@ def _preview_managed_apply(
 
     install_cur = _read_text(paths["install"])
     overrides_cur = _read_text(paths["overrides"])
+    generated_types_registry_cur = _read_text(paths["generated_types_registry"])
+    generated_entities_instances_cur = _read_text(paths["generated_entities_instances"])
+    generated_layout_pages_cur = _read_text(paths["generated_layout_pages"])
+    generated_theme_tokens_cur = _read_text(paths["generated_theme_tokens"])
     generated_entities_cur = _read_text(paths["generated_entities"])
     generated_theme_cur = _read_text(paths["generated_theme"])
     generated_layout_cur = _read_text(paths["generated_layout"])
@@ -2592,6 +3074,10 @@ def _preview_managed_apply(
 
     install_changed = install_cur != install_new
     overrides_changed = overrides_cur != overrides_new
+    generated_types_registry_changed = generated_types_registry_cur != generated_types_registry_new
+    generated_entities_instances_changed = generated_entities_instances_cur != generated_entities_instances_new
+    generated_layout_pages_changed = generated_layout_pages_cur != generated_layout_pages_new
+    generated_theme_tokens_changed = generated_theme_tokens_cur != generated_theme_tokens_new
     generated_entities_changed = generated_entities_cur != generated_entities_new
     generated_theme_changed = generated_theme_cur != generated_theme_new
     generated_layout_changed = generated_layout_cur != generated_layout_new
@@ -2619,6 +3105,38 @@ def _preview_managed_apply(
             "content_new": overrides_new,
         },
         "generated": {
+            "types_registry": {
+                "path": str(paths["generated_types_registry"]),
+                "changed": generated_types_registry_changed,
+                "checksum_current": _sha256_text(generated_types_registry_cur) if generated_types_registry_cur else "",
+                "checksum_new": _sha256_text(generated_types_registry_new),
+                "diff": _unified_diff(generated_types_registry_cur, generated_types_registry_new, f"{paths['generated_types_registry']} (current)", f"{paths['generated_types_registry']} (new)") if generated_types_registry_changed else "",
+                "content_new": generated_types_registry_new,
+            },
+            "entities_instances": {
+                "path": str(paths["generated_entities_instances"]),
+                "changed": generated_entities_instances_changed,
+                "checksum_current": _sha256_text(generated_entities_instances_cur) if generated_entities_instances_cur else "",
+                "checksum_new": _sha256_text(generated_entities_instances_new),
+                "diff": _unified_diff(generated_entities_instances_cur, generated_entities_instances_new, f"{paths['generated_entities_instances']} (current)", f"{paths['generated_entities_instances']} (new)") if generated_entities_instances_changed else "",
+                "content_new": generated_entities_instances_new,
+            },
+            "layout_pages": {
+                "path": str(paths["generated_layout_pages"]),
+                "changed": generated_layout_pages_changed,
+                "checksum_current": _sha256_text(generated_layout_pages_cur) if generated_layout_pages_cur else "",
+                "checksum_new": _sha256_text(generated_layout_pages_new),
+                "diff": _unified_diff(generated_layout_pages_cur, generated_layout_pages_new, f"{paths['generated_layout_pages']} (current)", f"{paths['generated_layout_pages']} (new)") if generated_layout_pages_changed else "",
+                "content_new": generated_layout_pages_new,
+            },
+            "theme_tokens": {
+                "path": str(paths["generated_theme_tokens"]),
+                "changed": generated_theme_tokens_changed,
+                "checksum_current": _sha256_text(generated_theme_tokens_cur) if generated_theme_tokens_cur else "",
+                "checksum_new": _sha256_text(generated_theme_tokens_new),
+                "diff": _unified_diff(generated_theme_tokens_cur, generated_theme_tokens_new, f"{paths['generated_theme_tokens']} (current)", f"{paths['generated_theme_tokens']} (new)") if generated_theme_tokens_changed else "",
+                "content_new": generated_theme_tokens_new,
+            },
             "entities": {
                 "path": str(paths["generated_entities"]),
                 "changed": generated_entities_changed,
@@ -2681,6 +3199,130 @@ def _preview_managed_apply(
     }
 
 
+def _commit_managed_preview(
+    preview: Dict[str, Any],
+    profile: Dict[str, Any],
+    workspace: Dict[str, Any],
+    reason: str = "apply_commit",
+    context: Dict[str, Any] | None = None,
+) -> Dict[str, Any]:
+    device_slug = _as_str(preview.get("device_slug"), "").strip()
+    if not device_slug:
+        raise ValueError("preview.device_slug is required")
+    backup = _backup_files(
+        device_slug,
+        preview,
+        profile,
+        workspace,
+        reason=reason,
+        context=context if isinstance(context, dict) else {},
+    )
+    install_path = Path(_as_str(preview.get("install", {}).get("path"), ""))
+    overrides_path = Path(_as_str(preview.get("overrides", {}).get("path"), ""))
+    if not install_path or not overrides_path:
+        raise ValueError("preview install/overrides paths are required")
+
+    generated_types_registry_raw = _as_str(preview.get("generated", {}).get("types_registry", {}).get("path", ""))
+    generated_entities_instances_raw = _as_str(preview.get("generated", {}).get("entities_instances", {}).get("path", ""))
+    generated_layout_pages_raw = _as_str(preview.get("generated", {}).get("layout_pages", {}).get("path", ""))
+    generated_theme_tokens_raw = _as_str(preview.get("generated", {}).get("theme_tokens", {}).get("path", ""))
+    generated_entities_raw = _as_str(preview.get("generated", {}).get("entities", {}).get("path", ""))
+    generated_theme_raw = _as_str(preview.get("generated", {}).get("theme", {}).get("path", ""))
+    generated_layout_raw = _as_str(preview.get("generated", {}).get("layout", {}).get("path", ""))
+    generated_page_home_raw = _as_str(preview.get("generated", {}).get("page_home", {}).get("path", ""))
+    generated_page_lights_raw = _as_str(preview.get("generated", {}).get("page_lights", {}).get("path", ""))
+    generated_page_weather_raw = _as_str(preview.get("generated", {}).get("page_weather", {}).get("path", ""))
+    generated_page_climate_raw = _as_str(preview.get("generated", {}).get("page_climate", {}).get("path", ""))
+
+    generated_types_registry_path = Path(generated_types_registry_raw) if generated_types_registry_raw else None
+    generated_entities_instances_path = Path(generated_entities_instances_raw) if generated_entities_instances_raw else None
+    generated_layout_pages_path = Path(generated_layout_pages_raw) if generated_layout_pages_raw else None
+    generated_theme_tokens_path = Path(generated_theme_tokens_raw) if generated_theme_tokens_raw else None
+    generated_entities_path = Path(generated_entities_raw) if generated_entities_raw else None
+    generated_theme_path = Path(generated_theme_raw) if generated_theme_raw else None
+    generated_layout_path = Path(generated_layout_raw) if generated_layout_raw else None
+    generated_page_home_path = Path(generated_page_home_raw) if generated_page_home_raw else None
+    generated_page_lights_path = Path(generated_page_lights_raw) if generated_page_lights_raw else None
+    generated_page_weather_path = Path(generated_page_weather_raw) if generated_page_weather_raw else None
+    generated_page_climate_path = Path(generated_page_climate_raw) if generated_page_climate_raw else None
+
+    install_path.parent.mkdir(parents=True, exist_ok=True)
+    overrides_path.parent.mkdir(parents=True, exist_ok=True)
+    install_path.write_text(_as_str(preview.get("install", {}).get("content_new"), ""), encoding="utf-8")
+    overrides_path.write_text(_as_str(preview.get("overrides", {}).get("content_new"), ""), encoding="utf-8")
+
+    write_pairs: List[Tuple[Path | None, str]] = [
+        (generated_types_registry_path, _as_str(preview.get("generated", {}).get("types_registry", {}).get("content_new"), "")),
+        (generated_entities_instances_path, _as_str(preview.get("generated", {}).get("entities_instances", {}).get("content_new"), "")),
+        (generated_layout_pages_path, _as_str(preview.get("generated", {}).get("layout_pages", {}).get("content_new"), "")),
+        (generated_theme_tokens_path, _as_str(preview.get("generated", {}).get("theme_tokens", {}).get("content_new"), "")),
+        (generated_entities_path, _as_str(preview.get("generated", {}).get("entities", {}).get("content_new"), "")),
+        (generated_theme_path, _as_str(preview.get("generated", {}).get("theme", {}).get("content_new"), "")),
+        (generated_layout_path, _as_str(preview.get("generated", {}).get("layout", {}).get("content_new"), "")),
+        (generated_page_home_path, _as_str(preview.get("generated", {}).get("page_home", {}).get("content_new"), "")),
+        (generated_page_lights_path, _as_str(preview.get("generated", {}).get("page_lights", {}).get("content_new"), "")),
+        (generated_page_weather_path, _as_str(preview.get("generated", {}).get("page_weather", {}).get("content_new"), "")),
+        (generated_page_climate_path, _as_str(preview.get("generated", {}).get("page_climate", {}).get("content_new"), "")),
+    ]
+    for path, content in write_pairs:
+        if path is None:
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+
+    return {
+        "device_slug": device_slug,
+        "managed_root": str(MANAGED_ROOT),
+        "paths": {
+            "install": str(install_path),
+            "overrides": str(overrides_path),
+            "generated_types_registry": str(generated_types_registry_path) if generated_types_registry_path else "",
+            "generated_entities_instances": str(generated_entities_instances_path) if generated_entities_instances_path else "",
+            "generated_layout_pages": str(generated_layout_pages_path) if generated_layout_pages_path else "",
+            "generated_theme_tokens": str(generated_theme_tokens_path) if generated_theme_tokens_path else "",
+            "generated_entities": str(generated_entities_path) if generated_entities_path else "",
+            "generated_theme": str(generated_theme_path) if generated_theme_path else "",
+            "generated_layout": str(generated_layout_path) if generated_layout_path else "",
+            "generated_page_home": str(generated_page_home_path) if generated_page_home_path else "",
+            "generated_page_lights": str(generated_page_lights_path) if generated_page_lights_path else "",
+            "generated_page_weather": str(generated_page_weather_path) if generated_page_weather_path else "",
+            "generated_page_climate": str(generated_page_climate_path) if generated_page_climate_path else "",
+        },
+        "checksums": {
+            "install": _sha256_file(install_path),
+            "overrides": _sha256_file(overrides_path),
+            "generated_types_registry": _sha256_file(generated_types_registry_path),
+            "generated_entities_instances": _sha256_file(generated_entities_instances_path),
+            "generated_layout_pages": _sha256_file(generated_layout_pages_path),
+            "generated_theme_tokens": _sha256_file(generated_theme_tokens_path),
+            "generated_entities": _sha256_file(generated_entities_path),
+            "generated_theme": _sha256_file(generated_theme_path),
+            "generated_layout": _sha256_file(generated_layout_path),
+            "generated_page_home": _sha256_file(generated_page_home_path),
+            "generated_page_lights": _sha256_file(generated_page_lights_path),
+            "generated_page_weather": _sha256_file(generated_page_weather_path),
+            "generated_page_climate": _sha256_file(generated_page_climate_path),
+        },
+        "backup": backup,
+        "changed": {
+            "install": _as_bool(preview.get("install", {}).get("changed"), False),
+            "overrides": _as_bool(preview.get("overrides", {}).get("changed"), False),
+            "generated_types_registry": _as_bool(preview.get("generated", {}).get("types_registry", {}).get("changed"), False),
+            "generated_entities_instances": _as_bool(preview.get("generated", {}).get("entities_instances", {}).get("changed"), False),
+            "generated_layout_pages": _as_bool(preview.get("generated", {}).get("layout_pages", {}).get("changed"), False),
+            "generated_theme_tokens": _as_bool(preview.get("generated", {}).get("theme_tokens", {}).get("changed"), False),
+            "generated_entities": _as_bool(preview.get("generated", {}).get("entities", {}).get("changed"), False),
+            "generated_theme": _as_bool(preview.get("generated", {}).get("theme", {}).get("changed"), False),
+            "generated_layout": _as_bool(preview.get("generated", {}).get("layout", {}).get("changed"), False),
+            "generated_page_home": _as_bool(preview.get("generated", {}).get("page_home", {}).get("changed"), False),
+            "generated_page_lights": _as_bool(preview.get("generated", {}).get("page_lights", {}).get("changed"), False),
+            "generated_page_weather": _as_bool(preview.get("generated", {}).get("page_weather", {}).get("changed"), False),
+            "generated_page_climate": _as_bool(preview.get("generated", {}).get("page_climate", {}).get("changed"), False),
+        },
+        "compile_hint": f"esphome run {install_path}",
+    }
+
+
 def _rotate_backups(device_slug: str) -> None:
     root = _backup_root_for(device_slug)
     snapshots = [p for p in root.iterdir() if p.is_dir()]
@@ -2705,6 +3347,10 @@ def _backup_files(
 
     install_file = paths["install"]
     overrides_file = paths["overrides"]
+    generated_types_registry_file = paths["generated_types_registry"]
+    generated_entities_instances_file = paths["generated_entities_instances"]
+    generated_layout_pages_file = paths["generated_layout_pages"]
+    generated_theme_tokens_file = paths["generated_theme_tokens"]
     generated_entities_file = paths["generated_entities"]
     generated_theme_file = paths["generated_theme"]
     generated_layout_file = paths["generated_layout"]
@@ -2716,6 +3362,14 @@ def _backup_files(
         shutil.copy2(install_file, snapshot / "tdeck-install.yaml")
     if overrides_file.exists():
         shutil.copy2(overrides_file, snapshot / "tdeck-overrides.yaml")
+    if generated_types_registry_file.exists():
+        shutil.copy2(generated_types_registry_file, snapshot / "types.registry.yaml")
+    if generated_entities_instances_file.exists():
+        shutil.copy2(generated_entities_instances_file, snapshot / "entities.instances.yaml")
+    if generated_layout_pages_file.exists():
+        shutil.copy2(generated_layout_pages_file, snapshot / "layout.pages.yaml")
+    if generated_theme_tokens_file.exists():
+        shutil.copy2(generated_theme_tokens_file, snapshot / "theme.tokens.yaml")
     if generated_entities_file.exists():
         shutil.copy2(generated_entities_file, snapshot / "entities.generated.yaml")
     if generated_theme_file.exists():
@@ -2742,12 +3396,20 @@ def _backup_files(
             "overrides_before": preview["overrides"].get("checksum_current", ""),
             "install_after": preview["install"].get("checksum_new", ""),
             "overrides_after": preview["overrides"].get("checksum_new", ""),
+            "generated_types_registry_before": preview.get("generated", {}).get("types_registry", {}).get("checksum_current", ""),
+            "generated_entities_instances_before": preview.get("generated", {}).get("entities_instances", {}).get("checksum_current", ""),
+            "generated_layout_pages_before": preview.get("generated", {}).get("layout_pages", {}).get("checksum_current", ""),
+            "generated_theme_tokens_before": preview.get("generated", {}).get("theme_tokens", {}).get("checksum_current", ""),
             "generated_entities_before": preview.get("generated", {}).get("entities", {}).get("checksum_current", ""),
             "generated_theme_before": preview.get("generated", {}).get("theme", {}).get("checksum_current", ""),
             "generated_layout_before": preview.get("generated", {}).get("layout", {}).get("checksum_current", ""),
             "generated_entities_after": preview.get("generated", {}).get("entities", {}).get("checksum_new", ""),
             "generated_theme_after": preview.get("generated", {}).get("theme", {}).get("checksum_new", ""),
             "generated_layout_after": preview.get("generated", {}).get("layout", {}).get("checksum_new", ""),
+            "generated_types_registry_after": preview.get("generated", {}).get("types_registry", {}).get("checksum_new", ""),
+            "generated_entities_instances_after": preview.get("generated", {}).get("entities_instances", {}).get("checksum_new", ""),
+            "generated_layout_pages_after": preview.get("generated", {}).get("layout_pages", {}).get("checksum_new", ""),
+            "generated_theme_tokens_after": preview.get("generated", {}).get("theme_tokens", {}).get("checksum_new", ""),
             "generated_page_home_before": preview.get("generated", {}).get("page_home", {}).get("checksum_current", ""),
             "generated_page_lights_before": preview.get("generated", {}).get("page_lights", {}).get("checksum_current", ""),
             "generated_page_weather_before": preview.get("generated", {}).get("page_weather", {}).get("checksum_current", ""),
@@ -2760,6 +3422,10 @@ def _backup_files(
         "paths": {
             "install": str(install_file),
             "overrides": str(overrides_file),
+            "generated_types_registry": str(generated_types_registry_file),
+            "generated_entities_instances": str(generated_entities_instances_file),
+            "generated_layout_pages": str(generated_layout_pages_file),
+            "generated_theme_tokens": str(generated_theme_tokens_file),
             "generated_entities": str(generated_entities_file),
             "generated_theme": str(generated_theme_file),
             "generated_layout": str(generated_layout_file),
@@ -2805,6 +3471,10 @@ def _list_backups(device_slug: str) -> List[Dict[str, Any]]:
                 "path": str(p),
                 "has_install": (p / "tdeck-install.yaml").exists(),
                 "has_overrides": (p / "tdeck-overrides.yaml").exists(),
+                "has_generated_types_registry": (p / "types.registry.yaml").exists(),
+                "has_generated_entities_instances": (p / "entities.instances.yaml").exists(),
+                "has_generated_layout_pages": (p / "layout.pages.yaml").exists(),
+                "has_generated_theme_tokens": (p / "theme.tokens.yaml").exists(),
                 "has_generated_entities": (p / "entities.generated.yaml").exists(),
                 "has_generated_theme": (p / "theme.generated.yaml").exists(),
                 "has_generated_layout": (p / "layout.generated.yaml").exists() or (p / "ui-layout.yaml").exists(),
@@ -2826,6 +3496,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     paths = _managed_paths(device_slug)
     install_src = target / "tdeck-install.yaml"
     overrides_src = target / "tdeck-overrides.yaml"
+    generated_types_registry_src = target / "types.registry.yaml"
+    generated_entities_instances_src = target / "entities.instances.yaml"
+    generated_layout_pages_src = target / "layout.pages.yaml"
+    generated_theme_tokens_src = target / "theme.tokens.yaml"
     generated_entities_src = target / "entities.generated.yaml"
     generated_theme_src = target / "theme.generated.yaml"
     generated_layout_src = target / "layout.generated.yaml"
@@ -2839,6 +3513,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     restored = {
         "install": False,
         "overrides": False,
+        "generated_types_registry": False,
+        "generated_entities_instances": False,
+        "generated_layout_pages": False,
+        "generated_theme_tokens": False,
         "generated_entities": False,
         "generated_theme": False,
         "generated_layout": False,
@@ -2853,6 +3531,18 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     if overrides_src.exists():
         shutil.copy2(overrides_src, paths["overrides"])
         restored["overrides"] = True
+    if generated_types_registry_src.exists():
+        shutil.copy2(generated_types_registry_src, paths["generated_types_registry"])
+        restored["generated_types_registry"] = True
+    if generated_entities_instances_src.exists():
+        shutil.copy2(generated_entities_instances_src, paths["generated_entities_instances"])
+        restored["generated_entities_instances"] = True
+    if generated_layout_pages_src.exists():
+        shutil.copy2(generated_layout_pages_src, paths["generated_layout_pages"])
+        restored["generated_layout_pages"] = True
+    if generated_theme_tokens_src.exists():
+        shutil.copy2(generated_theme_tokens_src, paths["generated_theme_tokens"])
+        restored["generated_theme_tokens"] = True
     if generated_entities_src.exists():
         shutil.copy2(generated_entities_src, paths["generated_entities"])
         restored["generated_entities"] = True
@@ -2881,6 +3571,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
         "paths": {
             "install": str(paths["install"]),
             "overrides": str(paths["overrides"]),
+            "generated_types_registry": str(paths["generated_types_registry"]),
+            "generated_entities_instances": str(paths["generated_entities_instances"]),
+            "generated_layout_pages": str(paths["generated_layout_pages"]),
+            "generated_theme_tokens": str(paths["generated_theme_tokens"]),
             "generated_entities": str(paths["generated_entities"]),
             "generated_theme": str(paths["generated_theme"]),
             "generated_layout": str(paths["generated_layout"]),
@@ -2892,6 +3586,10 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
         "checksums": {
             "install": _sha256_file(paths["install"]),
             "overrides": _sha256_file(paths["overrides"]),
+            "generated_types_registry": _sha256_file(paths["generated_types_registry"]),
+            "generated_entities_instances": _sha256_file(paths["generated_entities_instances"]),
+            "generated_layout_pages": _sha256_file(paths["generated_layout_pages"]),
+            "generated_theme_tokens": _sha256_file(paths["generated_theme_tokens"]),
             "generated_entities": _sha256_file(paths["generated_entities"]),
             "generated_theme": _sha256_file(paths["generated_theme"]),
             "generated_layout": _sha256_file(paths["generated_layout"]),
@@ -2971,6 +3669,10 @@ def _build_install_yaml(
     if include_generated:
         lines.extend(
             [
+                "  # Typed generated artifacts are managed for Admin Center and backups,",
+                "  # but not injected into ESPHome packages because they are not compile-schema keys.",
+                "  # See generated/types.registry.yaml, generated/entities.instances.yaml,",
+                "  # generated/layout.pages.yaml, generated/theme.tokens.yaml.",
                 "  generated_entities: !include generated/entities.generated.yaml",
                 "  generated_theme: !include generated/theme.generated.yaml",
                 "  generated_layout: !include generated/layout.generated.yaml",
@@ -4008,6 +4710,489 @@ def api_workspace_load() -> Any:
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx})
 
 
+def _detect_esphome_nodes() -> List[Dict[str, Any]]:
+    cache = _refresh_discovery_cache(force=False)
+    rows = cache.get("rows", []) if isinstance(cache.get("rows"), list) else []
+    found: Dict[str, Dict[str, Any]] = {}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        entity_id = _as_str(row.get("entity_id"), "")
+        friendly = _as_str(row.get("friendly_name"), entity_id)
+        if not entity_id:
+            continue
+        slug = ""
+        if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
+            slug = entity_id[len("update.") : -len("_firmware")]
+        elif entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
+            slug = entity_id[len("sensor.") : -len("_app_version")]
+        elif "tdeck" in entity_id.lower():
+            slug = _slugify(entity_id.split(".", 1)[1], "")
+        if not slug:
+            continue
+        node = found.get(slug, {"device_slug": slug, "native_update_entity": "", "app_version_entity": "", "friendly_name": "", "entities_count": 0})
+        node["entities_count"] = _as_int(node.get("entities_count"), 0, 0, None) + 1
+        if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
+            node["native_update_entity"] = entity_id
+        if entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
+            node["app_version_entity"] = entity_id
+        if not _as_str(node.get("friendly_name"), "") and friendly:
+            node["friendly_name"] = friendly
+        found[slug] = node
+    return sorted(found.values(), key=lambda x: _as_str(x.get("device_slug"), ""))
+
+
+@app.get("/api/onboarding/esphome/nodes")
+def api_onboarding_esphome_nodes() -> Any:
+    try:
+        nodes = _detect_esphome_nodes()
+        return jsonify({"ok": True, "nodes": nodes, "count": len(nodes)})
+    except Exception as err:
+        return jsonify({"ok": False, "error": str(err), "nodes": [], "count": 0}), 500
+
+
+@app.post("/api/onboarding/start_new")
+def api_onboarding_start_new() -> Any:
+    payload = request.get_json(silent=True) or {}
+    ws = _default_workspace()
+    profile, idx = _workspace_active_profile(ws, 0)
+    profile["device"]["name"] = _slugify(payload.get("device_name"), _as_str(profile.get("device", {}).get("name"), "lilygo-tdeck-plus"))
+    profile["device"]["friendly_name"] = _as_str(payload.get("friendly_name"), _as_str(profile.get("device", {}).get("friendly_name"), "LilyGO T-Deck Plus"))
+    if _as_str(payload.get("app_release_version"), "").strip():
+        profile.setdefault("settings", {})
+        profile["settings"]["app_release_version"] = _as_str(payload.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION)
+    ws["workspace_name"] = _safe_profile_name(payload.get("workspace_name"), _as_str(ws.get("workspace_name"), "default"))
+    ws = _workspace_with_profile(ws, profile, idx)
+    ws, saved = _maybe_persist_workspace({"persist": _as_bool(payload.get("persist"), True), "name": ws["workspace_name"]}, ws)
+    paths = _managed_paths(_managed_device_slug(profile))
+    return jsonify(
+        {
+            "ok": True,
+            "workspace": ws,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "managed_paths": {k: str(v) for k, v in paths.items()},
+            "message": "Start New T-Deck workspace initialized.",
+        }
+    )
+
+
+def _catalog_autodetect_rows(limit_per_type: int = 8) -> List[Dict[str, Any]]:
+    cache = _refresh_discovery_cache(force=False)
+    rows = cache.get("rows", []) if isinstance(cache.get("rows"), list) else []
+    scored: Dict[str, List[Dict[str, Any]]] = {k: [] for k in CORE_TYPE_IDS}
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        entity_id = _as_str(row.get("entity_id"), "")
+        friendly = _as_str(row.get("friendly_name"), entity_id)
+        domain = _as_str(row.get("domain"), "")
+        type_id = _infer_type_id(entity_id)
+        if type_id not in scored:
+            continue
+        score = 30
+        if domain in TYPE_REGISTRY.get(type_id, {}).get("domains", []):
+            score += 25
+        if not _state_is_unknown(row.get("state")):
+            score += 10
+        lower = f"{entity_id} {friendly}".lower()
+        if any(x in lower for x in ["main", "primary", "living", "front", "door", "weather", "climate", "thermostat"]):
+            score += 10
+        scored[type_id].append(
+            {
+                "id": f"{type_id}:{entity_id}",
+                "type": type_id,
+                "entity_id": entity_id,
+                "friendly_name": friendly,
+                "domain": domain,
+                "score": score,
+                "reason": f"domain={domain}; type={type_id}",
+            }
+        )
+    out: List[Dict[str, Any]] = []
+    for type_id in CORE_TYPE_IDS:
+        items = scored.get(type_id, [])
+        items.sort(key=lambda x: (-_as_int(x.get("score"), 0, 0, None), _as_str(x.get("entity_id"), "")))
+        out.extend(items[: max(1, min(limit_per_type, 32))])
+    return out
+
+
+@app.post("/api/onboarding/import_existing")
+def api_onboarding_import_existing() -> Any:
+    payload = request.get_json(silent=True) or {}
+    nodes = _detect_esphome_nodes()
+    requested_slug = _slugify(payload.get("device_slug"), "")
+    selected = None
+    for row in nodes:
+        if _slugify(row.get("device_slug"), "") == requested_slug:
+            selected = row
+            break
+    if selected is None and nodes:
+        selected = nodes[0]
+    if selected is None:
+        return jsonify({"ok": False, "error": "no_esphome_nodes_detected"}), 404
+
+    ws = _default_workspace()
+    profile, idx = _workspace_active_profile(ws, 0)
+    slug = _slugify(selected.get("device_slug"), "lilygo-tdeck-plus")
+    profile["device"]["name"] = slug
+    profile["device"]["friendly_name"] = _as_str(selected.get("friendly_name"), f"T-Deck ({slug})")
+    profile.setdefault("settings", {})
+    profile["settings"]["ha_native_firmware_entity"] = _as_str(selected.get("native_update_entity"), f"update.{slug}_firmware")
+    profile["settings"]["ha_app_version_entity"] = _as_str(selected.get("app_version_entity"), f"sensor.{slug}_app_version")
+    app_state = _ha_get_state_safe(profile["settings"]["ha_app_version_entity"])
+    if _as_bool(app_state.get("ok"), False):
+        installed = _as_str(app_state.get("state"), "")
+        if installed and not _state_is_unknown(installed):
+            if not installed.lower().startswith("v"):
+                installed = f"v{installed}"
+            profile["settings"]["app_release_version"] = installed
+    ws["workspace_name"] = _safe_profile_name(payload.get("workspace_name"), "imported")
+    ws = _workspace_with_profile(ws, profile, idx)
+    ws, saved = _maybe_persist_workspace({"persist": _as_bool(payload.get("persist"), True), "name": ws["workspace_name"]}, ws)
+    return jsonify(
+        {
+            "ok": True,
+            "workspace": ws,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "imported_node": selected,
+            "message": "Existing ESPHome node imported into managed workspace.",
+        }
+    )
+
+
+@app.post("/api/onboarding/migrate_to_managed")
+def api_onboarding_migrate_to_managed() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, _ = _workspace_or_profile_from_payload(payload)
+    deployment = workspace.get("deployment", {}) if isinstance(workspace.get("deployment"), dict) else {}
+    git_ref = _as_str(payload.get("git_ref"), _as_str(deployment.get("git_ref"), _as_str(profile.get("device", {}).get("git_ref"), ADDON_GITHUB_REF)))
+    git_url = _as_str(payload.get("git_url"), _as_str(deployment.get("git_url"), _as_str(profile.get("device", {}).get("git_url"), ADDON_GITHUB_REPO_URL)))
+    validation = _validate_profile(profile)
+    if not validation.get("ok"):
+        return jsonify({"ok": False, "error": "validation_failed", "validation": validation}), 400
+    preview = _preview_managed_apply(workspace, profile, git_ref or ADDON_GITHUB_REF, git_url or ADDON_GITHUB_REPO_URL)
+    if not _as_bool(payload.get("commit"), False):
+        return jsonify({"ok": True, "preview": preview, "validation": validation, "committed": False})
+    lock = _get_apply_lock(preview["device_slug"])
+    if not lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "apply_in_progress", "device_slug": preview["device_slug"]}), 409
+    try:
+        committed = _commit_managed_preview(
+            preview,
+            profile,
+            workspace,
+            reason="migrate_to_managed",
+            context={"source": "api_onboarding_migrate_to_managed"},
+        )
+        return jsonify({"ok": True, "preview": preview, "validation": validation, "committed": True, "result": committed})
+    finally:
+        lock.release()
+
+
+@app.get("/api/catalog/types")
+def api_catalog_types() -> Any:
+    return jsonify({"ok": True, "types": _default_type_registry(), "core_type_ids": CORE_TYPE_IDS})
+
+
+@app.post("/api/catalog/autodetect")
+def api_catalog_autodetect() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    limit_per_type = _as_int(payload.get("limit_per_type"), 8, 1, 32)
+    detected = _catalog_autodetect_rows(limit_per_type=limit_per_type)
+    profile.setdefault("autodetect", {})
+    profile["autodetect"]["last_scan_at"] = int(_now())
+    profile["autodetect"]["detected"] = detected
+    profile["autodetect"]["ignored"] = profile.get("autodetect", {}).get("ignored", [])
+    ws = _workspace_with_profile(workspace, profile, idx)
+    ws, saved = _maybe_persist_workspace(payload, ws)
+    return jsonify(
+        {
+            "ok": True,
+            "workspace": ws,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "detected": detected,
+            "count": len(detected),
+        }
+    )
+
+
+@app.post("/api/catalog/accept_detected")
+def api_catalog_accept_detected() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    selected = payload.get("entity_ids")
+    selected_set: set[str] = set()
+    if isinstance(selected, list):
+        for item in selected:
+            val = _as_str(item, "").strip()
+            if val:
+                selected_set.add(val)
+    profile.setdefault("autodetect", {})
+    detected = profile.get("autodetect", {}).get("detected", []) if isinstance(profile.get("autodetect", {}).get("detected"), list) else []
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    existing_entities = { _as_str(x.get("entity_id"), "").strip().lower() for x in instances if isinstance(x, dict) }
+    added = 0
+    for row in detected:
+        if not isinstance(row, dict):
+            continue
+        entity_id = _as_str(row.get("entity_id"), "").strip()
+        if not entity_id:
+            continue
+        if selected_set and entity_id not in selected_set:
+            continue
+        if entity_id.lower() in existing_entities:
+            continue
+        type_id = _as_str(row.get("type"), "").strip().lower()
+        if type_id not in TYPE_REGISTRY:
+            type_id = _infer_type_id(entity_id)
+        inst = _normalize_entity_instance(
+            {
+                "id": f"{type_id}_{len(instances) + 1}",
+                "type": type_id,
+                "name": _as_str(row.get("friendly_name"), entity_id),
+                "entity_id": entity_id,
+                "enabled": True,
+                "role": "",
+                "group": _collection_for_type(type_id, ""),
+            },
+            len(instances),
+        )
+        instances.append(inst)
+        existing_entities.add(entity_id.lower())
+        added += 1
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    ws = _workspace_with_profile(workspace, profile, idx)
+    ws, saved = _maybe_persist_workspace(payload, ws)
+    return jsonify({"ok": True, "workspace": ws, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "added": added})
+
+
+@app.post("/api/catalog/ignore_detected")
+def api_catalog_ignore_detected() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    selected = payload.get("entity_ids")
+    selected_set: set[str] = set()
+    if isinstance(selected, list):
+        for item in selected:
+            val = _as_str(item, "").strip()
+            if val:
+                selected_set.add(val)
+    profile.setdefault("autodetect", {})
+    detected = profile.get("autodetect", {}).get("detected", []) if isinstance(profile.get("autodetect", {}).get("detected"), list) else []
+    ignored = profile.get("autodetect", {}).get("ignored", []) if isinstance(profile.get("autodetect", {}).get("ignored"), list) else []
+    ignored_set = set(_as_str(x, "") for x in ignored)
+    if selected_set:
+        ignored_set.update(selected_set)
+    else:
+        for row in detected:
+            if isinstance(row, dict):
+                val = _as_str(row.get("entity_id"), "").strip()
+                if val:
+                    ignored_set.add(val)
+    profile["autodetect"]["ignored"] = sorted(list(ignored_set))
+    ws = _workspace_with_profile(workspace, profile, idx)
+    ws, saved = _maybe_persist_workspace(payload, ws)
+    return jsonify({"ok": True, "workspace": ws, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "ignored": profile["autodetect"]["ignored"]})
+
+
+def _instance_find_index(instances: List[Dict[str, Any]], item_id: str, at_index: int = -1) -> int:
+    want = _slugify(item_id, "")
+    if want:
+        for i, row in enumerate(instances):
+            if _slugify(row.get("id"), "") == want:
+                return i
+    if at_index >= 0 and at_index < len(instances):
+        return at_index
+    return -1
+
+
+def _apply_instance_bulk(profile: Dict[str, Any], ops: List[Dict[str, Any]]) -> Tuple[List[str], List[str]]:
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    errors: List[str] = []
+    notices: List[str] = []
+    for pos, op in enumerate(ops):
+        if not isinstance(op, dict):
+            errors.append(f"op[{pos}] is not an object")
+            continue
+        action = _as_str(op.get("op"), "").strip().lower()
+        if action == "add":
+            item = op.get("item") if isinstance(op.get("item"), dict) else {}
+            instances.append(_normalize_entity_instance(item, len(instances)))
+        elif action == "update":
+            idx = _instance_find_index(instances, _as_str(op.get("item_id"), ""), _as_int(op.get("index"), -1, -1, None))
+            if idx < 0:
+                errors.append(f"op[{pos}] item not found")
+                continue
+            patch = op.get("patch") if isinstance(op.get("patch"), dict) else {}
+            merged = dict(instances[idx])
+            merged.update(patch)
+            instances[idx] = _normalize_entity_instance(merged, idx)
+        elif action == "remove":
+            idx = _instance_find_index(instances, _as_str(op.get("item_id"), ""), _as_int(op.get("index"), -1, -1, None))
+            if idx < 0:
+                errors.append(f"op[{pos}] item not found")
+                continue
+            instances.pop(idx)
+        elif action == "reorder":
+            from_idx = _as_int(op.get("from_index"), -1, -1, None)
+            to_idx = _as_int(op.get("to_index"), -1, -1, None)
+            if from_idx < 0 or from_idx >= len(instances) or to_idx < 0 or to_idx >= len(instances):
+                errors.append(f"op[{pos}] from_index/to_index out of range")
+                continue
+            row = instances.pop(from_idx)
+            instances.insert(to_idx, row)
+        elif action == "dedupe":
+            seen: set[str] = set()
+            deduped: List[Dict[str, Any]] = []
+            removed = 0
+            for row in instances:
+                entity_id = _as_str(row.get("entity_id"), "").strip().lower()
+                if entity_id and entity_id in seen:
+                    removed += 1
+                    continue
+                if entity_id:
+                    seen.add(entity_id)
+                deduped.append(row)
+            instances = deduped
+            notices.append(f"dedupe removed {removed} duplicate entity instances")
+        else:
+            errors.append(f"op[{pos}] unsupported action '{action}'")
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    return errors, notices
+
+
+@app.get("/api/entities/instances")
+def api_entities_instances() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    profile = _normalize_profile(profile)
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "type_registry": _default_type_registry(),
+            "entity_instances": profile.get("entity_instances", []),
+            "page_layouts": profile.get("page_layouts", []),
+        }
+    )
+
+
+@app.post("/api/entities/instances/add")
+def api_entities_instances_add() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    item = payload.get("item") if isinstance(payload.get("item"), dict) else {}
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    instances.append(_normalize_entity_instance(item, len(instances)))
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
+
+
+@app.post("/api/entities/instances/update")
+def api_entities_instances_update() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    item_id = _as_str(payload.get("item_id"), "")
+    at_index = _as_int(payload.get("index"), -1, -1, None)
+    patch = payload.get("patch") if isinstance(payload.get("patch"), dict) else {}
+    i = _instance_find_index(instances, item_id, at_index)
+    if i < 0:
+        return jsonify({"ok": False, "error": "item_not_found"}), 404
+    merged = dict(instances[i])
+    merged.update(patch)
+    instances[i] = _normalize_entity_instance(merged, i)
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
+
+
+@app.post("/api/entities/instances/remove")
+def api_entities_instances_remove() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    i = _instance_find_index(instances, _as_str(payload.get("item_id"), ""), _as_int(payload.get("index"), -1, -1, None))
+    if i < 0:
+        return jsonify({"ok": False, "error": "item_not_found"}), 404
+    instances.pop(i)
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
+
+
+@app.post("/api/entities/instances/reorder")
+def api_entities_instances_reorder() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+    from_idx = _as_int(payload.get("from_index"), -1, -1, None)
+    to_idx = _as_int(payload.get("to_index"), -1, -1, None)
+    if from_idx < 0 or from_idx >= len(instances) or to_idx < 0 or to_idx >= len(instances):
+        return jsonify({"ok": False, "error": "from_index/to_index_out_of_range"}), 400
+    row = instances.pop(from_idx)
+    instances.insert(to_idx, row)
+    profile["entity_instances"] = instances
+    _normalize_entity_instances(profile, incoming_has_instances=True)
+    _sync_slots_from_collections(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
+
+
+@app.post("/api/entities/instances/bulk")
+def api_entities_instances_bulk() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    ops = payload.get("ops") if isinstance(payload.get("ops"), list) else []
+    if not ops:
+        return jsonify({"ok": False, "error": "ops[] is required"}), 400
+    errors, notices = _apply_instance_bulk(profile, ops)
+    validation = _validate_profile(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify(
+        {
+            "ok": len(errors) == 0,
+            "errors": errors,
+            "notices": notices,
+            "validation": {
+                "ok": validation["ok"],
+                "errors": validation["errors"],
+                "warnings": validation["warnings"],
+            },
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+        }
+    ), (200 if len(errors) == 0 else 400)
+
+
 @app.post("/api/mapping/suggest")
 def api_mapping_suggest() -> Any:
     payload = request.get_json(silent=True) or {}
@@ -4700,6 +5885,54 @@ def api_layout_reset_page() -> Any:
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved})
 
 
+@app.get("/api/layout/pages")
+def api_layout_pages_get() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    pages = ws.get("layout_pages", {}) if isinstance(ws.get("layout_pages"), dict) else profile.get("layout_pages", {})
+    validation = _validate_layout_pages(pages if isinstance(pages, dict) else {})
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "layout_pages": validation.get("pages", {}),
+            "validation": validation,
+        }
+    )
+
+
+@app.post("/api/layout/pages/validate")
+def api_layout_pages_validate() -> Any:
+    payload = request.get_json(silent=True) or {}
+    pages = payload.get("layout_pages") if isinstance(payload.get("layout_pages"), dict) else {}
+    validation = _validate_layout_pages(pages)
+    return jsonify({"ok": validation.get("ok", False), "layout_pages": validation.get("pages", {}), "validation": validation})
+
+
+@app.post("/api/layout/pages/save")
+def api_layout_pages_save() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    incoming_pages = payload.get("layout_pages") if isinstance(payload.get("layout_pages"), dict) else {}
+    validation = _validate_layout_pages(incoming_pages)
+    if not validation.get("ok"):
+        return jsonify({"ok": False, "error": "layout_validation_failed", "validation": validation}), 400
+    workspace["layout_pages"] = validation.get("pages", {})
+    profile["layout_pages"] = validation.get("pages", {})
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, "validation": validation})
+
+
+@app.post("/api/layout/pages/reset")
+def api_layout_pages_reset() -> Any:
+    _ = request.get_json(silent=True) or {}
+    return api_layout_reset_page()
+
+
 def _theme_tokens_from_payload(payload: Dict[str, Any], palette_fallback: str = "") -> Tuple[Dict[str, str], str, Dict[str, str]]:
     palette_id = _as_str(payload.get("palette_id"), "").strip().lower() or palette_fallback
     tokens: Dict[str, str] = {}
@@ -4982,6 +6215,19 @@ def api_meta_contracts() -> Any:
                 "backup_keep_count": BACKUP_KEEP_COUNT,
                 "install_name": "tdeck-install.yaml",
                 "overrides_name": "tdeck-overrides.yaml",
+                "generated": [
+                    "generated/types.registry.yaml",
+                    "generated/entities.instances.yaml",
+                    "generated/layout.pages.yaml",
+                    "generated/theme.tokens.yaml",
+                    "generated/entities.generated.yaml",
+                    "generated/theme.generated.yaml",
+                    "generated/layout.generated.yaml",
+                    "generated/pages/home.generated.yaml",
+                    "generated/pages/lights.generated.yaml",
+                    "generated/pages/weather.generated.yaml",
+                    "generated/pages/climate.generated.yaml",
+                ],
             },
             "schemas": {
                 "profile_version": PROFILE_SCHEMA_VERSION,
@@ -5000,6 +6246,10 @@ def api_generate_install() -> Any:
         validation = _validate_profile(profile)
         include_generated = isinstance(payload.get("workspace"), dict) or isinstance(payload.get("profile"), dict)
         generated = {
+            "types_registry": _build_generated_types_registry_yaml(profile),
+            "entities_instances": _build_generated_entities_instances_yaml(profile),
+            "layout_pages": _build_generated_layout_pages_yaml(profile, workspace),
+            "theme_tokens": _build_generated_theme_tokens_yaml(profile),
             "entities": _build_generated_entities_yaml(profile),
             "theme": _build_generated_theme_yaml(profile),
             "layout": _build_generated_layout_yaml(profile, workspace),
@@ -5125,99 +6375,95 @@ def api_apply_commit() -> Any:
     if not lock.acquire(blocking=False):
         return jsonify({"ok": False, "error": "apply_in_progress", "device_slug": device_slug}), 409
     try:
-        backup = _backup_files(
-            device_slug,
+        committed = _commit_managed_preview(
             preview,
             profile,
             workspace,
             reason="apply_commit",
             context={"source": "api_apply_commit"},
         )
-        install_path = Path(preview["install"]["path"])
-        overrides_path = Path(preview["overrides"]["path"])
-        generated_entities_path_raw = _as_str(preview.get("generated", {}).get("entities", {}).get("path", ""))
-        generated_theme_path_raw = _as_str(preview.get("generated", {}).get("theme", {}).get("path", ""))
-        generated_layout_path_raw = _as_str(preview.get("generated", {}).get("layout", {}).get("path", ""))
-        generated_page_home_path_raw = _as_str(preview.get("generated", {}).get("page_home", {}).get("path", ""))
-        generated_page_lights_path_raw = _as_str(preview.get("generated", {}).get("page_lights", {}).get("path", ""))
-        generated_page_weather_path_raw = _as_str(preview.get("generated", {}).get("page_weather", {}).get("path", ""))
-        generated_page_climate_path_raw = _as_str(preview.get("generated", {}).get("page_climate", {}).get("path", ""))
-        generated_entities_path = Path(generated_entities_path_raw) if generated_entities_path_raw else None
-        generated_theme_path = Path(generated_theme_path_raw) if generated_theme_path_raw else None
-        generated_layout_path = Path(generated_layout_path_raw) if generated_layout_path_raw else None
-        generated_page_home_path = Path(generated_page_home_path_raw) if generated_page_home_path_raw else None
-        generated_page_lights_path = Path(generated_page_lights_path_raw) if generated_page_lights_path_raw else None
-        generated_page_weather_path = Path(generated_page_weather_path_raw) if generated_page_weather_path_raw else None
-        generated_page_climate_path = Path(generated_page_climate_path_raw) if generated_page_climate_path_raw else None
-        install_path.parent.mkdir(parents=True, exist_ok=True)
-        overrides_path.parent.mkdir(parents=True, exist_ok=True)
-        install_path.write_text(preview["install"]["content_new"], encoding="utf-8")
-        overrides_path.write_text(preview["overrides"]["content_new"], encoding="utf-8")
-        if generated_entities_path is not None:
-            generated_entities_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_entities_path.write_text(preview.get("generated", {}).get("entities", {}).get("content_new", ""), encoding="utf-8")
-        if generated_theme_path is not None:
-            generated_theme_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_theme_path.write_text(preview.get("generated", {}).get("theme", {}).get("content_new", ""), encoding="utf-8")
-        if generated_layout_path is not None:
-            generated_layout_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_layout_path.write_text(preview.get("generated", {}).get("layout", {}).get("content_new", ""), encoding="utf-8")
-        if generated_page_home_path is not None:
-            generated_page_home_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_page_home_path.write_text(preview.get("generated", {}).get("page_home", {}).get("content_new", ""), encoding="utf-8")
-        if generated_page_lights_path is not None:
-            generated_page_lights_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_page_lights_path.write_text(preview.get("generated", {}).get("page_lights", {}).get("content_new", ""), encoding="utf-8")
-        if generated_page_weather_path is not None:
-            generated_page_weather_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_page_weather_path.write_text(preview.get("generated", {}).get("page_weather", {}).get("content_new", ""), encoding="utf-8")
-        if generated_page_climate_path is not None:
-            generated_page_climate_path.parent.mkdir(parents=True, exist_ok=True)
-            generated_page_climate_path.write_text(preview.get("generated", {}).get("page_climate", {}).get("content_new", ""), encoding="utf-8")
+        return jsonify({"ok": True, **committed})
+    finally:
+        lock.release()
+
+
+@app.post("/api/deploy/run")
+def api_deploy_run() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, _ = _workspace_or_profile_from_payload(payload)
+    deployment = workspace.get("deployment", {}) if isinstance(workspace.get("deployment"), dict) else {}
+    git_ref = _as_str(payload.get("git_ref"), _as_str(deployment.get("git_ref"), _as_str(profile.get("device", {}).get("git_ref"), ADDON_GITHUB_REF)))
+    git_url = _as_str(payload.get("git_url"), _as_str(deployment.get("git_url"), _as_str(profile.get("device", {}).get("git_url"), ADDON_GITHUB_REPO_URL)))
+    require_confirm = _as_bool(payload.get("require_confirm"), True)
+    confirmed = _as_bool(payload.get("confirmed"), False)
+    run_firmware = _as_bool(payload.get("run_firmware"), True)
+    firmware_mode = _as_str(payload.get("firmware_mode"), "auto").strip().lower() or "auto"
+    if firmware_mode not in {"auto", "build_install", "install_only", "manual_fallback"}:
+        firmware_mode = "auto"
+
+    validation = _validate_profile(profile)
+    if not validation.get("ok"):
+        return jsonify({"ok": False, "error": "validation_failed", "validation": validation}), 400
+    preview = _preview_managed_apply(workspace, profile, git_ref or ADDON_GITHUB_REF, git_url or ADDON_GITHUB_REPO_URL)
+    if require_confirm and not confirmed:
         return jsonify(
             {
-                "ok": True,
-                "device_slug": device_slug,
-                "managed_root": str(MANAGED_ROOT),
-                "paths": {
-                    "install": str(install_path),
-                    "overrides": str(overrides_path),
-                    "generated_entities": str(generated_entities_path) if generated_entities_path else "",
-                    "generated_theme": str(generated_theme_path) if generated_theme_path else "",
-                    "generated_layout": str(generated_layout_path) if generated_layout_path else "",
-                    "generated_page_home": str(generated_page_home_path) if generated_page_home_path else "",
-                    "generated_page_lights": str(generated_page_lights_path) if generated_page_lights_path else "",
-                    "generated_page_weather": str(generated_page_weather_path) if generated_page_weather_path else "",
-                    "generated_page_climate": str(generated_page_climate_path) if generated_page_climate_path else "",
-                },
-                "checksums": {
-                    "install": _sha256_file(install_path),
-                    "overrides": _sha256_file(overrides_path),
-                    "generated_entities": _sha256_file(generated_entities_path) if generated_entities_path else "",
-                    "generated_theme": _sha256_file(generated_theme_path) if generated_theme_path else "",
-                    "generated_layout": _sha256_file(generated_layout_path) if generated_layout_path else "",
-                    "generated_page_home": _sha256_file(generated_page_home_path) if generated_page_home_path else "",
-                    "generated_page_lights": _sha256_file(generated_page_lights_path) if generated_page_lights_path else "",
-                    "generated_page_weather": _sha256_file(generated_page_weather_path) if generated_page_weather_path else "",
-                    "generated_page_climate": _sha256_file(generated_page_climate_path) if generated_page_climate_path else "",
-                },
-                "backup": backup,
-                "changed": {
-                    "install": _as_bool(preview["install"].get("changed"), False),
-                    "overrides": _as_bool(preview["overrides"].get("changed"), False),
-                    "generated_entities": _as_bool(preview.get("generated", {}).get("entities", {}).get("changed"), False),
-                    "generated_theme": _as_bool(preview.get("generated", {}).get("theme", {}).get("changed"), False),
-                    "generated_layout": _as_bool(preview.get("generated", {}).get("layout", {}).get("changed"), False),
-                    "generated_page_home": _as_bool(preview.get("generated", {}).get("page_home", {}).get("changed"), False),
-                    "generated_page_lights": _as_bool(preview.get("generated", {}).get("page_lights", {}).get("changed"), False),
-                    "generated_page_weather": _as_bool(preview.get("generated", {}).get("page_weather", {}).get("changed"), False),
-                    "generated_page_climate": _as_bool(preview.get("generated", {}).get("page_climate", {}).get("changed"), False),
-                },
-                "compile_hint": f"esphome run {install_path}",
+                "ok": False,
+                "error": "confirmation_required",
+                "needs_confirmation": True,
+                "preview": preview,
+                "validation": validation,
             }
+        ), 412
+
+    device_slug = _as_str(preview.get("device_slug"), "")
+    lock = _get_apply_lock(device_slug)
+    if not lock.acquire(blocking=False):
+        return jsonify({"ok": False, "error": "apply_in_progress", "device_slug": device_slug}), 409
+    try:
+        committed = _commit_managed_preview(
+            preview,
+            profile,
+            workspace,
+            reason="deploy_run",
+            context={
+                "source": "api_deploy_run",
+                "run_firmware": run_firmware,
+                "firmware_mode": firmware_mode,
+            },
         )
     finally:
         lock.release()
+
+    firmware_result: Dict[str, Any] = {"ok": True, "skipped": True}
+    firmware_status_code = 200
+    if run_firmware:
+        fw_payload = dict(payload)
+        fw_payload["workspace"] = workspace
+        fw_payload["profile"] = profile
+        fw_payload["device_slug"] = device_slug
+        fw_payload["mode"] = firmware_mode
+        fw_payload["backup_first"] = False
+        firmware_result, firmware_status_code = _execute_firmware_workflow(fw_payload)
+    ok = committed is not None and _as_bool(firmware_result.get("ok"), True if not run_firmware else False)
+    status_code = 200 if ok else (firmware_status_code if run_firmware else 500)
+    return jsonify(
+        {
+            "ok": ok,
+            "device_slug": device_slug,
+            "validation": validation,
+            "preview": preview,
+            "apply": committed,
+            "firmware": firmware_result,
+            "pipeline": {
+                "validate": True,
+                "preview": True,
+                "backup": True,
+                "write_managed_files": True,
+                "firmware_workflow": run_firmware,
+            },
+        }
+    ), status_code
 
 
 @app.get("/api/backups/list")

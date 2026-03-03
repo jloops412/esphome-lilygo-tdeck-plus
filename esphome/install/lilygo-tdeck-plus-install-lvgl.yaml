@@ -2,7 +2,7 @@ substitutions:
   name: lilygo-tdeck-plus
   friendly_name: "LilyGO T-Deck Plus"
   app_release_channel: "stable"
-  app_release_version: "v0.24.0"
+  app_release_version: "v0.25.0"
   generated_light_slot_cap: "24"
   generated_camera_slot_cap: "8"
   generated_light_page_size: "6"
