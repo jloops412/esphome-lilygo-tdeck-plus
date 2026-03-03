@@ -28,6 +28,11 @@ const state = {
   latestRelease: null,
   firmwareStatus: null,
   bootErrors: [],
+  uiMode: "guided",
+  guidedStep: 0,
+  layoutPages: {},
+  themePalettes: [],
+  templateCatalog: {},
 };
 
 const WEATHER_FIELDS = [
@@ -95,6 +100,19 @@ const THEME_FIELDS = [
 ];
 
 const FEATURE_KEYS = ["lights", "weather", "climate", "cameras", "reader", "gps"];
+const THEME_TOKEN_KEYS = [
+  "theme_token_screen_bg",
+  "theme_token_surface",
+  "theme_token_surface_alt",
+  "theme_token_action",
+  "theme_token_action_soft",
+  "theme_token_text_primary",
+  "theme_token_text_dim",
+  "theme_token_ok",
+  "theme_token_warn",
+];
+
+const DEFAULT_LAYOUT_PAGES = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"];
 
 function e(id) {
   return document.getElementById(id);
@@ -104,8 +122,9 @@ function deepClone(v) {
   return JSON.parse(JSON.stringify(v));
 }
 
-function asBool(value) {
+function asBool(value, fallback = false) {
   if (typeof value === "boolean") return value;
+  if (value === undefined || value === null || value === "") return fallback;
   const s = String(value || "").toLowerCase();
   return ["1", "true", "yes", "on"].includes(s);
 }
@@ -117,6 +136,27 @@ function safeText(v) {
     .replace(/>/g, "&gt;")
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function clampInt(v, min, max) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+function colorToHex(value, fallback = "#4f8fe6") {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return fallback;
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return raw;
+  if (/^0x[0-9a-f]{6}$/i.test(raw)) return `#${raw.slice(2)}`;
+  return fallback;
+}
+
+function hexToToken(value, fallback = "0x4F8FE6") {
+  const raw = String(value || "").trim();
+  if (/^#[0-9a-f]{6}$/i.test(raw)) return `0x${raw.slice(1).toUpperCase()}`;
+  if (/^0x[0-9a-f]{6}$/i.test(raw)) return `0x${raw.slice(2).toUpperCase()}`;
+  return fallback;
 }
 
 function setTransportStatus() {
@@ -169,9 +209,21 @@ function slugify(raw) {
 
 function setStatus(text, isError = false) {
   const out = e("status_line");
-  if (!out) return;
-  out.textContent = text;
-  out.style.color = isError ? "#ffb4c0" : "";
+  if (out) {
+    out.textContent = text;
+    out.style.color = isError ? "#ffb4c0" : "";
+  }
+  const strip = e("global_status_strip");
+  if (strip) {
+    const t = state.transport || {};
+    const fw = state.firmwareStatus || {};
+    strip.textContent =
+      `Status: ${text}\n` +
+      `Mode: ${state.uiMode}\n` +
+      `API: ${t.last_status_code || "--"} ${t.last_path || "--"}\n` +
+      `FW: ${fw.status_text || "--"} (${fw.method || "--"})`;
+    strip.style.color = isError ? "#ffb4c0" : "";
+  }
 }
 
 function setDiscoveryStatus(text, isError = false) {
@@ -194,11 +246,16 @@ function currentProfile() {
 function ensureWorkspace(ws, fallbackProfile) {
   if (!ws || typeof ws !== "object") {
     ws = {
-      schema_version: "2.0",
+      schema_version: "3.0",
       workspace_name: "default",
       active_device_index: 0,
       devices: [deepClone(fallbackProfile)],
+      mode_ui: { mode: "guided", guided_step: 0, show_advanced_diagnostics: false },
       templates: {},
+      entity_collections: {},
+      layout_pages: {},
+      theme_studio: {},
+      deployment_workflow: {},
       bindings: {},
       layout: {},
       theme: {},
@@ -211,6 +268,9 @@ function ensureWorkspace(ws, fallbackProfile) {
   if (typeof ws.active_device_index !== "number") ws.active_device_index = 0;
   if (typeof ws.workspace_name !== "string" || !ws.workspace_name.trim()) ws.workspace_name = "default";
   if (!ws.deployment || typeof ws.deployment !== "object") ws.deployment = {};
+  if (!ws.mode_ui || typeof ws.mode_ui !== "object") ws.mode_ui = { mode: "guided", guided_step: 0, show_advanced_diagnostics: false };
+  if (!ws.layout_pages || typeof ws.layout_pages !== "object") ws.layout_pages = {};
+  if (!ws.theme_studio || typeof ws.theme_studio !== "object") ws.theme_studio = {};
   return ws;
 }
 
@@ -225,6 +285,51 @@ function bindTabs() {
       if (panel) panel.classList.add("active");
     });
   });
+}
+
+function setMode(mode) {
+  state.uiMode = mode === "advanced" ? "advanced" : "guided";
+  const guided = e("guided_shell");
+  const advanced = e("advanced_shell");
+  if (guided) guided.classList.remove("hidden");
+  if (advanced) advanced.classList.toggle("hidden", state.uiMode !== "advanced");
+  e("mode_guided_btn")?.classList.toggle("active", state.uiMode === "guided");
+  e("mode_advanced_btn")?.classList.toggle("active", state.uiMode === "advanced");
+  if (state.workspace) {
+    state.workspace.mode_ui = state.workspace.mode_ui || {};
+    state.workspace.mode_ui.mode = state.uiMode;
+  }
+  try {
+    window.localStorage.setItem("tdeck_admin_mode", state.uiMode);
+  } catch (_err) {}
+  setStatus(`Switched to ${state.uiMode} mode`);
+}
+
+function setGuidedStep(step) {
+  const max = 5;
+  state.guidedStep = Math.max(0, Math.min(max, Number(step || 0)));
+  document.querySelectorAll(".guided-step-btn").forEach((btn, idx) => {
+    btn.classList.toggle("active", idx === state.guidedStep);
+  });
+  document.querySelectorAll(".guided-panel").forEach((panel, idx) => {
+    panel.classList.toggle("active", idx === state.guidedStep);
+  });
+  const ind = e("guided_step_indicator");
+  if (ind) ind.textContent = `Step ${state.guidedStep + 1} of 6`;
+  if (state.workspace) {
+    state.workspace.mode_ui = state.workspace.mode_ui || {};
+    state.workspace.mode_ui.guided_step = state.guidedStep;
+  }
+}
+
+function bindModeControls() {
+  e("mode_guided_btn")?.addEventListener("click", () => setMode("guided"));
+  e("mode_advanced_btn")?.addEventListener("click", () => setMode("advanced"));
+  document.querySelectorAll(".guided-step-btn").forEach((btn, idx) => {
+    btn.addEventListener("click", () => setGuidedStep(idx));
+  });
+  e("guided_prev_btn")?.addEventListener("click", () => setGuidedStep(state.guidedStep - 1));
+  e("guided_next_btn")?.addEventListener("click", () => setGuidedStep(state.guidedStep + 1));
 }
 
 async function apiRequest(method, path, body = undefined, signal = undefined) {
@@ -309,7 +414,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.21.0";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.22.0";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -349,72 +454,443 @@ function renderUiToggles() {
   });
 }
 
-function buildCountSelect(id, min, max, value) {
-  const select = e(id);
-  select.innerHTML = "";
-  for (let i = min; i <= max; i += 1) {
+function getTemplateCatalog() {
+  if (state.templateCatalog && Object.keys(state.templateCatalog).length > 0) return state.templateCatalog;
+  if (state.contracts?.templates && typeof state.contracts.templates === "object") return state.contracts.templates;
+  return {};
+}
+
+function selectedTemplateDomain() {
+  return (e("template_domain_select")?.value || "").trim();
+}
+
+function selectedTemplateItem() {
+  return (e("template_item_select")?.value || "").trim();
+}
+
+function renderTemplateItems() {
+  const catalog = getTemplateCatalog();
+  const domain = selectedTemplateDomain();
+  const rows = Array.isArray(catalog[domain]) ? catalog[domain] : [];
+  const itemSelect = e("template_item_select");
+  if (!itemSelect) return;
+  itemSelect.innerHTML = "";
+  rows.forEach((row, idx) => {
     const opt = document.createElement("option");
-    opt.value = String(i);
-    opt.textContent = String(i);
-    if (String(i) === String(value)) opt.selected = true;
+    opt.value = String(idx);
+    opt.textContent = row?.name || `${domain} template ${idx + 1}`;
+    itemSelect.appendChild(opt);
+  });
+  if (rows.length === 0) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No templates available";
+    itemSelect.appendChild(opt);
+  }
+  renderTemplatePreview();
+}
+
+function renderTemplateDomains() {
+  const catalog = getTemplateCatalog();
+  const select = e("template_domain_select");
+  if (!select) return;
+  const domains = Object.keys(catalog).sort();
+  select.innerHTML = "";
+  domains.forEach((domain) => {
+    const opt = document.createElement("option");
+    opt.value = domain;
+    opt.textContent = domain;
+    select.appendChild(opt);
+  });
+  if (!domains.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No template domains";
     select.appendChild(opt);
   }
+  renderTemplateItems();
+}
+
+function renderTemplatePreview() {
+  const out = e("template_preview");
+  if (!out) return;
+  const catalog = getTemplateCatalog();
+  const domain = selectedTemplateDomain();
+  const itemIndex = Number(selectedTemplateItem());
+  const rows = Array.isArray(catalog[domain]) ? catalog[domain] : [];
+  const item = Number.isFinite(itemIndex) ? rows[itemIndex] : null;
+  if (!item) {
+    out.textContent = "No template selected.";
+    return;
+  }
+  const lines = [`Template: ${item.name || `${domain} template`}`];
+  const mappings = item.mappings && typeof item.mappings === "object" ? item.mappings : {};
+  Object.keys(mappings).forEach((key) => {
+    lines.push(`- ${key}: ${mappings[key]}`);
+  });
+  const slots = item.slots && typeof item.slots === "object" ? item.slots : {};
+  if (Array.isArray(slots.lights) && slots.lights.length) lines.push(`- lights slots: ${slots.lights.length}`);
+  if (Array.isArray(slots.cameras) && slots.cameras.length) lines.push(`- cameras slots: ${slots.cameras.length}`);
+  out.textContent = lines.join("\n");
+}
+
+function applySelectedTemplate() {
+  const p = currentProfile();
+  if (!p) return;
+  const catalog = getTemplateCatalog();
+  const domain = selectedTemplateDomain();
+  const itemIndex = Number(selectedTemplateItem());
+  const rows = Array.isArray(catalog[domain]) ? catalog[domain] : [];
+  const item = Number.isFinite(itemIndex) ? rows[itemIndex] : null;
+  if (!item) {
+    setStatus("No template selected", true);
+    return;
+  }
+  const mappings = item.mappings && typeof item.mappings === "object" ? item.mappings : {};
+  p.features = p.features || {};
+  if (FEATURE_KEYS.includes(domain)) p.features[domain] = true;
+  p.entities = p.entities || {};
+  Object.keys(mappings).forEach((key) => {
+    p.entities[key] = String(mappings[key] || "");
+  });
+  if (item.slots && typeof item.slots === "object") {
+    if (Array.isArray(item.slots.lights)) {
+      ensureCollections(p);
+      p.entity_collections.lights = item.slots.lights.map((slot, idx) => ({
+        id: `light_${idx + 1}`,
+        name: slot?.name || `Light ${idx + 1}`,
+        entity_id: slot?.entity || "",
+        enabled: true,
+      }));
+    }
+    if (Array.isArray(item.slots.cameras)) {
+      ensureCollections(p);
+      p.entity_collections.cameras = item.slots.cameras.map((slot, idx) => ({
+        id: `camera_${idx + 1}`,
+        name: slot?.name || `Camera ${idx + 1}`,
+        entity_id: slot?.entity || "",
+        enabled: true,
+      }));
+    }
+  }
+  syncSlotsFromCollections(p);
+  syncProfileToForm();
+  setStatus(`Applied template '${item.name || domain}'`);
 }
 
 function markActiveInput(input) {
   state.activeMappingInput = input;
 }
 
-function renderLightSlots() {
-  const p = currentProfile();
-  const host = e("light_slots_container");
-  const count = Number(p.slots.light_slot_count || 1);
-  host.innerHTML = "";
-  for (let i = 0; i < 8; i += 1) {
-    const slot = p.slots.lights[i] || { name: `Light ${i + 1}`, entity: "" };
-    const hidden = i >= count ? "style='opacity:.45;'" : "";
-    host.insertAdjacentHTML(
-      "beforeend",
-      `<div class="card" ${hidden}>
-        <h4>Light Slot ${i + 1}</h4>
-        <label>Name <input id="light_slot_name_${i}" value="${safeText(slot.name)}" /></label>
-        <label>Entity <input id="light_slot_entity_${i}" value="${safeText(slot.entity)}" /></label>
-      </div>`
-    );
-    e(`light_slot_name_${i}`).addEventListener("input", (ev) => {
-      p.slots.lights[i].name = ev.target.value;
+function ensureCollections(profile) {
+  if (!profile.entity_collections || typeof profile.entity_collections !== "object") {
+    profile.entity_collections = {
+      lights: [],
+      cameras: [],
+      limits: { lights_max: 24, cameras_max: 8 },
+    };
+  }
+  if (!Array.isArray(profile.entity_collections.lights)) profile.entity_collections.lights = [];
+  if (!Array.isArray(profile.entity_collections.cameras)) profile.entity_collections.cameras = [];
+  if (!profile.entity_collections.limits || typeof profile.entity_collections.limits !== "object") {
+    profile.entity_collections.limits = { lights_max: 24, cameras_max: 8 };
+  }
+  if (!profile.entity_collections.lights.length && Array.isArray(profile.slots?.lights)) {
+    profile.slots.lights.forEach((slot, idx) => {
+      profile.entity_collections.lights.push({
+        id: `light_${idx + 1}`,
+        name: slot.name || `Light ${idx + 1}`,
+        entity_id: slot.entity || "",
+        enabled: idx < Number(profile.slots?.light_slot_count || 0),
+      });
     });
-    e(`light_slot_entity_${i}`).addEventListener("input", (ev) => {
-      p.slots.lights[i].entity = ev.target.value;
+  }
+  if (!profile.entity_collections.cameras.length && Array.isArray(profile.slots?.cameras)) {
+    profile.slots.cameras.forEach((slot, idx) => {
+      profile.entity_collections.cameras.push({
+        id: `camera_${idx + 1}`,
+        name: slot.name || `Camera ${idx + 1}`,
+        entity_id: slot.entity || "",
+        enabled: idx < Number(profile.slots?.camera_slot_count || 0),
+      });
     });
-    e(`light_slot_entity_${i}`).addEventListener("focus", (ev) => markActiveInput(ev.target));
   }
 }
 
-function renderCameraSlots() {
-  const p = currentProfile();
-  const host = e("camera_slots_container");
-  const count = Number(p.slots.camera_slot_count || 0);
-  host.innerHTML = "";
-  for (let i = 0; i < 2; i += 1) {
-    const slot = p.slots.cameras[i] || { name: `Camera ${i + 1}`, entity: "" };
-    const hidden = i >= count ? "style='opacity:.45;'" : "";
-    host.insertAdjacentHTML(
-      "beforeend",
-      `<div class="card" ${hidden}>
-        <h4>Camera Slot ${i + 1}</h4>
-        <label>Name <input id="camera_slot_name_${i}" value="${safeText(slot.name)}" /></label>
-        <label>Entity <input id="camera_slot_entity_${i}" value="${safeText(slot.entity)}" /></label>
-      </div>`
-    );
-    e(`camera_slot_name_${i}`).addEventListener("input", (ev) => {
-      p.slots.cameras[i].name = ev.target.value;
+function syncSlotsFromCollections(profile) {
+  ensureCollections(profile);
+  const enabledLights = profile.entity_collections.lights.filter((x) => asBool(x.enabled));
+  const enabledCameras = profile.entity_collections.cameras.filter((x) => asBool(x.enabled));
+  profile.slots = profile.slots || {};
+  profile.slots.light_slot_count = Math.max(1, Math.min(8, enabledLights.length || 1));
+  profile.slots.camera_slot_count = Math.max(0, Math.min(2, enabledCameras.length || 0));
+  profile.slots.lights = [];
+  profile.slots.cameras = [];
+  for (let i = 0; i < 8; i += 1) {
+    const item = enabledLights[i] || {};
+    profile.slots.lights.push({
+      name: item.name || `Light ${i + 1}`,
+      entity: item.entity_id || `light.replace_me_slot_${i + 1}`,
     });
-    e(`camera_slot_entity_${i}`).addEventListener("input", (ev) => {
-      p.slots.cameras[i].entity = ev.target.value;
-    });
-    e(`camera_slot_entity_${i}`).addEventListener("focus", (ev) => markActiveInput(ev.target));
   }
+  for (let i = 0; i < 2; i += 1) {
+    const item = enabledCameras[i] || {};
+    profile.slots.cameras.push({
+      name: item.name || `Camera ${i + 1}`,
+      entity: item.entity_id || `camera.replace_me_${i + 1}`,
+    });
+  }
+}
+
+function renderCollectionRows(collectionName, bodyId) {
+  const p = currentProfile();
+  if (!p) return;
+  ensureCollections(p);
+  const body = e(bodyId);
+  if (!body) return;
+  body.innerHTML = "";
+  const rows = p.entity_collections?.[collectionName] || [];
+  rows.forEach((item, idx) => {
+    const rid = `${collectionName}_${idx}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
+      <td><input id="${rid}_entity" value="${safeText(item.entity_id || "")}" /></td>
+      <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
+      <td>
+        <button class="btn-soft" id="${rid}_up">Up</button>
+        <button class="btn-soft" id="${rid}_down">Down</button>
+        <button class="btn-warn" id="${rid}_del">Del</button>
+      </td>
+    `;
+    body.appendChild(tr);
+    e(`${rid}_name`)?.addEventListener("input", (ev) => {
+      item.name = ev.target.value;
+      syncSlotsFromCollections(p);
+    });
+    e(`${rid}_entity`)?.addEventListener("input", (ev) => {
+      item.entity_id = ev.target.value;
+      syncSlotsFromCollections(p);
+    });
+    e(`${rid}_entity`)?.addEventListener("focus", (ev) => markActiveInput(ev.target));
+    e(`${rid}_enabled`)?.addEventListener("change", (ev) => {
+      item.enabled = ev.target.checked;
+      syncSlotsFromCollections(p);
+    });
+    e(`${rid}_up`)?.addEventListener("click", () => {
+      if (idx <= 0) return;
+      const temp = rows[idx - 1];
+      rows[idx - 1] = rows[idx];
+      rows[idx] = temp;
+      syncSlotsFromCollections(p);
+      renderCollections();
+    });
+    e(`${rid}_down`)?.addEventListener("click", () => {
+      if (idx >= rows.length - 1) return;
+      const temp = rows[idx + 1];
+      rows[idx + 1] = rows[idx];
+      rows[idx] = temp;
+      syncSlotsFromCollections(p);
+      renderCollections();
+    });
+    e(`${rid}_del`)?.addEventListener("click", () => {
+      rows.splice(idx, 1);
+      syncSlotsFromCollections(p);
+      renderCollections();
+    });
+  });
+}
+
+function renderCollections() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureCollections(p);
+  if (e("lights_max")) e("lights_max").value = String(p.entity_collections.limits?.lights_max || 24);
+  if (e("cameras_max")) e("cameras_max").value = String(p.entity_collections.limits?.cameras_max || 8);
+  renderCollectionRows("lights", "lights_collection_body");
+  renderCollectionRows("cameras", "cameras_collection_body");
+  const summaryNode = e("advanced_collection_summary");
+  if (summaryNode) {
+    summaryNode.textContent = `Lights: ${p.entity_collections.lights.length}\nCameras: ${p.entity_collections.cameras.length}\nMapped to FW slots: lights=${p.slots?.light_slot_count || 0}/8 cameras=${p.slots?.camera_slot_count || 0}/2`;
+  }
+}
+
+function addCollectionItem(collectionName) {
+  const p = currentProfile();
+  if (!p) return;
+  ensureCollections(p);
+  const limits = p.entity_collections?.limits || {};
+  const max = Number(collectionName === "lights" ? limits.lights_max || 24 : limits.cameras_max || 8);
+  const rows = p.entity_collections[collectionName];
+  if (rows.length >= max) {
+    setStatus(`${collectionName} reached configured max ${max}`, true);
+    return;
+  }
+  const idx = rows.length + 1;
+  rows.push({
+    id: `${collectionName.slice(0, -1)}_${idx}`,
+    name: `${collectionName.slice(0, -1).toUpperCase()} ${idx}`,
+    entity_id: "",
+    enabled: true,
+  });
+  syncSlotsFromCollections(p);
+  renderCollections();
+}
+
+function ensureLayoutPages() {
+  if (!state.workspace) return;
+  const defaults = state.contracts?.layout_defaults || {};
+  if (!state.workspace.layout_pages || typeof state.workspace.layout_pages !== "object") {
+    state.workspace.layout_pages = deepClone(defaults);
+  }
+  DEFAULT_LAYOUT_PAGES.forEach((pageId) => {
+    if (!state.workspace.layout_pages[pageId]) {
+      state.workspace.layout_pages[pageId] = deepClone(defaults[pageId] || {
+        grid: { cols: 4, rows: 6 },
+        sections: [
+          { id: "header", x: 0, y: 0, w: 4, h: 1 },
+          { id: "content", x: 0, y: 1, w: 4, h: 4 },
+          { id: "footer", x: 0, y: 5, w: 4, h: 1 },
+        ],
+      });
+    }
+    if (!Array.isArray(state.workspace.layout_pages[pageId].sections)) {
+      state.workspace.layout_pages[pageId].sections = [];
+    }
+  });
+}
+
+function currentLayoutPageId() {
+  return (e("layout_page_select")?.value || "home").trim().toLowerCase() || "home";
+}
+
+function currentLayoutPageModel() {
+  ensureLayoutPages();
+  const pageId = currentLayoutPageId();
+  return state.workspace.layout_pages[pageId];
+}
+
+function renderLayoutSections() {
+  const body = e("layout_sections_body");
+  if (!body) return;
+  const pageId = currentLayoutPageId();
+  const pageModel = currentLayoutPageModel() || { grid: { cols: 4, rows: 6 }, sections: [] };
+  const grid = pageModel.grid || { cols: 4, rows: 6 };
+  const sections = Array.isArray(pageModel.sections) ? pageModel.sections : [];
+  body.innerHTML = "";
+
+  sections.forEach((section, idx) => {
+    const rid = `layout_${pageId}_${idx}`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><input id="${rid}_id" value="${safeText(section.id || `section_${idx + 1}`)}" /></td>
+      <td><input id="${rid}_x" type="number" min="0" max="${Math.max(0, Number(grid.cols || 4) - 1)}" value="${safeText(section.x ?? 0)}" /></td>
+      <td><input id="${rid}_y" type="number" min="0" max="${Math.max(0, Number(grid.rows || 6) - 1)}" value="${safeText(section.y ?? 0)}" /></td>
+      <td><input id="${rid}_w" type="number" min="1" max="${safeText(grid.cols || 4)}" value="${safeText(section.w ?? 1)}" /></td>
+      <td><input id="${rid}_h" type="number" min="1" max="${safeText(grid.rows || 6)}" value="${safeText(section.h ?? 1)}" /></td>
+      <td>
+        <button class="btn-soft" id="${rid}_up">Up</button>
+        <button class="btn-soft" id="${rid}_down">Down</button>
+        <button class="btn-warn" id="${rid}_del">Del</button>
+      </td>
+    `;
+    body.appendChild(tr);
+
+    e(`${rid}_id`)?.addEventListener("input", (ev) => {
+      section.id = String(ev.target.value || "").trim() || `section_${idx + 1}`;
+    });
+    e(`${rid}_x`)?.addEventListener("input", (ev) => {
+      section.x = clampInt(ev.target.value, 0, Math.max(0, Number(grid.cols || 4) - 1));
+      ev.target.value = String(section.x);
+    });
+    e(`${rid}_y`)?.addEventListener("input", (ev) => {
+      section.y = clampInt(ev.target.value, 0, Math.max(0, Number(grid.rows || 6) - 1));
+      ev.target.value = String(section.y);
+    });
+    e(`${rid}_w`)?.addEventListener("input", (ev) => {
+      section.w = clampInt(ev.target.value, 1, Number(grid.cols || 4));
+      ev.target.value = String(section.w);
+    });
+    e(`${rid}_h`)?.addEventListener("input", (ev) => {
+      section.h = clampInt(ev.target.value, 1, Number(grid.rows || 6));
+      ev.target.value = String(section.h);
+    });
+
+    e(`${rid}_up`)?.addEventListener("click", () => {
+      if (idx <= 0) return;
+      const temp = sections[idx - 1];
+      sections[idx - 1] = sections[idx];
+      sections[idx] = temp;
+      renderLayoutSections();
+    });
+    e(`${rid}_down`)?.addEventListener("click", () => {
+      if (idx >= sections.length - 1) return;
+      const temp = sections[idx + 1];
+      sections[idx + 1] = sections[idx];
+      sections[idx] = temp;
+      renderLayoutSections();
+    });
+    e(`${rid}_del`)?.addEventListener("click", () => {
+      sections.splice(idx, 1);
+      renderLayoutSections();
+    });
+  });
+
+  const meta = e("layout_validation_meta");
+  if (meta) meta.textContent = `Page ${pageId} grid ${grid.cols || 4}x${grid.rows || 6} | sections ${sections.length}`;
+}
+
+function addLayoutSection() {
+  const pageModel = currentLayoutPageModel();
+  const sections = Array.isArray(pageModel.sections) ? pageModel.sections : [];
+  const idx = sections.length + 1;
+  sections.push({
+    id: `section_${idx}`,
+    x: 0,
+    y: Math.min(idx, Number(pageModel.grid?.rows || 6) - 1),
+    w: Math.min(4, Number(pageModel.grid?.cols || 4)),
+    h: 1,
+  });
+  pageModel.sections = sections;
+  renderLayoutSections();
+}
+
+async function validateLayout() {
+  const data = await apiPost("api/layout/validate", { layout_pages: state.workspace.layout_pages });
+  const val = data.validation || {};
+  const lines = [
+    `Layout OK: ${val.ok}`,
+    `Errors: ${(val.errors || []).length}`,
+    ...(val.errors || []).map((x) => `- ${x}`),
+    `Warnings: ${(val.warnings || []).length}`,
+    ...(val.warnings || []).map((x) => `- ${x}`),
+  ];
+  const out = e("layout_validation_meta");
+  if (out) out.textContent = lines.join("\n");
+  setStatus(val.ok ? "Layout validation passed" : "Layout validation has errors", !val.ok);
+}
+
+async function saveLayout() {
+  const body = profilePayload();
+  body.layout_pages = state.workspace.layout_pages;
+  const data = await apiPost("api/layout/save", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setStatus(`Layout saved${data.saved_workspace ? ` (${data.saved_workspace})` : ""}`);
+}
+
+async function resetLayoutPage() {
+  const page = currentLayoutPageId();
+  if (!window.confirm(`Reset layout page '${page}' to defaults?`)) return;
+  const body = profilePayload();
+  body.page = page;
+  const data = await apiPost("api/layout/reset_page", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  renderLayoutSections();
+  setStatus(`Layout page '${page}' reset`);
 }
 
 function renderFieldGroup(containerId, fields, sourceObjName) {
@@ -434,27 +910,166 @@ function renderFieldGroup(containerId, fields, sourceObjName) {
   });
 }
 
+function ensureThemeStudio(profile) {
+  if (!profile.theme_studio || typeof profile.theme_studio !== "object") {
+    profile.theme_studio = {};
+  }
+  if (!profile.theme || typeof profile.theme !== "object") {
+    profile.theme = {};
+  }
+  if (!profile.theme_studio.custom_tokens || typeof profile.theme_studio.custom_tokens !== "object") {
+    profile.theme_studio.custom_tokens = {};
+  }
+}
+
+function getActiveThemeTokenKey() {
+  const key = e("theme_token_select")?.value || THEME_TOKEN_KEYS[0];
+  return THEME_TOKEN_KEYS.includes(key) ? key : THEME_TOKEN_KEYS[0];
+}
+
+function renderThemePalettes() {
+  const select = e("theme_palette_select");
+  if (!select) return;
+  select.innerHTML = "";
+  const rows = Array.isArray(state.themePalettes) ? state.themePalettes : [];
+  rows.forEach((row) => {
+    const opt = document.createElement("option");
+    opt.value = row.id;
+    opt.textContent = row.name || row.id;
+    select.appendChild(opt);
+  });
+  if (!rows.length) {
+    const opt = document.createElement("option");
+    opt.value = "";
+    opt.textContent = "No palettes";
+    select.appendChild(opt);
+  }
+}
+
+function selectedPaletteTokens() {
+  const paletteId = (e("theme_palette_select")?.value || "").trim();
+  const row = (state.themePalettes || []).find((x) => String(x.id || "") === paletteId);
+  return row?.tokens && typeof row.tokens === "object" ? row.tokens : {};
+}
+
+function currentThemeTokensForPreview() {
+  const p = currentProfile();
+  if (!p) return {};
+  ensureThemeStudio(p);
+  const base = selectedPaletteTokens();
+  const merged = {};
+  THEME_TOKEN_KEYS.forEach((key) => {
+    const fromCustom = p.theme_studio.custom_tokens?.[key];
+    const fromTheme = p.theme?.[key];
+    const fromBase = base?.[key];
+    if (fromCustom) merged[key] = fromCustom;
+    else if (fromTheme) merged[key] = fromTheme;
+    else if (fromBase) merged[key] = fromBase;
+  });
+  return merged;
+}
+
+function syncThemePickerFromToken() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureThemeStudio(p);
+  const key = getActiveThemeTokenKey();
+  const tokens = currentThemeTokensForPreview();
+  const hex = colorToHex(tokens[key], "#4f8fe6");
+  if (e("theme_color_picker")) e("theme_color_picker").value = hex;
+}
+
+function renderThemePreviewCard(tokens, metaText = "") {
+  const card = e("theme_preview_card");
+  const meta = e("theme_preview_meta");
+  if (meta) meta.textContent = metaText;
+  if (!card || !tokens || typeof tokens !== "object") return;
+  const bg = colorToHex(tokens.theme_token_screen_bg, "#101826");
+  const surface = colorToHex(tokens.theme_token_surface, "#1b2434");
+  const action = colorToHex(tokens.theme_token_action, "#4f8fe6");
+  const text = colorToHex(tokens.theme_token_text_primary, "#edf4ff");
+  const textDim = colorToHex(tokens.theme_token_text_dim, "#b7c9df");
+  card.style.background = `linear-gradient(150deg, ${surface}, ${bg})`;
+  card.style.borderColor = colorToHex(tokens.theme_token_surface_alt, "#2b3f57");
+  card.style.color = text;
+  const title = card.querySelector(".theme-preview-title");
+  const body = card.querySelector(".theme-preview-body");
+  if (title) title.style.color = text;
+  if (body) {
+    body.style.color = textDim;
+    body.textContent = `Action ${action} | Text ${text} | Surface ${surface}`;
+  }
+}
+
+async function previewTheme() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureThemeStudio(p);
+  const key = getActiveThemeTokenKey();
+  const custom = { ...(p.theme_studio.custom_tokens || {}) };
+  custom[key] = hexToToken(e("theme_color_picker")?.value || "#4f8fe6");
+  p.theme_studio.custom_tokens = custom;
+  const paletteId = (e("theme_palette_select")?.value || "").trim();
+  const data = await apiPost("api/theme/preview", { palette_id: paletteId, tokens: custom });
+  const tokens = data.tokens || {};
+  renderThemePreviewCard(tokens, `Contrast ratio: ${(data.contrast_ratio || 0).toFixed(2)} | AA normal: ${data.wcag_aa_normal ? "pass" : "fail"}`);
+}
+
+async function applyTheme() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureThemeStudio(p);
+  const key = getActiveThemeTokenKey();
+  const custom = { ...(p.theme_studio.custom_tokens || {}) };
+  custom[key] = hexToToken(e("theme_color_picker")?.value || "#4f8fe6");
+  p.theme_studio.custom_tokens = custom;
+  const paletteId = (e("theme_palette_select")?.value || "").trim();
+  const body = profilePayload();
+  body.palette_id = paletteId;
+  body.tokens = custom;
+  const data = await apiPost("api/theme/apply", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  const ratio = Number(data.contrast_ratio || 0).toFixed(2);
+  renderThemePreviewCard(data.tokens || {}, `Applied. Contrast ratio: ${ratio} | AA normal: ${data.wcag_aa_normal ? "pass" : "fail"}`);
+  setStatus("Theme applied to active device profile");
+}
+
 function syncProfileToForm() {
   const p = currentProfile();
   if (!p) return;
+  ensureThemeStudio(p);
+  ensureLayoutPages();
   applyProfileBasicsToForm();
   renderFeatureToggles();
   renderUiToggles();
-
-  buildCountSelect("light_slot_count", 1, 8, p.slots.light_slot_count);
-  buildCountSelect("camera_slot_count", 0, 2, p.slots.camera_slot_count);
 
   e("ha_base_url").value = p.settings.ha_base_url || "";
   e("camera_refresh_interval_s").value = p.settings.camera_refresh_interval_s || "60";
   e("camera_snapshot_dir").value = p.settings.camera_snapshot_dir || "/config/www/tdeck";
   e("camera_snapshot_enable").checked = asBool(p.settings.camera_snapshot_enable);
 
-  renderLightSlots();
-  renderCameraSlots();
+  renderCollections();
   renderFieldGroup("weather_fields", WEATHER_FIELDS, "entities");
   renderFieldGroup("climate_fields", CLIMATE_FIELDS, "entities");
   renderFieldGroup("reader_fields", READER_FIELDS, "entities");
   renderFieldGroup("theme_fields", THEME_FIELDS, "theme");
+  renderTemplateDomains();
+  renderThemePalettes();
+
+  const activePalette = p.theme_studio?.active_palette || (state.themePalettes?.[0]?.id || "ocean_dark");
+  if (e("theme_palette_select")) e("theme_palette_select").value = activePalette;
+  if (e("theme_token_select") && !THEME_TOKEN_KEYS.includes(e("theme_token_select").value)) {
+    e("theme_token_select").value = THEME_TOKEN_KEYS[0];
+  }
+  syncThemePickerFromToken();
+  renderThemePreviewCard(currentThemeTokensForPreview(), "Preview not run yet.");
+
+  if (e("layout_page_select") && !e("layout_page_select").value) {
+    e("layout_page_select").value = "home";
+  }
+  renderLayoutSections();
   syncUpdateDefaultsFromProfile();
   refreshFirmwareStatus().catch((err) => {
     const node = e("firmware_update_result");
@@ -472,9 +1087,10 @@ function updateProfileFromTopFields() {
   p.device.git_ref = e("git_ref").value.trim() || "stable";
   p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.21.0");
-  p.slots.light_slot_count = Number(e("light_slot_count").value || "6");
-  p.slots.camera_slot_count = Number(e("camera_slot_count").value || "0");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.22.0");
+  ensureCollections(p);
+  if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
+  if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
   p.settings.ha_base_url = e("ha_base_url").value.trim();
   p.settings.camera_refresh_interval_s = e("camera_refresh_interval_s").value.trim();
   p.settings.camera_snapshot_dir = e("camera_snapshot_dir").value.trim();
@@ -488,6 +1104,7 @@ function updateProfileFromTopFields() {
   state.workspace.deployment.git_ref = p.device.git_ref;
   state.workspace.deployment.git_url = p.device.git_url;
   state.workspace.deployment.app_release_version = p.settings.app_release_version;
+  syncSlotsFromCollections(p);
   syncUpdateDefaultsFromProfile();
 }
 function addDevice() {
@@ -550,14 +1167,16 @@ function bindTopFieldEvents() {
   e("device_clone_btn").addEventListener("click", cloneDevice);
   e("device_remove_btn").addEventListener("click", removeDevice);
 
-  e("light_slot_count").addEventListener("change", () => {
+  e("lights_max")?.addEventListener("input", () => {
     updateProfileFromTopFields();
-    renderLightSlots();
+    renderCollections();
   });
-  e("camera_slot_count").addEventListener("change", () => {
+  e("cameras_max")?.addEventListener("input", () => {
     updateProfileFromTopFields();
-    renderCameraSlots();
+    renderCollections();
   });
+  e("lights_add_btn")?.addEventListener("click", () => addCollectionItem("lights"));
+  e("cameras_add_btn")?.addEventListener("click", () => addCollectionItem("cameras"));
 }
 
 function getDeviceSlug() {
@@ -752,7 +1371,7 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.21.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.22.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -761,7 +1380,7 @@ function firmwareStatusQuery() {
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.21.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.22.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -814,18 +1433,18 @@ async function refreshFirmwareStatus() {
   if (manualBtn) manualBtn.disabled = false;
 }
 
-async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true) {
+async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipConfirm = false) {
   const promptText = backupFirst
     ? `Run managed backup and firmware workflow (${mode})?`
     : `Run firmware workflow (${mode}) without backup?`;
-  if (!window.confirm(promptText)) return;
+  if (!skipConfirm && !window.confirm(promptText)) return;
   const body = profilePayload();
   body.device_slug = getDeviceSlug();
   body.backup_first = !!backupFirst;
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.21.0");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.22.0");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -935,6 +1554,9 @@ async function generate() {
   const [install, overrides] = await Promise.all([apiPost("api/generate/install", body), apiPost("api/generate/overrides", body)]);
   e("install_out").value = install.yaml || "";
   e("overrides_out").value = overrides.yaml || "";
+  e("generated_entities_out").value = install.generated?.entities || "";
+  e("generated_theme_out").value = install.generated?.theme || "";
+  e("generated_layout_out").value = install.generated?.layout || "";
   const validation = install.validation || overrides.validation || {};
   const errCount = (validation.errors || []).length;
   const warnCount = (validation.warnings || []).length;
@@ -946,14 +1568,20 @@ async function previewApply() {
   const preview = data.preview || {};
   e("apply_preview_install_diff").value = preview.install?.diff || "No install changes";
   e("apply_preview_overrides_diff").value = preview.overrides?.diff || "No overrides changes";
+  const generatedDiff = [
+    preview.generated?.entities?.diff || "No generated entities changes",
+    preview.generated?.theme?.diff || "No generated theme changes",
+    preview.generated?.layout?.diff || "No generated layout changes",
+  ].join("\n\n");
+  e("apply_preview_generated_diff").value = generatedDiff;
   const validation = data.validation || {};
   const errCount = (validation.errors || []).length;
   const warnCount = (validation.warnings || []).length;
   setStatus(`Apply preview ready for ${preview.device_slug || "device"} (${errCount} errors, ${warnCount} warnings)`, errCount > 0);
 }
 
-async function commitApply() {
-  if (!window.confirm("Apply generated config to managed files with automatic backup?")) return;
+async function commitApply(skipConfirm = false) {
+  if (!skipConfirm && !window.confirm("Apply generated config to managed files with automatic backup?")) return;
   const data = await apiPost("api/apply/commit", profilePayload());
   setStatus(`Applied to ${data.device_slug}. Backup ${data.backup?.id || "created"}`);
   await refreshBackups();
@@ -1036,6 +1664,8 @@ async function loadSelectedProfile() {
   const data = await apiGet(`api/profile/load?name=${encodeURIComponent(selected)}`);
   state.workspace = ensureWorkspace(data.workspace || data.profile, state.contracts.defaults || {});
   state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  setMode(state.workspace.mode_ui?.mode || "guided");
+  setGuidedStep(Number(state.workspace.mode_ui?.guided_step || 0));
   syncProfileToForm();
   setStatus(`Loaded workspace ${selected}`);
 }
@@ -1076,6 +1706,42 @@ async function validateProfile() {
   }
   e("validation_out").textContent = lines.join("\n");
   setStatus(data.ok ? "Workspace validation passed" : "Workspace validation has errors", !data.ok);
+  return data;
+}
+
+async function guidedDeploy() {
+  setStatus("Running guided deploy pipeline...");
+  const validation = await validateProfile();
+  if (!validation.ok) {
+    setStatus("Guided deploy stopped: validation has errors", true);
+    setGuidedStep(5);
+    return;
+  }
+  await previewApply();
+  await commitApply(true);
+  await triggerFirmwareWorkflow("auto", true, true);
+  await generate();
+  setStatus("Guided deploy completed");
+}
+
+async function refreshTemplateCatalog() {
+  try {
+    const data = await apiGet("api/meta/templates");
+    state.templateCatalog = data.templates || {};
+  } catch (_err) {
+    state.templateCatalog = state.contracts?.templates || {};
+  }
+  renderTemplateDomains();
+}
+
+async function refreshThemePalettes() {
+  try {
+    const data = await apiGet("api/theme/palettes");
+    state.themePalettes = Array.isArray(data.palettes) ? data.palettes : [];
+  } catch (_err) {
+    state.themePalettes = Array.isArray(state.contracts?.theme_palettes) ? state.contracts.theme_palettes : [];
+  }
+  renderThemePalettes();
 }
 
 function bindProfileEvents() {
@@ -1127,17 +1793,75 @@ function bindProfileEvents() {
   e("refresh_runtime_btn").addEventListener("click", () => {
     refreshRuntimeDiagnostics().catch((err) => setStatus(`Runtime diagnostics error: ${err.message}`, true));
   });
+
+  e("template_domain_select")?.addEventListener("change", renderTemplateItems);
+  e("template_item_select")?.addEventListener("change", renderTemplatePreview);
+  e("template_apply_btn")?.addEventListener("click", applySelectedTemplate);
+
+  e("theme_palette_select")?.addEventListener("change", () => {
+    const p = currentProfile();
+    if (p) {
+      ensureThemeStudio(p);
+      p.theme_studio.active_palette = e("theme_palette_select").value || "ocean_dark";
+    }
+    syncThemePickerFromToken();
+    renderThemePreviewCard(currentThemeTokensForPreview(), "Palette changed.");
+  });
+  e("theme_token_select")?.addEventListener("change", syncThemePickerFromToken);
+  e("theme_color_picker")?.addEventListener("input", () => {
+    const p = currentProfile();
+    if (!p) return;
+    ensureThemeStudio(p);
+    const key = getActiveThemeTokenKey();
+    const custom = { ...(p.theme_studio.custom_tokens || {}) };
+    custom[key] = hexToToken(e("theme_color_picker").value);
+    p.theme_studio.custom_tokens = custom;
+    renderThemePreviewCard(currentThemeTokensForPreview(), "Local preview (not applied).");
+  });
+  e("theme_preview_btn")?.addEventListener("click", () => {
+    previewTheme().catch((err) => setStatus(`Theme preview failed: ${err.message}`, true));
+  });
+  e("theme_apply_btn")?.addEventListener("click", () => {
+    applyTheme().catch((err) => setStatus(`Theme apply failed: ${err.message}`, true));
+  });
+
+  e("layout_page_select")?.addEventListener("change", renderLayoutSections);
+  e("layout_add_section_btn")?.addEventListener("click", addLayoutSection);
+  e("layout_validate_btn")?.addEventListener("click", () => {
+    validateLayout().catch((err) => setStatus(`Layout validate failed: ${err.message}`, true));
+  });
+  e("layout_save_btn")?.addEventListener("click", () => {
+    saveLayout().catch((err) => setStatus(`Layout save failed: ${err.message}`, true));
+  });
+  e("layout_reset_page_btn")?.addEventListener("click", () => {
+    resetLayoutPage().catch((err) => setStatus(`Layout reset failed: ${err.message}`, true));
+  });
+  e("guided_deploy_btn")?.addEventListener("click", () => {
+    guidedDeploy().catch((err) => setStatus(`Guided deploy failed: ${err.message}`, true));
+  });
 }
 
 async function bootstrap() {
   bindTabs();
+  bindModeControls();
   bindExplorerEvents();
   bindProfileEvents();
 
   const meta = await apiGet("api/meta/contracts");
   state.contracts = meta.contracts || {};
+  state.templateCatalog = meta.templates || {};
+  state.themePalettes = Array.isArray(meta.theme_palettes) ? meta.theme_palettes : [];
   state.workspace = ensureWorkspace(meta.default_workspace || meta.default_profile, meta.default_profile || {});
   state.activeDeviceIndex = Number(state.workspace.active_device_index || 0);
+  try {
+    const persistedMode = window.localStorage.getItem("tdeck_admin_mode");
+    state.uiMode = persistedMode || state.workspace.mode_ui?.mode || "guided";
+  } catch (_err) {
+    state.uiMode = state.workspace.mode_ui?.mode || "guided";
+  }
+  state.guidedStep = Number(state.workspace.mode_ui?.guided_step || 0);
+  setMode(state.uiMode);
+  setGuidedStep(state.guidedStep);
   syncProfileToForm();
   bindTopFieldEvents();
 
@@ -1156,12 +1880,11 @@ async function bootstrap() {
   await runStep("Firmware status", refreshFirmwareStatus);
   await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
   await runStep("Profile list", loadProfiles);
+  await runStep("Template catalog", refreshTemplateCatalog);
+  await runStep("Theme palettes", refreshThemePalettes);
   await runStep("Discovery start", () => startDiscoveryJob(false, { wait_for_completion: false }));
   await runStep("Latest release", refreshLatestRelease);
-  await runStep("YAML generation", generate);
-  await runStep("Apply preview", previewApply);
   await runStep("Backup list", refreshBackups);
-  await runStep("HA update package generation", generateHaUpdatePackage);
 
   if (state.bootErrors.length > 0) {
     setStatus(`Admin Center ready with issues (${state.bootErrors.length}). Check status/details.`, true);

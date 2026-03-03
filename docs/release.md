@@ -2,10 +2,37 @@
 
 ## Baseline
 
-- Current add-on manifest version in repo: `0.21.0`
+- Current add-on manifest version in repo: `0.22.0`
 - Public install templates now track `stable`.
 
 ## Unreleased (Current `main`)
+
+### Admin Center v0.22.0 mega UX/configuration upgrade
+
+1. Guided + Advanced dual-mode UX:
+   - Guided default: Device -> Features -> Entities -> Theme -> Layout -> Deploy
+   - Advanced tabs kept for power users and raw outputs
+2. Workspace schema upgraded to `3.0` with compatibility migration for older payloads.
+3. Dynamic collection model:
+   - lights/cameras add/remove/reorder in UI
+   - template catalog apply flow for rapid mapping bootstrap
+4. Full layout workflow added:
+   - layout load/validate/save/reset endpoints
+   - grid+sections editor with overlap/bounds validation
+5. Theme Studio modernization:
+   - palette discovery endpoint
+   - token-focused color picker workflow
+   - preview/apply/contrast-check endpoints
+6. Managed apply now previews and writes generated artifacts:
+   - `generated/entities.generated.yaml`
+   - `generated/theme.generated.yaml`
+   - `generated/ui-layout.yaml`
+7. Startup behavior simplified:
+   - no heavy generation/apply calls during boot
+   - health/runtime/discovery readiness first
+8. Generated files hardened for compile safety:
+   - removed risky inline lambda summaries from generated package files
+   - generated theme file now emits canonical `theme_token_*` substitutions.
 
 ### Admin Center v0.21.0 recovery + robust workflow
 
@@ -91,13 +118,12 @@
 
 ## Next tag recommendation
 
-1. `v0.21.0-admin-robust-workflow`
-   - ingress 404 elimination
-   - discovery scale/diagnostics hardening
-   - firmware auto-detect + fallback workflow
+1. `v0.22.0-admin-guided-advanced-mega-upgrade`
+   - guided/advanced UX + schema 3.0 + dynamic entities + layout/theme workflows
+   - generated managed files and safer startup behavior
 2. next:
-   - `v0.22.0-admin-mapping-canvas-v1`
-   - `v0.23.0-firmware-modular-ui`
+   - `v0.22.1-firmware-modular-include-hooks`
+   - `v0.23.0-canvas-advanced-layout-constraints`
 
 ## Tagging flow
 

@@ -9,281 +9,410 @@
 <body>
   <main class="app">
     <header class="hero">
-      <h1>T-Deck Admin Center v3</h1>
-      <p>Profile-driven config studio for T-Deck firmware. Discover entities, map features, and generate drop-in YAML.</p>
+      <h1>T-Deck Admin Center v4</h1>
+      <p>User-friendly guided flow with advanced controls for full firmware customization and safe one-click deploy.</p>
     </header>
 
-    <nav class="tabs">
-      <button class="tab-btn active" data-tab="overview">Overview</button>
-      <button class="tab-btn" data-tab="explorer">Entity Explorer</button>
-      <button class="tab-btn" data-tab="mapping">Mapping Wizard</button>
-      <button class="tab-btn" data-tab="profiles">Profiles</button>
-      <button class="tab-btn" data-tab="updates">Updates</button>
-      <button class="tab-btn" data-tab="generate">Generate</button>
-    </nav>
-
-    <section class="panel tab-panel active" id="tab-overview">
-      <h2>Overview</h2>
-      <div class="grid2">
-        <div class="card">
-          <h3>Health</h3>
-          <div id="health_summary" class="mono">Loading...</div>
-          <div id="discovery_status" class="mono compact">Discovery idle</div>
-          <div class="actions">
-            <button id="refresh_health_btn" class="btn-soft">Refresh Health</button>
-            <button id="refresh_cache_btn" class="btn-soft">Refresh Discovery Cache</button>
-            <button id="discovery_cancel_btn" class="btn-warn">Cancel Discovery Job</button>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Workspace + Device</h3>
-          <label>Workspace Name <input id="workspace_name" value="default" /></label>
-          <label>Active Device
-            <select id="device_select"></select>
-          </label>
-          <div class="actions">
-            <button id="device_add_btn" class="btn-soft">Add Device</button>
-            <button id="device_clone_btn" class="btn-soft">Clone Device</button>
-            <button id="device_remove_btn" class="btn-warn">Remove Device</button>
-          </div>
-          <label>Profile Name <input id="profile_name" value="default" /></label>
-          <label>Node Name <input id="device_name" value="lilygo-tdeck-plus" /></label>
-          <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
-          <label>Git Ref <input id="git_ref" value="stable" /></label>
-          <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-          <label>App Release Version <input id="app_release_version" value="v0.21.0" /></label>
-        </div>
-        <div class="card">
-          <h3>System Status</h3>
-          <div id="transport_status" class="mono compact">API transport loading...</div>
-          <div id="runtime_diag" class="mono compact">Runtime diagnostics loading...</div>
-          <div class="actions">
-            <button id="refresh_runtime_btn" class="btn-soft">Refresh Runtime Diagnostics</button>
-          </div>
-        </div>
-        <div class="card">
-          <h3>Firmware Workflow</h3>
-          <div id="firmware_status_summary" class="mono compact">Loading...</div>
-          <div id="firmware_pending_banner" class="meta-line"></div>
-          <div class="actions">
-            <button id="fw_status_refresh_btn" class="btn-soft">Refresh Firmware Status</button>
-            <button id="fw_workflow_auto_btn">Backup + Auto Update</button>
-            <button id="fw_workflow_build_btn" class="btn-soft">Backup + Build/Install</button>
-            <button id="fw_workflow_install_btn" class="btn-soft">Install Only</button>
-            <button id="fw_manual_steps_btn" class="btn-soft">Manual Next Steps</button>
-          </div>
-          <div id="firmware_update_result" class="mono compact"></div>
-        </div>
+    <section class="panel mode-switch">
+      <div class="actions">
+        <button id="mode_guided_btn">Guided Mode</button>
+        <button id="mode_advanced_btn" class="btn-soft">Advanced Mode</button>
       </div>
+      <div id="global_status_strip" class="mono compact">Status loading...</div>
       <div id="status_line" class="status">Initializing...</div>
     </section>
 
-    <section class="panel tab-panel" id="tab-explorer">
-      <h2>Entity Explorer</h2>
-      <div class="toolbar">
-        <label>Domain
-          <select id="domain_filter"></select>
-        </label>
-        <label>Search
-          <input id="search_filter" placeholder="weather, climate, camera..." />
-        </label>
-        <label>Sort
-          <select id="sort_filter">
-            <option value="entity_id">Entity ID</option>
-            <option value="friendly_name">Friendly Name</option>
-            <option value="domain">Domain</option>
-            <option value="state">State</option>
-          </select>
-        </label>
-        <label>Page Size
-          <select id="page_size_filter">
-            <option>50</option>
-            <option selected>100</option>
-            <option>200</option>
-            <option>500</option>
-          </select>
-        </label>
-        <label class="checkbox-row">
-          <input type="checkbox" id="only_mappable_filter" />
-          Mappable only
-        </label>
+    <section class="panel" id="guided_shell">
+      <h2>Guided Setup</h2>
+      <div class="guided-steps">
+        <button class="guided-step-btn active" data-step="0">1. Device</button>
+        <button class="guided-step-btn" data-step="1">2. Features</button>
+        <button class="guided-step-btn" data-step="2">3. Entities</button>
+        <button class="guided-step-btn" data-step="3">4. Theme</button>
+        <button class="guided-step-btn" data-step="4">5. Layout</button>
+        <button class="guided-step-btn" data-step="5">6. Deploy</button>
       </div>
+
+      <div class="guided-panel active" id="guided-step-0">
+        <div class="grid2">
+          <div class="card">
+            <h3>Device Workspace</h3>
+            <label>Workspace Name <input id="workspace_name" value="default" /></label>
+            <label>Active Device
+              <select id="device_select"></select>
+            </label>
+            <div class="actions">
+              <button id="device_add_btn" class="btn-soft">Add Device</button>
+              <button id="device_clone_btn" class="btn-soft">Clone Device</button>
+              <button id="device_remove_btn" class="btn-warn">Remove Device</button>
+            </div>
+            <label>Profile Name <input id="profile_name" value="default" /></label>
+            <label>Node Name <input id="device_name" value="lilygo-tdeck-plus" /></label>
+            <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
+            <label>Git Ref <input id="git_ref" value="stable" /></label>
+            <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.22.0" /></label>
+          </div>
+          <div class="card">
+            <h3>System Health</h3>
+            <div id="health_summary" class="mono compact">Loading...</div>
+            <div id="transport_status" class="mono compact">API transport loading...</div>
+            <div id="runtime_diag" class="mono compact">Runtime diagnostics loading...</div>
+            <div class="actions">
+              <button id="refresh_health_btn" class="btn-soft">Refresh Health</button>
+              <button id="refresh_runtime_btn" class="btn-soft">Refresh Runtime Diagnostics</button>
+              <button id="refresh_cache_btn" class="btn-soft">Refresh Discovery Cache</button>
+              <button id="discovery_cancel_btn" class="btn-warn">Cancel Discovery Job</button>
+            </div>
+            <div id="discovery_status" class="mono compact">Discovery idle</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guided-panel" id="guided-step-1">
+        <div class="grid2">
+          <div class="card">
+            <h3>Feature Toggles</h3>
+            <div id="feature_toggles" class="check-grid"></div>
+          </div>
+          <div class="card">
+            <h3>Page Visibility</h3>
+            <div id="ui_toggles" class="check-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guided-panel" id="guided-step-2">
+        <div class="grid2">
+          <div class="card">
+            <h3>Dynamic Lights Collection</h3>
+            <label>Max Lights <input id="lights_max" type="number" min="1" max="64" value="24" /></label>
+            <div class="actions">
+              <button id="lights_add_btn" class="btn-soft">Add Light</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Entity</th><th>On</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="lights_collection_body"></tbody>
+            </table>
+          </div>
+          <div class="card">
+            <h3>Dynamic Cameras Collection</h3>
+            <label>Max Cameras <input id="cameras_max" type="number" min="0" max="24" value="8" /></label>
+            <label>HA Base URL <input id="ha_base_url" /></label>
+            <label>Refresh Interval Seconds <input id="camera_refresh_interval_s" /></label>
+            <label class="checkbox-row"><input type="checkbox" id="camera_snapshot_enable" /> Snapshot enabled</label>
+            <label>Snapshot Directory <input id="camera_snapshot_dir" /></label>
+            <div class="actions">
+              <button id="cameras_add_btn" class="btn-soft">Add Camera</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>Name</th><th>Entity</th><th>On</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="cameras_collection_body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid2">
+          <div class="card">
+            <h3>Template Catalog</h3>
+            <label>Template Domain
+              <select id="template_domain_select"></select>
+            </label>
+            <label>Template
+              <select id="template_item_select"></select>
+            </label>
+            <div class="actions">
+              <button id="template_apply_btn" class="btn-soft">Apply Template to Active Device</button>
+            </div>
+            <div id="template_preview" class="mono compact">Select a template domain to start.</div>
+          </div>
+          <div class="card">
+            <h3>Mapping Guidance</h3>
+            <div class="mono compact">
+Use the Dynamic Lights/Cameras lists for slot-managed entities.
+
+Use template mappings to quickly seed Weather/Climate/Reader keys, then fine-tune in Step 4.
+
+When done, validate and deploy in Step 6.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guided-panel" id="guided-step-3">
+        <div class="grid2">
+          <div class="card">
+            <h3>Theme Studio</h3>
+            <label>Palette
+              <select id="theme_palette_select"></select>
+            </label>
+            <label>Token
+              <select id="theme_token_select">
+                <option value="theme_token_screen_bg">Screen BG</option>
+                <option value="theme_token_surface">Surface</option>
+                <option value="theme_token_surface_alt">Surface Alt</option>
+                <option value="theme_token_action">Action</option>
+                <option value="theme_token_action_soft">Action Soft</option>
+                <option value="theme_token_text_primary">Text Primary</option>
+                <option value="theme_token_text_dim">Text Dim</option>
+                <option value="theme_token_ok">Success</option>
+                <option value="theme_token_warn">Warning</option>
+              </select>
+            </label>
+            <label>Color <input id="theme_color_picker" type="color" value="#4f8fe6" /></label>
+            <div class="actions">
+              <button id="theme_preview_btn" class="btn-soft">Preview</button>
+              <button id="theme_apply_btn">Apply Theme</button>
+            </div>
+            <div id="theme_preview_meta" class="mono compact">Preview not run yet.</div>
+            <div id="theme_preview_card" class="theme-preview-card">
+              <div class="theme-preview-title">Preview</div>
+              <div class="theme-preview-body">Sample text and action color preview.</div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Mapped Entities (Weather/Climate/Reader)</h3>
+            <div id="weather_fields" class="field-grid"></div>
+            <div id="climate_fields" class="field-grid"></div>
+            <div id="reader_fields" class="field-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guided-panel" id="guided-step-4">
+        <div class="grid2">
+          <div class="card">
+            <h3>Layout Builder (Grid + Sections)</h3>
+            <label>Page
+              <select id="layout_page_select">
+                <option value="home">Home</option>
+                <option value="lights">Lights</option>
+                <option value="weather">Weather</option>
+                <option value="climate">Climate</option>
+                <option value="reader">Reader</option>
+                <option value="cameras">Cameras</option>
+                <option value="settings">Settings</option>
+                <option value="theme">Theme</option>
+              </select>
+            </label>
+            <div class="actions">
+              <button id="layout_add_section_btn" class="btn-soft">Add Section</button>
+              <button id="layout_validate_btn" class="btn-soft">Validate Layout</button>
+              <button id="layout_save_btn">Save Layout</button>
+              <button id="layout_reset_page_btn" class="btn-warn">Reset Page</button>
+            </div>
+            <table>
+              <thead>
+                <tr><th>ID</th><th>X</th><th>Y</th><th>W</th><th>H</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="layout_sections_body"></tbody>
+            </table>
+            <div id="layout_validation_meta" class="mono compact"></div>
+          </div>
+          <div class="card">
+            <h3>Explorer (Quick Map)</h3>
+            <div class="toolbar">
+              <label>Domain <select id="domain_filter"></select></label>
+              <label>Search <input id="search_filter" placeholder="weather, climate, camera..." /></label>
+              <label>Sort
+                <select id="sort_filter">
+                  <option value="entity_id">Entity ID</option>
+                  <option value="friendly_name">Friendly Name</option>
+                  <option value="domain">Domain</option>
+                  <option value="state">State</option>
+                </select>
+              </label>
+              <label>Page Size
+                <select id="page_size_filter">
+                  <option>50</option>
+                  <option selected>100</option>
+                  <option>200</option>
+                  <option>500</option>
+                </select>
+              </label>
+              <label class="checkbox-row"><input type="checkbox" id="only_mappable_filter" /> Mappable only</label>
+            </div>
+            <div class="actions">
+              <button id="explorer_refresh_btn">Refresh Results</button>
+              <button id="explorer_use_selected_btn" class="btn-soft">Use Selected -> Active Field</button>
+            </div>
+            <div id="explorer_meta" class="meta-line">No data yet</div>
+            <table>
+              <thead>
+                <tr>
+                  <th class="w-35">Entity ID</th>
+                  <th class="w-25">Friendly Name</th>
+                  <th class="w-15">State</th>
+                  <th class="w-10">Unit</th>
+                  <th class="w-15">Action</th>
+                </tr>
+              </thead>
+              <tbody id="entities_body"></tbody>
+            </table>
+            <div class="pager">
+              <button id="page_prev_btn" class="btn-soft">Prev</button>
+              <span id="page_label">Page 1 / 1</span>
+              <button id="page_next_btn" class="btn-soft">Next</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="guided-panel" id="guided-step-5">
+        <div class="grid2">
+          <div class="card">
+            <h3>Firmware Workflow</h3>
+            <div id="firmware_status_summary" class="mono compact">Loading...</div>
+            <div id="firmware_pending_banner" class="meta-line"></div>
+            <div class="actions">
+              <button id="fw_status_refresh_btn" class="btn-soft">Refresh Firmware Status</button>
+              <button id="fw_workflow_auto_btn">Backup + Auto Update</button>
+              <button id="fw_workflow_build_btn" class="btn-soft">Backup + Build/Install</button>
+              <button id="fw_workflow_install_btn" class="btn-soft">Install Only</button>
+              <button id="fw_manual_steps_btn" class="btn-soft">Manual Next Steps</button>
+            </div>
+            <div id="firmware_update_result" class="mono compact"></div>
+          </div>
+          <div class="card">
+            <h3>One-Click Safe Deploy</h3>
+            <div class="actions">
+              <button id="profile_validate_btn" class="btn-soft">Validate Workspace</button>
+              <button id="apply_preview_btn" class="btn-soft">Preview Apply</button>
+              <button id="apply_commit_btn">Apply to Managed Files</button>
+              <button id="guided_deploy_btn">Validate + Apply + Auto Deploy</button>
+            </div>
+            <textarea id="validation_out" rows="12" spellcheck="false"></textarea>
+            <textarea id="apply_preview_install_diff" rows="10" spellcheck="false"></textarea>
+            <textarea id="apply_preview_overrides_diff" rows="10" spellcheck="false"></textarea>
+            <textarea id="apply_preview_generated_diff" rows="10" spellcheck="false"></textarea>
+            <div class="actions">
+              <button id="backups_refresh_btn" class="btn-soft">Refresh Backups</button>
+              <select id="backup_select"></select>
+              <button id="backup_restore_btn" class="btn-soft">Restore Selected Backup</button>
+            </div>
+            <div id="backups_meta" class="mono compact"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="actions">
-        <button id="explorer_refresh_btn">Refresh Results</button>
-        <button id="explorer_use_selected_btn" class="btn-soft">Use Selected -> Active Field</button>
-      </div>
-      <div id="explorer_meta" class="meta-line">No data yet</div>
-      <table>
-        <thead>
-          <tr>
-            <th class="w-35">Entity ID</th>
-            <th class="w-25">Friendly Name</th>
-            <th class="w-15">State</th>
-            <th class="w-10">Unit</th>
-            <th class="w-15">Action</th>
-          </tr>
-        </thead>
-        <tbody id="entities_body"></tbody>
-      </table>
-      <div class="pager">
-        <button id="page_prev_btn" class="btn-soft">Prev</button>
-        <span id="page_label">Page 1 / 1</span>
-        <button id="page_next_btn" class="btn-soft">Next</button>
+        <button id="guided_prev_btn" class="btn-soft">Previous Step</button>
+        <button id="guided_next_btn">Next Step</button>
+        <span id="guided_step_indicator" class="meta-line">Step 1 of 6</span>
       </div>
     </section>
 
-    <section class="panel tab-panel" id="tab-mapping">
-      <h2>Mapping Wizard</h2>
-      <div class="wizard-grid">
-        <div class="card">
-          <h3>Feature Toggles</h3>
-          <div id="feature_toggles" class="check-grid"></div>
-        </div>
-        <div class="card">
-          <h3>UI Visibility</h3>
-          <div id="ui_toggles" class="check-grid"></div>
-        </div>
-      </div>
+    <section id="advanced_shell" class="hidden">
+      <nav class="tabs">
+        <button class="tab-btn active" data-tab="overview">Overview</button>
+        <button class="tab-btn" data-tab="explorer">Entity Explorer</button>
+        <button class="tab-btn" data-tab="mapping">Mapping Wizard</button>
+        <button class="tab-btn" data-tab="profiles">Profiles</button>
+        <button class="tab-btn" data-tab="updates">Updates</button>
+        <button class="tab-btn" data-tab="generate">Generate</button>
+      </nav>
 
-      <div class="card">
-        <h3>Lights Slots</h3>
-        <label>Light Slot Count
-          <select id="light_slot_count"></select>
-        </label>
-        <div id="light_slots_container" class="slot-grid"></div>
-      </div>
+      <section class="panel tab-panel active" id="tab-overview">
+        <h2>Overview (Advanced)</h2>
+        <p class="meta-line">Advanced mode exposes all raw controls and generated artifacts.</p>
+      </section>
 
-      <div class="card">
-        <h3>Cameras</h3>
-        <label>Camera Slot Count
-          <select id="camera_slot_count"></select>
-        </label>
-        <label>HA Base URL <input id="ha_base_url" /></label>
-        <label>Refresh Interval Seconds <input id="camera_refresh_interval_s" /></label>
-        <label class="checkbox-row"><input type="checkbox" id="camera_snapshot_enable" /> Snapshot enabled</label>
-        <label>Snapshot Directory <input id="camera_snapshot_dir" /></label>
-        <div id="camera_slots_container" class="slot-grid"></div>
-      </div>
+      <section class="panel tab-panel" id="tab-explorer">
+        <h2>Entity Explorer</h2>
+        <p class="meta-line">Use Guided mode for faster setup. Explorer remains shared across modes.</p>
+      </section>
 
-      <div class="wizard-grid">
-        <div class="card">
-          <h3>Weather Entities</h3>
-          <div id="weather_fields" class="field-grid"></div>
-        </div>
-        <div class="card">
-          <h3>Climate Entities</h3>
-          <div id="climate_fields" class="field-grid"></div>
-        </div>
-      </div>
-
-      <div class="wizard-grid">
-        <div class="card">
-          <h3>Reader Entities</h3>
-          <div id="reader_fields" class="field-grid"></div>
-        </div>
-        <div class="card">
-          <h3>Theme Tokens</h3>
-          <div id="theme_fields" class="field-grid"></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel tab-panel" id="tab-profiles">
-      <h2>Profiles</h2>
-      <div class="grid2">
-        <div class="card">
-          <label>Profile List
-            <select id="profile_list" size="10"></select>
-          </label>
-          <div class="actions">
-            <button id="profile_load_btn">Load</button>
-            <button id="profile_save_btn">Save</button>
-            <button id="profile_delete_btn" class="btn-warn">Delete</button>
+      <section class="panel tab-panel" id="tab-mapping">
+        <h2>Mapping Wizard (Advanced)</h2>
+        <div class="grid2">
+          <div class="card">
+            <h3>Legacy Theme Tokens</h3>
+            <div id="theme_fields" class="field-grid"></div>
+          </div>
+          <div class="card">
+            <h3>Collection Summary</h3>
+            <div id="advanced_collection_summary" class="mono compact"></div>
           </div>
         </div>
-        <div class="card">
-          <label>Rename Selected Profile To
-            <input id="profile_rename_to" />
-          </label>
-          <div class="actions">
-            <button id="profile_rename_btn" class="btn-soft">Rename</button>
-            <button id="profile_validate_btn" class="btn-soft">Validate Current Profile</button>
-          </div>
-          <div id="validation_out" class="mono compact"></div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="panel tab-panel" id="tab-updates">
-      <h2>Updates</h2>
-      <div class="grid2">
-        <div class="card">
-          <h3>Latest Stable Release</h3>
-          <label>Channel
-            <select id="update_channel">
-              <option value="stable" selected>stable</option>
-            </select>
-          </label>
-          <div class="actions">
-            <button id="update_refresh_btn" class="btn-soft">Refresh Latest</button>
+      <section class="panel tab-panel" id="tab-profiles">
+        <h2>Profiles</h2>
+        <div class="grid2">
+          <div class="card">
+            <label>Profile List
+              <select id="profile_list" size="10"></select>
+            </label>
+            <div class="actions">
+              <button id="profile_load_btn">Load</button>
+              <button id="profile_save_btn">Save</button>
+              <button id="profile_delete_btn" class="btn-warn">Delete</button>
+            </div>
           </div>
-          <div id="update_latest_summary" class="mono compact">Loading...</div>
-          <label>Release URL <input id="update_release_url" readonly /></label>
-        </div>
-        <div class="card">
-          <h3>HA Update Entity Package</h3>
-          <p class="meta-line">Generates a Home Assistant package that creates a firmware-style update button and proxies install to native ESPHome firmware update entity.</p>
-          <label>Installed Version Entity <input id="ha_installed_version_entity" /></label>
-          <label>Native Firmware Update Entity <input id="ha_native_firmware_entity" /></label>
-          <div class="actions">
-            <button id="update_generate_package_btn">Generate HA Update Package</button>
+          <div class="card">
+            <label>Rename Selected Profile To
+              <input id="profile_rename_to" />
+            </label>
+            <div class="actions">
+              <button id="profile_rename_btn" class="btn-soft">Rename</button>
+            </div>
           </div>
         </div>
-      </div>
-      <h3>Generated HA Package YAML</h3>
-      <textarea id="ha_update_package_out" rows="20" spellcheck="false"></textarea>
-    </section>
+      </section>
 
-    <section class="panel tab-panel" id="tab-generate">
-      <h2>Generate</h2>
-      <div class="actions">
-        <button id="generate_btn">Generate Install + Overrides</button>
-      </div>
-      <div class="grid2">
-        <div>
-          <h3>Install YAML (Drop-In)</h3>
-          <textarea id="install_out" rows="22" spellcheck="false"></textarea>
+      <section class="panel tab-panel" id="tab-updates">
+        <h2>Updates</h2>
+        <div class="grid2">
+          <div class="card">
+            <h3>Latest Stable Release</h3>
+            <label>Channel
+              <select id="update_channel">
+                <option value="stable" selected>stable</option>
+              </select>
+            </label>
+            <div class="actions">
+              <button id="update_refresh_btn" class="btn-soft">Refresh Latest</button>
+            </div>
+            <div id="update_latest_summary" class="mono compact">Loading...</div>
+            <label>Release URL <input id="update_release_url" readonly /></label>
+          </div>
+          <div class="card">
+            <h3>HA Update Entity Package</h3>
+            <label>Installed Version Entity <input id="ha_installed_version_entity" /></label>
+            <label>Native Firmware Update Entity <input id="ha_native_firmware_entity" /></label>
+            <div class="actions">
+              <button id="update_generate_package_btn">Generate HA Update Package</button>
+            </div>
+            <textarea id="ha_update_package_out" rows="14" spellcheck="false"></textarea>
+          </div>
         </div>
-        <div>
-          <h3>Overrides YAML</h3>
-          <textarea id="overrides_out" rows="22" spellcheck="false"></textarea>
-        </div>
-      </div>
+      </section>
 
-      <h3>Managed Apply (with Backups)</h3>
-      <div class="actions">
-        <button id="apply_preview_btn" class="btn-soft">Preview Apply</button>
-        <button id="apply_commit_btn">Apply to Managed Files</button>
-      </div>
-      <div class="grid2">
-        <div>
-          <h4>Install Diff</h4>
-          <textarea id="apply_preview_install_diff" rows="14" spellcheck="false"></textarea>
-        </div>
-        <div>
-          <h4>Overrides Diff</h4>
-          <textarea id="apply_preview_overrides_diff" rows="14" spellcheck="false"></textarea>
-        </div>
-      </div>
-      <div class="card">
-        <h4>Backups</h4>
+      <section class="panel tab-panel" id="tab-generate">
+        <h2>Generate</h2>
         <div class="actions">
-          <button id="backups_refresh_btn" class="btn-soft">Refresh Backups</button>
-          <select id="backup_select"></select>
-          <button id="backup_restore_btn" class="btn-soft">Restore Selected Backup</button>
+          <button id="generate_btn">Generate Install + Overrides</button>
         </div>
-        <div id="backups_meta" class="mono compact"></div>
-      </div>
+        <div class="grid2">
+          <div>
+            <h3>Install YAML (Drop-In)</h3>
+            <textarea id="install_out" rows="22" spellcheck="false"></textarea>
+          </div>
+          <div>
+            <h3>Overrides YAML</h3>
+            <textarea id="overrides_out" rows="22" spellcheck="false"></textarea>
+          </div>
+        </div>
+        <h3>Generated Include Files</h3>
+        <div class="grid2">
+          <div><textarea id="generated_entities_out" rows="12" spellcheck="false"></textarea></div>
+          <div><textarea id="generated_theme_out" rows="12" spellcheck="false"></textarea></div>
+          <div><textarea id="generated_layout_out" rows="12" spellcheck="false"></textarea></div>
+        </div>
+      </section>
     </section>
   </main>
 

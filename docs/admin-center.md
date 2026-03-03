@@ -27,7 +27,16 @@ The add-on now supports managed direct-apply in a guarded scope:
      - `Device: http://<device-ip>`
      - `HA: Add-ons -> T-Deck Admin Center`
 
-## Admin Center V3 Tabs
+## Admin Center V4 UX (v0.22.0)
+
+Dual mode:
+
+1. `Guided` (default): `Device -> Features -> Entities -> Theme -> Layout -> Deploy`
+2. `Advanced`: tabbed controls for profiles, updates, generation, and diagnostics.
+
+Guided mode keeps primary workflows obvious for first-time users while Advanced exposes full power controls.
+
+## Admin Center Tabs
 
 1. `Overview`
    - HA connectivity
@@ -42,9 +51,9 @@ The add-on now supports managed direct-apply in a guarded scope:
    - sort + mappable-only filter
    - "Use" action into active mapping field
 3. `Mapping Wizard`
-   - feature toggles
-   - UI visibility toggles
-   - light and camera slot editors
+   - feature toggles + page visibility toggles
+   - dynamic lights/cameras collections (add/remove/reorder)
+   - template catalog (`lights/weather/climate/cameras/reader/system`)
    - weather/climate/reader/theme mappings
 4. `Profiles`
    - save/load/rename/delete
@@ -95,6 +104,19 @@ The add-on now supports managed direct-apply in a guarded scope:
 29. `POST /api/firmware/workflow`
 30. `POST /api/firmware/update` (compat alias to workflow install-only mode)
 31. `GET /api/diagnostics/runtime`
+32. `GET /api/meta/templates`
+33. `POST /api/entities/add`
+34. `POST /api/entities/update`
+35. `POST /api/entities/remove`
+36. `POST /api/entities/reorder`
+37. `GET /api/layout/load`
+38. `POST /api/layout/validate`
+39. `POST /api/layout/save`
+40. `POST /api/layout/reset_page`
+41. `GET /api/theme/palettes`
+42. `POST /api/theme/preview`
+43. `POST /api/theme/apply`
+44. `POST /api/theme/contrast_check`
 
 ## Discovery Performance Model
 
@@ -120,6 +142,9 @@ This survives add-on restarts/upgrades unless add-on data is removed.
 2. Per-device files:
    - `/config/esphome/tdeck/<device_slug>/tdeck-install.yaml`
    - `/config/esphome/tdeck/<device_slug>/tdeck-overrides.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/entities.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/theme.generated.yaml`
+   - `/config/esphome/tdeck/<device_slug>/generated/ui-layout.yaml`
 3. Backup snapshots:
    - `/config/esphome/tdeck/.backups/<device_slug>/<timestamp>/`
 
@@ -199,3 +224,14 @@ If you still see this error, run the same repo-cache refresh sequence above and 
    - `install_only`
    - `manual_fallback`
 4. Backup manifests include `reason: pre_firmware_update` or `pre_build_install` with workflow context.
+
+### Guided mode quick deploy
+
+1. Complete steps 1-5.
+2. Open step 6 and click `Validate + Apply + Auto Deploy`.
+3. The pipeline runs:
+   - profile validation
+   - apply preview
+   - managed backup + apply
+   - firmware workflow (`auto`)
+4. Generated install/override/theme/layout artifacts remain available in Advanced `Generate`.

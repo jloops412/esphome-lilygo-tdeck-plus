@@ -5,6 +5,7 @@
 - Primary UI path: LVGL (`ui_lvgl.yaml`)
 - Deployment contract: one install YAML that imports modular packages
 - Stable hardware stack: custom MIPI display + GT911 + trackball + keyboard I2C
+- Public release channel: `stable` branch ref (moving stable pointer)
 
 ## Package topology
 
@@ -17,6 +18,21 @@
 - `persistence_globals.yaml`: persisted and runtime state model
 - `gps_uart.yaml`: GPS transport and sensors
 - `ui_lvgl.yaml`: pages, scripts, dynamic sync, app flow
+
+## Public substitution contract highlights
+
+- visibility toggles:
+  - `ui_show_*`
+  - `home_tile_show_*`
+- theme tokens:
+  - `theme_token_*`
+  - `theme_border_width`
+  - `theme_radius`
+  - `theme_icon_mode`
+- optional cameras:
+  - `camera_slot_count` (`0..2`)
+  - `camera_slot_#_entity`
+  - `camera_refresh_interval_s`
 
 ## Runtime model
 
@@ -71,5 +87,15 @@
 ## Admin center model
 
 1. Device runtime controls through ESPHome entities/web server.
-2. HA Ingress add-on for discover + config generation.
-3. Static generator tool in repo for offline use.
+2. HA Ingress add-on for discover + mapping studio + workspace/device management.
+3. V4 UX is dual-mode:
+   - Guided: step-by-step onboarding and deploy flow
+   - Advanced: diagnostics + raw generation/update controls
+4. Discovery is job-based (`start/status/cancel`) to keep UI responsive on large HA installs.
+5. Managed apply writes only under `/config/esphome/tdeck` with automatic snapshot backups.
+6. Generated managed files are emitted per-device:
+   - `generated/entities.generated.yaml`
+   - `generated/theme.generated.yaml`
+   - `generated/ui-layout.yaml`
+7. Static generator tool in repo remains available for offline scaffolding.
+8. Updates tab generates HA package for update-button flow, proxied to native ESPHome firmware updater.
