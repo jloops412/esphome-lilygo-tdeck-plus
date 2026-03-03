@@ -2,18 +2,18 @@
 
 ## Scope Completed (This Pass)
 
-This pass added update visibility and firmware-pending flow on top of the V3 foundation:
+This pass shipped `0.21.0` recovery and robust firmware workflow hardening:
 
-1. add-on version bumped to `0.20.6` for HA store visibility refresh
-2. runtime version state persisted (`/data/runtime_state.json`)
-3. health endpoint now reports `addon_version`, `addon_updated_since_last_run`, `firmware_status_summary`
-4. firmware APIs added:
-   - `GET /api/firmware/status`
-   - `POST /api/firmware/update`
-5. Overview now includes “In-App Update Status” with:
-   - firmware pending banner
-   - `Backup + Update Firmware` action
-   - optional no-backup update action
+1. add-on version bumped to `0.21.0`
+2. fixed HA Ingress 404 root cause by removing absolute frontend `/api/...` calls
+3. added transport diagnostics in Overview (`api_base_resolved`, `last_api_error`, `last_status_code`)
+4. expanded runtime diagnostics API:
+   - `GET /api/diagnostics/runtime`
+5. firmware workflow APIs added:
+   - `GET /api/firmware/capabilities`
+   - `POST /api/firmware/workflow`
+   - `POST /api/firmware/update` now compatibility alias
+6. discovery responses now include scale metadata (`filtered_total`, `returned`, `query_time_ms`) and staged job progress.
 
 ## Core Decisions Implemented
 

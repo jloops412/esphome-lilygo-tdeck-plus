@@ -25,11 +25,12 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.20.6")) or "0.20.6"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.20.6") or "v0.20.6"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.21.0")) or "0.21.0"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.21.0") or "v0.21.0"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
+SERVICE_CACHE_TTL_SECONDS = 20
 DISCOVERY_JOB_POLL_TTL_SECONDS = 180
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
@@ -69,6 +70,19 @@ WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
 app = Flask(__name__, static_folder=STATIC_DIR)
 
+
+def _enforce_frontend_api_path_guard() -> None:
+    app_js = Path(STATIC_DIR) / "app.js"
+    if not app_js.exists():
+        return
+    text = app_js.read_text(encoding="utf-8", errors="ignore")
+    # Guard: frontend must not call absolute /api paths because HA ingress prefixes URLs.
+    if re.search(r"fetch\(\s*['\"]\/api\/", text):
+        raise RuntimeError("frontend guard failed: absolute '/api/' fetch usage detected in static/app.js")
+
+
+_enforce_frontend_api_path_guard()
+
 _DISCOVERY_LOCK = threading.Lock()
 _DISCOVERY_CACHE: Dict[str, Any] = {
     "fetched_at": 0.0,
@@ -85,6 +99,12 @@ _RELEASE_LOCK = threading.Lock()
 _RELEASE_CACHE: Dict[str, Any] = {
     "fetched_at": 0.0,
     "channels": {},
+    "last_error": "",
+}
+_SERVICE_LOCK = threading.Lock()
+_SERVICE_CACHE: Dict[str, Any] = {
+    "fetched_at": 0.0,
+    "services": {},
     "last_error": "",
 }
 _APPLY_LOCKS: Dict[str, threading.Lock] = {}
@@ -205,6 +225,72 @@ def _ha_post(path: str, payload: Dict[str, Any], timeout: int = 20) -> Any:
         return resp.json()
     except Exception:
         return {"raw": resp.text}
+
+
+def _service_cache_age_ms() -> int:
+    fetched_at = float(_SERVICE_CACHE.get("fetched_at", 0.0) or 0.0)
+    if fetched_at <= 0:
+        return 0
+    age = int((_now() - fetched_at) * 1000.0)
+    return age if age >= 0 else 0
+
+
+def _load_services_catalog(force: bool = False) -> Dict[str, Any]:
+    with _SERVICE_LOCK:
+        age_ms = _service_cache_age_ms()
+        if not force and _SERVICE_CACHE.get("services") and age_ms < SERVICE_CACHE_TTL_SECONDS * 1000:
+            return {
+                "services": dict(_SERVICE_CACHE.get("services", {})),
+                "cache_age_ms": age_ms,
+                "stale": False,
+                "last_error": _as_str(_SERVICE_CACHE.get("last_error"), ""),
+            }
+    try:
+        raw = _ha_get("/services", timeout=20)
+        services: Dict[str, Any] = {}
+        if isinstance(raw, list):
+            for domain_entry in raw:
+                domain = _as_str(domain_entry.get("domain")).strip().lower()
+                svc_map = domain_entry.get("services", {}) if isinstance(domain_entry.get("services"), dict) else {}
+                for service_name in svc_map.keys():
+                    full = f"{domain}.{_as_str(service_name).strip().lower()}"
+                    if domain and "." in full:
+                        services[full] = True
+        with _SERVICE_LOCK:
+            _SERVICE_CACHE["services"] = services
+            _SERVICE_CACHE["fetched_at"] = _now()
+            _SERVICE_CACHE["last_error"] = ""
+        return {"services": services, "cache_age_ms": 0, "stale": False, "last_error": ""}
+    except Exception as err:
+        with _SERVICE_LOCK:
+            _SERVICE_CACHE["last_error"] = str(err)
+            cached = dict(_SERVICE_CACHE.get("services", {}))
+        return {
+            "services": cached,
+            "cache_age_ms": _service_cache_age_ms(),
+            "stale": True,
+            "last_error": str(err),
+        }
+
+
+def _normalize_service_ref(value: Any) -> str:
+    raw = _as_str(value).strip().lower()
+    if not raw or "." not in raw:
+        return ""
+    domain, service = raw.split(".", 1)
+    domain = domain.strip()
+    service = service.strip()
+    if not domain or not service:
+        return ""
+    return f"{domain}.{service}"
+
+
+def _ha_call_service_ref(service_ref: str, payload: Dict[str, Any], timeout: int = 25) -> Any:
+    normalized = _normalize_service_ref(service_ref)
+    if not normalized:
+        raise RuntimeError(f"invalid_service_ref:{service_ref}")
+    domain, service = normalized.split(".", 1)
+    return _ha_post(f"/services/{domain}/{service}", payload, timeout=timeout)
 
 
 def _as_str(value: Any, fallback: str = "") -> str:
@@ -620,6 +706,8 @@ def _contracts() -> Dict[str, Any]:
             "app_release_version",
             "ha_native_firmware_entity",
             "ha_app_version_entity",
+            "ha_esphome_compile_service",
+            "ha_esphome_install_service",
         ],
         "defaults": defaults,
     }
@@ -721,6 +809,7 @@ def _new_discovery_job(force: bool = False) -> Dict[str, Any]:
         "id": job_id,
         "force": bool(force),
         "status": "queued",
+        "stage": "queued",
         "started_at": now,
         "updated_at": now,
         "finished_at": 0.0,
@@ -742,6 +831,7 @@ def _job_snapshot(job: Dict[str, Any] | None) -> Dict[str, Any] | None:
         "id": _as_str(job.get("id")),
         "force": _as_bool(job.get("force"), False),
         "status": _as_str(job.get("status"), "unknown"),
+        "stage": _as_str(job.get("stage"), _as_str(job.get("status"), "unknown")),
         "started_at": float(job.get("started_at", 0.0) or 0.0),
         "updated_at": float(job.get("updated_at", 0.0) or 0.0),
         "finished_at": float(job.get("finished_at", 0.0) or 0.0),
@@ -777,6 +867,7 @@ def _run_discovery_job(job_id: str) -> None:
         if not job:
             return
         job["status"] = "running"
+        job["stage"] = "loading_states"
         job["updated_at"] = _now()
 
     try:
@@ -788,6 +879,7 @@ def _run_discovery_job(job_id: str) -> None:
                 job = _DISCOVERY_JOBS.get(job_id)
                 if job:
                     job["status"] = "completed"
+                    job["stage"] = "completed"
                     job["progress"] = 100
                     job["rows"] = len(cache.get("rows", []))
                     job["domains"] = len(cache.get("domains", []))
@@ -799,6 +891,11 @@ def _run_discovery_job(job_id: str) -> None:
             return
 
         states = _ha_get("/states", timeout=45)
+        with _DISCOVERY_LOCK:
+            job = _DISCOVERY_JOBS.get(job_id)
+            if job:
+                job["stage"] = "loading_states"
+                job["updated_at"] = _now()
         total = len(states) if isinstance(states, list) else 0
         rows: List[Dict[str, Any]] = []
         processed = 0
@@ -809,6 +906,7 @@ def _run_discovery_job(job_id: str) -> None:
                     return
                 if _as_bool(job.get("cancel_requested"), False):
                     job["status"] = "cancelled"
+                    job["stage"] = "cancelled"
                     job["updated_at"] = _now()
                     job["finished_at"] = _now()
                     job["duration_ms"] = int((_now() - started) * 1000.0)
@@ -822,6 +920,7 @@ def _run_discovery_job(job_id: str) -> None:
                 with _DISCOVERY_LOCK:
                     job = _DISCOVERY_JOBS.get(job_id)
                     if job:
+                        job["stage"] = "indexing"
                         job["progress"] = pct if pct < 99 else 99
                         job["rows"] = len(rows)
                         job["total"] = total
@@ -840,6 +939,7 @@ def _run_discovery_job(job_id: str) -> None:
             job = _DISCOVERY_JOBS.get(job_id)
             if job:
                 job["status"] = "completed"
+                job["stage"] = "completed"
                 job["progress"] = 100
                 job["rows"] = len(rows)
                 job["domains"] = len(_DISCOVERY_CACHE["domains"])
@@ -854,6 +954,7 @@ def _run_discovery_job(job_id: str) -> None:
             job = _DISCOVERY_JOBS.get(job_id)
             if job:
                 job["status"] = "failed"
+                job["stage"] = "failed"
                 job["error"] = str(err)
                 job["finished_at"] = _now()
                 job["updated_at"] = _now()
@@ -900,6 +1001,7 @@ def _cancel_discovery_job(job_id: str) -> Dict[str, Any] | None:
         job["updated_at"] = _now()
         if status == "queued":
             job["status"] = "cancelled"
+            job["stage"] = "cancelled"
             job["finished_at"] = _now()
             job["duration_ms"] = int((_now() - float(job.get("started_at", _now()))) * 1000.0)
         return _job_snapshot(job)
@@ -942,6 +1044,8 @@ def _default_profile() -> Dict[str, Any]:
         "climate_tolerance_c_tenths": defaults["climate_tolerance_c_tenths"],
         "ha_native_firmware_entity": "",
         "ha_app_version_entity": "",
+        "ha_esphome_compile_service": "",
+        "ha_esphome_install_service": "",
     }
     return {
         "schema_version": PROFILE_SCHEMA_VERSION,
@@ -1146,6 +1250,8 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     )
     merged["settings"]["ha_native_firmware_entity"] = _as_str(merged["settings"].get("ha_native_firmware_entity"), "")
     merged["settings"]["ha_app_version_entity"] = _as_str(merged["settings"].get("ha_app_version_entity"), "")
+    merged["settings"]["ha_esphome_compile_service"] = _as_str(merged["settings"].get("ha_esphome_compile_service"), "")
+    merged["settings"]["ha_esphome_install_service"] = _as_str(merged["settings"].get("ha_esphome_install_service"), "")
     return merged
 
 
@@ -1786,11 +1892,384 @@ def _build_ha_update_package(
     return "\n".join(lines)
 
 
+def _infer_ingress_api_base() -> str:
+    try:
+        script_root = _as_str(request.script_root, "").rstrip("/")
+        if script_root:
+            return f"{script_root}/api"
+        req_path = _as_str(request.path, "")
+        if req_path.endswith("/api/health"):
+            return req_path.rsplit("/api/health", 1)[0] + "/api"
+        if req_path.endswith("/api/diagnostics/runtime"):
+            return req_path.rsplit("/api/diagnostics/runtime", 1)[0] + "/api"
+    except Exception:
+        pass
+    return "api"
+
+
+def _resolve_firmware_capabilities(
+    device_slug: str,
+    settings: Dict[str, Any] | None = None,
+    native_firmware_entity: str = "",
+    app_version_entity: str = "",
+    target_version: str = "",
+) -> Dict[str, Any]:
+    safe_slug = _slugify(device_slug, "tdeck")
+    settings = settings if isinstance(settings, dict) else {}
+    native_default, app_default = _resolve_firmware_entities(safe_slug, settings)
+    native_entity = _as_str(native_firmware_entity, native_default).strip() or native_default
+    app_entity = _as_str(app_version_entity, app_default).strip() or app_default
+    target = _as_str(target_version, _as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION)).strip() or DEFAULT_APP_RELEASE_VERSION
+
+    services_catalog = _load_services_catalog(force=False)
+    services = services_catalog.get("services", {}) if isinstance(services_catalog.get("services"), dict) else {}
+
+    compile_override = _normalize_service_ref(settings.get("ha_esphome_compile_service"))
+    install_override = _normalize_service_ref(settings.get("ha_esphome_install_service"))
+    compile_candidates = [compile_override, "esphome.compile", "esphome.build"]
+    install_candidates = [install_override, "esphome.install", "esphome.upload", "esphome.run"]
+
+    compile_service = next((svc for svc in compile_candidates if svc and services.get(svc)), "")
+    install_service = next((svc for svc in install_candidates if svc and services.get(svc)), "")
+
+    native_state = _ha_get_state_safe(native_entity)
+    app_state = _ha_get_state_safe(app_entity)
+    native_available = bool(native_state.get("ok")) and not _state_is_unknown(native_state.get("state"))
+    installed_version = _as_str(app_state.get("state"), "")
+    installed_known = bool(app_state.get("ok")) and not _state_is_unknown(installed_version)
+    target_norm = _normalize_version_text(target)
+    installed_norm = _normalize_version_text(installed_version)
+    firmware_pending = bool(target_norm) and ((not installed_known) or (installed_norm != target_norm))
+
+    esphome_install_available = bool(install_service)
+    esphome_build_install_available = bool(compile_service and install_service)
+    recommended_method = "manual_fallback"
+    if esphome_build_install_available:
+        recommended_method = "esphome_service"
+    elif native_available:
+        recommended_method = "native_update_entity"
+    elif esphome_install_available:
+        recommended_method = "esphome_service"
+
+    return {
+        "device_slug": safe_slug,
+        "target_version": target,
+        "native_firmware_entity": native_entity,
+        "app_version_entity": app_entity,
+        "native_update_available": native_available,
+        "native_update_state": _as_str(native_state.get("state"), ""),
+        "esphome_compile_service": compile_service,
+        "esphome_install_service": install_service,
+        "esphome_install_available": esphome_install_available,
+        "esphome_build_install_available": esphome_build_install_available,
+        "services_cache_age_ms": services_catalog.get("cache_age_ms", 0),
+        "services_stale": _as_bool(services_catalog.get("stale"), False),
+        "services_last_error": _as_str(services_catalog.get("last_error"), ""),
+        "installed_version": installed_version,
+        "installed_version_known": installed_known,
+        "firmware_pending": firmware_pending,
+        "recommended_method": recommended_method,
+        "methods": {
+            "esphome_service": bool(esphome_install_available),
+            "native_update_entity": bool(native_available),
+            "manual_fallback": True,
+        },
+        "has_any_automatic_method": bool(esphome_install_available or native_available),
+    }
+
+
+def _choose_firmware_method(mode: str, capabilities: Dict[str, Any]) -> str:
+    mode = _as_str(mode, "auto").strip().lower()
+    can_build = _as_bool(capabilities.get("esphome_build_install_available"), False)
+    can_esphome_install = _as_bool(capabilities.get("esphome_install_available"), False)
+    can_native = _as_bool(capabilities.get("native_update_available"), False)
+    if mode == "build_install":
+        if can_build:
+            return "esphome_service"
+        if can_native:
+            return "native_update_entity"
+        return "manual_fallback"
+    if mode == "install_only":
+        if can_native:
+            return "native_update_entity"
+        if can_esphome_install:
+            return "esphome_service"
+        return "manual_fallback"
+    if mode == "manual_fallback":
+        return "manual_fallback"
+    # auto
+    if can_build:
+        return "esphome_service"
+    if can_native:
+        return "native_update_entity"
+    if can_esphome_install:
+        return "esphome_service"
+    return "manual_fallback"
+
+
+def _attempt_service_call(
+    service_ref: str,
+    payloads: List[Dict[str, Any]],
+    timeout: int = 25,
+) -> Dict[str, Any]:
+    errors: List[str] = []
+    for payload in payloads:
+        try:
+            result = _ha_call_service_ref(service_ref, payload, timeout=timeout)
+            return {"ok": True, "service": service_ref, "payload": payload, "response": result}
+        except Exception as err:
+            errors.append(str(err))
+    return {"ok": False, "service": service_ref, "errors": errors}
+
+
+def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
+    backup_first = _as_bool(payload.get("backup_first"), True)
+    mode = _as_str(payload.get("mode"), "auto").strip().lower() or "auto"
+    if mode not in {"auto", "build_install", "install_only", "manual_fallback"}:
+        mode = "auto"
+
+    workspace, profile, _ = _workspace_or_profile_from_payload(payload)
+    settings = profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {}
+    device_slug = _as_str(payload.get("device_slug"), _managed_device_slug(profile)).strip() or _managed_device_slug(profile)
+    safe_slug = _slugify(device_slug, "tdeck")
+    target_version = _as_str(payload.get("target_version"), _as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION)).strip() or DEFAULT_APP_RELEASE_VERSION
+    native_default, app_ver_default = _resolve_firmware_entities(device_slug, settings)
+    native_firmware_entity = _as_str(payload.get("native_firmware_entity"), native_default).strip() or native_default
+    app_version_entity = _as_str(payload.get("app_version_entity"), app_ver_default).strip() or app_ver_default
+
+    capabilities = _resolve_firmware_capabilities(
+        device_slug=device_slug,
+        settings=settings,
+        native_firmware_entity=native_firmware_entity,
+        app_version_entity=app_version_entity,
+        target_version=target_version,
+    )
+    selected_method = _choose_firmware_method(mode, capabilities)
+    actions_attempted: List[Dict[str, Any]] = []
+
+    lock = _get_apply_lock(device_slug)
+    if not lock.acquire(blocking=False):
+        return {
+            "ok": False,
+            "error": "apply_in_progress",
+            "device_slug": safe_slug,
+            "mode": mode,
+            "selected_method": selected_method,
+            "capabilities": capabilities,
+        }, 409
+
+    backup: Dict[str, Any] | None = None
+    status_code = 200
+    summary = ""
+    manual_next_steps: List[str] = []
+    try:
+        preview = None
+        if backup_first or selected_method == "esphome_service":
+            deployment = workspace.get("deployment", {}) if isinstance(workspace.get("deployment"), dict) else {}
+            git_ref = _as_str(payload.get("git_ref"), _as_str(deployment.get("git_ref"), _as_str(profile.get("device", {}).get("git_ref"), ADDON_GITHUB_REF)))
+            git_url = _as_str(payload.get("git_url"), _as_str(deployment.get("git_url"), _as_str(profile.get("device", {}).get("git_url"), ADDON_GITHUB_REPO_URL)))
+            preview = _preview_managed_apply(workspace, profile, git_ref or ADDON_GITHUB_REF, git_url or ADDON_GITHUB_REPO_URL)
+            if backup_first:
+                backup = _backup_files(
+                    device_slug,
+                    preview,
+                    profile,
+                    workspace,
+                    reason="pre_build_install" if selected_method == "esphome_service" and mode == "build_install" else "pre_firmware_update",
+                    context={
+                        "selected_method": selected_method,
+                        "mode": mode,
+                        "native_firmware_entity": native_firmware_entity,
+                        "app_version_entity": app_version_entity,
+                        "target_version": target_version,
+                    },
+                )
+
+        if selected_method == "esphome_service":
+            install_file = ""
+            if preview and isinstance(preview.get("install"), dict):
+                install_file = _as_str(preview["install"].get("path"), "")
+            compile_service = _as_str(capabilities.get("esphome_compile_service"), "")
+            install_service = _as_str(capabilities.get("esphome_install_service"), "")
+
+            if mode == "build_install" and compile_service:
+                compile_attempt = _attempt_service_call(
+                    compile_service,
+                    [
+                        {"configuration": install_file} if install_file else {},
+                        {"name": safe_slug},
+                        {"device": safe_slug},
+                        {"node": safe_slug},
+                        {},
+                    ],
+                    timeout=45,
+                )
+                actions_attempted.append(
+                    {
+                        "step": "compile",
+                        "service": compile_service,
+                        "status": "ok" if compile_attempt.get("ok") else "error",
+                        "error": "; ".join(compile_attempt.get("errors", [])) if not compile_attempt.get("ok") else "",
+                    }
+                )
+                if not compile_attempt.get("ok"):
+                    if mode == "build_install":
+                        selected_method = "manual_fallback"
+                    summary = "Compile service failed"
+
+            if selected_method == "esphome_service" and install_service:
+                install_attempt = _attempt_service_call(
+                    install_service,
+                    [
+                        {"name": safe_slug},
+                        {"device": safe_slug},
+                        {"node": safe_slug},
+                        {"configuration": install_file} if install_file else {},
+                        {},
+                    ],
+                    timeout=45,
+                )
+                actions_attempted.append(
+                    {
+                        "step": "install",
+                        "service": install_service,
+                        "status": "ok" if install_attempt.get("ok") else "error",
+                        "error": "; ".join(install_attempt.get("errors", [])) if not install_attempt.get("ok") else "",
+                    }
+                )
+                if install_attempt.get("ok"):
+                    summary = "ESPHome service workflow requested"
+                else:
+                    if mode in {"auto", "install_only"} and _as_bool(capabilities.get("native_update_available"), False):
+                        selected_method = "native_update_entity"
+                    else:
+                        selected_method = "manual_fallback"
+                        summary = "ESPHome install service unavailable"
+
+        if selected_method == "native_update_entity":
+            try:
+                service_response = _ha_post("/services/update/install", {"entity_id": native_firmware_entity}, timeout=25)
+                actions_attempted.append(
+                    {
+                        "step": "update_install",
+                        "service": "update.install",
+                        "entity_id": native_firmware_entity,
+                        "status": "ok",
+                    }
+                )
+                summary = summary or "Native update entity install requested"
+            except Exception as err:
+                actions_attempted.append(
+                    {
+                        "step": "update_install",
+                        "service": "update.install",
+                        "entity_id": native_firmware_entity,
+                        "status": "error",
+                        "error": str(err),
+                    }
+                )
+                summary = str(err)
+                selected_method = "manual_fallback"
+                status_code = 502
+
+        if selected_method == "manual_fallback":
+            manual_next_steps = [
+                "Open ESPHome dashboard and run compile/install for this device.",
+                "Verify the native firmware entity and app version sensor exist in Home Assistant.",
+                f"Expected native update entity: {native_firmware_entity}",
+                f"Expected app version sensor: {app_version_entity}",
+            ]
+            if preview and isinstance(preview.get("install"), dict):
+                manual_next_steps.append(f"Managed install file: {preview['install'].get('path', '')}")
+            actions_attempted.append({"step": "manual_fallback", "status": "required"})
+            if not summary:
+                summary = "Automatic firmware workflow not available"
+
+        status = _firmware_status_for(
+            device_slug=device_slug,
+            target_version=target_version,
+            native_firmware_entity=native_firmware_entity,
+            app_version_entity=app_version_entity,
+            capabilities=capabilities,
+            selected_method=selected_method,
+        )
+        ok = selected_method != "manual_fallback" or mode == "manual_fallback"
+        if selected_method == "manual_fallback" and mode in {"auto", "build_install", "install_only"}:
+            ok = False
+            if status_code < 400:
+                status_code = 409
+
+        with _RUNTIME_STATE_LOCK:
+            _RUNTIME_STATE["last_prompted_device_slug"] = safe_slug
+            _RUNTIME_STATE["last_firmware_action"] = {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "status": "ok" if ok else "error",
+                "device_slug": safe_slug,
+                "selected_method": selected_method,
+                "mode": mode,
+                "target_version": target_version,
+                "native_firmware_entity": native_firmware_entity,
+                "app_version_entity": app_version_entity,
+                "backup_id": backup.get("id", "") if isinstance(backup, dict) else "",
+                "summary": summary,
+                "actions_attempted": actions_attempted,
+            }
+            _save_runtime_state(_RUNTIME_STATE)
+
+        return {
+            "ok": ok,
+            "mode": mode,
+            "device_slug": safe_slug,
+            "selected_method": selected_method,
+            "target_version": target_version,
+            "native_firmware_entity": native_firmware_entity,
+            "app_version_entity": app_version_entity,
+            "capabilities": capabilities,
+            "actions_attempted": actions_attempted,
+            "backup": backup or {},
+            "status": status,
+            "summary": summary,
+            "manual_next_steps": manual_next_steps,
+        }, status_code
+    except Exception as err:
+        with _RUNTIME_STATE_LOCK:
+            _RUNTIME_STATE["last_firmware_action"] = {
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "status": "error",
+                "device_slug": safe_slug,
+                "selected_method": selected_method,
+                "mode": mode,
+                "target_version": target_version,
+                "native_firmware_entity": native_firmware_entity,
+                "app_version_entity": app_version_entity,
+                "backup_id": backup.get("id", "") if isinstance(backup, dict) else "",
+                "error": str(err),
+            }
+            _save_runtime_state(_RUNTIME_STATE)
+        return {
+            "ok": False,
+            "error": str(err),
+            "mode": mode,
+            "device_slug": safe_slug,
+            "selected_method": selected_method,
+            "target_version": target_version,
+            "native_firmware_entity": native_firmware_entity,
+            "app_version_entity": app_version_entity,
+            "backup": backup or {},
+            "actions_attempted": actions_attempted,
+            "capabilities": capabilities,
+        }, 502
+    finally:
+        lock.release()
+
+
 def _firmware_status_for(
     device_slug: str,
     target_version: str,
     native_firmware_entity: str,
     app_version_entity: str,
+    capabilities: Dict[str, Any] | None = None,
+    selected_method: str = "",
 ) -> Dict[str, Any]:
     safe_slug = _slugify(device_slug, "tdeck")
     target = _as_str(target_version, DEFAULT_APP_RELEASE_VERSION).strip()
@@ -1815,10 +2294,23 @@ def _firmware_status_for(
     if not issues and firmware_pending:
         issues.append("firmware_version_mismatch")
 
+    caps = capabilities if isinstance(capabilities, dict) else _resolve_firmware_capabilities(
+        device_slug=device_slug,
+        settings={},
+        native_firmware_entity=native_firmware_entity,
+        app_version_entity=app_version_entity,
+        target_version=target,
+    )
+    method = selected_method or _as_str(caps.get("recommended_method"), "manual_fallback")
+
     status_text = "firmware_up_to_date"
-    if firmware_pending:
+    if not installed_known:
+        status_text = "unknown_legacy"
+    elif firmware_pending:
         status_text = "firmware_pending"
-    if not native_known:
+    if method == "manual_fallback":
+        status_text = "manual_fallback"
+    elif not native_known and not _as_bool(caps.get("esphome_install_available"), False):
         status_text = "native_update_entity_unavailable"
 
     runtime_before = _runtime_state_snapshot()
@@ -1852,6 +2344,8 @@ def _firmware_status_for(
         "app_version_entity": app_version_entity,
         "firmware_pending": bool(firmware_pending),
         "update_available": bool(update_available),
+        "method": method,
+        "capabilities": caps,
         "status_text": status_text,
         "issues": issues,
         "runtime": runtime_after,
@@ -1872,16 +2366,39 @@ def api_health() -> Any:
     cache = _discovery_cache_snapshot()
     active_job = _get_discovery_job(_DISCOVERY_ACTIVE_JOB_ID) if _DISCOVERY_ACTIVE_JOB_ID else None
     runtime = _runtime_state_snapshot()
+    selected_slug = _as_str(runtime.get("last_prompted_device_slug"), "lilygo-tdeck-plus") or "lilygo-tdeck-plus"
+    try:
+        caps = _resolve_firmware_capabilities(device_slug=selected_slug)
+    except Exception as err:
+        caps = {
+            "recommended_method": "manual_fallback",
+            "has_any_automatic_method": False,
+            "services_last_error": str(err),
+        }
     return jsonify(
         {
             "ok": True,
             "addon_version": ADDON_VERSION,
             "addon_updated_since_last_run": runtime.get("addon_updated_since_last_run", False),
             "firmware_status_summary": _runtime_firmware_summary(),
+            "firmware_capability_summary": {
+                "device_slug": selected_slug,
+                "recommended_method": caps.get("recommended_method", "manual_fallback"),
+                "has_any_automatic_method": _as_bool(caps.get("has_any_automatic_method"), False),
+                "native_update_available": _as_bool(caps.get("native_update_available"), False),
+                "esphome_build_install_available": _as_bool(caps.get("esphome_build_install_available"), False),
+                "services_last_error": _as_str(caps.get("services_last_error"), ""),
+            },
             "runtime_state": runtime,
             "ha_connected": ha_ok,
             "ha_error": ha_error,
             "ha": ha_info,
+            "transport": {
+                "api_base_hint": _infer_ingress_api_base(),
+                "request_path": _as_str(request.path, ""),
+                "script_root": _as_str(request.script_root, ""),
+                "host_url": _as_str(request.host_url, ""),
+            },
             "cache": {
                 "entities": len(cache.get("rows", [])),
                 "domains": len(cache.get("domains", [])),
@@ -1892,6 +2409,13 @@ def api_health() -> Any:
                 "last_total": cache.get("last_total", 0),
             },
             "discovery_job": active_job,
+            "discovery": {
+                "status": _as_str(active_job.get("status"), "idle") if active_job else "idle",
+                "stage": _as_str(active_job.get("stage"), "idle") if active_job else "idle",
+                "last_error": cache.get("last_error", ""),
+                "last_duration_ms": cache.get("last_duration_ms", 0),
+                "rows": len(cache.get("rows", [])),
+            },
             "profiles": {
                 "count": len(_list_profiles()),
                 "path": str(PROFILE_DIR),
@@ -1907,6 +2431,41 @@ def api_health() -> Any:
             },
             "managed_root": str(MANAGED_ROOT),
             "version": "3",
+        }
+    )
+
+
+@app.get("/api/diagnostics/runtime")
+def api_diagnostics_runtime() -> Any:
+    runtime = _runtime_state_snapshot()
+    cache = _discovery_cache_snapshot()
+    active_job = _get_discovery_job(_DISCOVERY_ACTIVE_JOB_ID) if _DISCOVERY_ACTIVE_JOB_ID else None
+    selected_slug = _as_str(runtime.get("last_prompted_device_slug"), "lilygo-tdeck-plus") or "lilygo-tdeck-plus"
+    return jsonify(
+        {
+            "ok": True,
+            "addon_version": ADDON_VERSION,
+            "selected_device_slug": selected_slug,
+            "runtime_state": runtime,
+            "discovery_cache": {
+                "cache_age_ms": cache.get("cache_age_ms", 0),
+                "stale": cache.get("stale", False),
+                "last_error": cache.get("last_error", ""),
+                "last_duration_ms": cache.get("last_duration_ms", 0),
+                "rows": len(cache.get("rows", [])),
+                "domains": len(cache.get("domains", [])),
+                "last_total": cache.get("last_total", 0),
+            },
+            "active_discovery_job": active_job,
+            "transport": {
+                "api_base_hint": _infer_ingress_api_base(),
+                "request_path": _as_str(request.path, ""),
+                "script_root": _as_str(request.script_root, ""),
+            },
+            "service_cache": {
+                "cache_age_ms": _service_cache_age_ms(),
+                "last_error": _as_str(_SERVICE_CACHE.get("last_error"), ""),
+            },
         }
     )
 
@@ -1965,11 +2524,13 @@ def api_discovery_job_cancel(job_id: str) -> Any:
 
 @app.get("/api/discovery/entities")
 def api_discovery_entities() -> Any:
+    query_started = _now()
     job_id = _as_str(request.args.get("job_id"), "").strip()
     domain = _as_str(request.args.get("domain"), "").strip().lower()
     query = _as_str(request.args.get("q"), "").strip().lower()
     sort_key = _as_str(request.args.get("sort"), "entity_id").strip().lower()
     only_mappable = _as_bool(request.args.get("only_mappable"), False)
+    fields_mode = _as_str(request.args.get("fields"), "full").strip().lower()
     page = _as_int(request.args.get("page"), 1, 1, None)
     page_size = _as_int(request.args.get("page_size"), DEFAULT_PAGE_SIZE, 10, MAX_PAGE_SIZE)
 
@@ -2006,15 +2567,32 @@ def api_discovery_entities() -> Any:
     start = (page - 1) * page_size
     end = start + page_size
     page_rows = rows[start:end]
+    if fields_mode == "minimal":
+        page_rows = [
+            {
+                "entity_id": _as_str(r.get("entity_id")),
+                "domain": _as_str(r.get("domain")),
+                "friendly_name": _as_str(r.get("friendly_name")),
+                "state": _as_str(r.get("state")),
+                "unit": _as_str(r.get("unit")),
+                "mappable": _as_bool(r.get("mappable"), False),
+            }
+            for r in page_rows
+        ]
+    query_time_ms = int((_now() - query_started) * 1000.0)
     return jsonify(
         {
             "ok": True,
             "count": len(page_rows),
             "total": total,
+            "filtered_total": total,
+            "returned": len(page_rows),
             "page": page,
             "page_size": page_size,
             "pages": pages,
             "sort": sort_key,
+            "fields": fields_mode,
+            "query_time_ms": query_time_ms,
             "entities": page_rows,
             "cache_age_ms": cache.get("cache_age_ms", 0),
             "fetched_at": cache.get("fetched_at", 0),
@@ -2268,113 +2846,66 @@ def api_firmware_status() -> Any:
     target_version = _as_str(request.args.get("target_version"), DEFAULT_APP_RELEASE_VERSION).strip() or DEFAULT_APP_RELEASE_VERSION
     native_override = _as_str(request.args.get("native_firmware_entity"), "").strip()
     app_ver_override = _as_str(request.args.get("app_version_entity"), "").strip()
-    default_native, default_app_ver = _resolve_firmware_entities(device_slug)
+    compile_override = _as_str(request.args.get("ha_esphome_compile_service"), "").strip()
+    install_override = _as_str(request.args.get("ha_esphome_install_service"), "").strip()
+    settings = {
+        "ha_esphome_compile_service": compile_override,
+        "ha_esphome_install_service": install_override,
+    }
+    default_native, default_app_ver = _resolve_firmware_entities(device_slug, settings)
+    caps = _resolve_firmware_capabilities(
+        device_slug=device_slug,
+        settings=settings,
+        native_firmware_entity=native_override or default_native,
+        app_version_entity=app_ver_override or default_app_ver,
+        target_version=target_version,
+    )
     status = _firmware_status_for(
         device_slug=device_slug,
         target_version=target_version,
         native_firmware_entity=native_override or default_native,
         app_version_entity=app_ver_override or default_app_ver,
+        capabilities=caps,
+        selected_method=_as_str(caps.get("recommended_method"), ""),
     )
     return jsonify({"ok": True, **status})
 
 
+@app.get("/api/firmware/capabilities")
+def api_firmware_capabilities() -> Any:
+    device_slug = _as_str(request.args.get("device_slug"), "").strip() or "lilygo-tdeck-plus"
+    target_version = _as_str(request.args.get("target_version"), DEFAULT_APP_RELEASE_VERSION).strip() or DEFAULT_APP_RELEASE_VERSION
+    native_override = _as_str(request.args.get("native_firmware_entity"), "").strip()
+    app_ver_override = _as_str(request.args.get("app_version_entity"), "").strip()
+    settings = {
+        "ha_esphome_compile_service": _as_str(request.args.get("ha_esphome_compile_service"), "").strip(),
+        "ha_esphome_install_service": _as_str(request.args.get("ha_esphome_install_service"), "").strip(),
+    }
+    caps = _resolve_firmware_capabilities(
+        device_slug=device_slug,
+        settings=settings,
+        native_firmware_entity=native_override,
+        app_version_entity=app_ver_override,
+        target_version=target_version,
+    )
+    return jsonify({"ok": True, "capabilities": caps})
+
+
+@app.post("/api/firmware/workflow")
+def api_firmware_workflow() -> Any:
+    payload = request.get_json(silent=True) or {}
+    result, status_code = _execute_firmware_workflow(payload)
+    return jsonify(result), status_code
+
+
 @app.post("/api/firmware/update")
 def api_firmware_update() -> Any:
+    # Backward-compatible alias route.
     payload = request.get_json(silent=True) or {}
-    backup_first = _as_bool(payload.get("backup_first"), True)
-
-    workspace, profile, _ = _workspace_or_profile_from_payload(payload)
-    settings = profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {}
-    device_slug = _as_str(payload.get("device_slug"), _managed_device_slug(profile)).strip() or _managed_device_slug(profile)
-    target_version = _as_str(payload.get("target_version"), _as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION))
-    native_default, app_ver_default = _resolve_firmware_entities(device_slug, settings)
-    native_firmware_entity = _as_str(payload.get("native_firmware_entity"), native_default).strip() or native_default
-    app_version_entity = _as_str(payload.get("app_version_entity"), app_ver_default).strip() or app_ver_default
-
-    lock = _get_apply_lock(device_slug)
-    if not lock.acquire(blocking=False):
-        return jsonify({"ok": False, "error": "apply_in_progress", "device_slug": _slugify(device_slug, "tdeck")}), 409
-
-    backup: Dict[str, Any] | None = None
-    try:
-        if backup_first:
-            deployment = workspace.get("deployment", {}) if isinstance(workspace.get("deployment"), dict) else {}
-            git_ref = _as_str(payload.get("git_ref"), _as_str(deployment.get("git_ref"), _as_str(profile.get("device", {}).get("git_ref"), ADDON_GITHUB_REF)))
-            git_url = _as_str(payload.get("git_url"), _as_str(deployment.get("git_url"), _as_str(profile.get("device", {}).get("git_url"), ADDON_GITHUB_REPO_URL)))
-            preview = _preview_managed_apply(workspace, profile, git_ref or ADDON_GITHUB_REF, git_url or ADDON_GITHUB_REPO_URL)
-            backup = _backup_files(
-                device_slug,
-                preview,
-                profile,
-                workspace,
-                reason="pre_firmware_update",
-                context={
-                    "native_firmware_entity": native_firmware_entity,
-                    "app_version_entity": app_version_entity,
-                    "target_version": target_version,
-                    "backup_first": True,
-                },
-            )
-
-        service_response = _ha_post("/services/update/install", {"entity_id": native_firmware_entity}, timeout=25)
-        with _RUNTIME_STATE_LOCK:
-            _RUNTIME_STATE["last_prompted_device_slug"] = _slugify(device_slug, "tdeck")
-            _RUNTIME_STATE["last_firmware_action"] = {
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "status": "requested",
-                "device_slug": _slugify(device_slug, "tdeck"),
-                "native_firmware_entity": native_firmware_entity,
-                "app_version_entity": app_version_entity,
-                "target_version": target_version,
-                "backup_id": backup.get("id", "") if isinstance(backup, dict) else "",
-            }
-            _save_runtime_state(_RUNTIME_STATE)
-
-        status = _firmware_status_for(
-            device_slug=device_slug,
-            target_version=target_version,
-            native_firmware_entity=native_firmware_entity,
-            app_version_entity=app_version_entity,
-        )
-        return jsonify(
-            {
-                "ok": True,
-                "action": "update.install",
-                "device_slug": _slugify(device_slug, "tdeck"),
-                "native_firmware_entity": native_firmware_entity,
-                "app_version_entity": app_version_entity,
-                "target_version": target_version,
-                "backup": backup or {},
-                "service_response": service_response,
-                "status": status,
-            }
-        )
-    except Exception as err:
-        with _RUNTIME_STATE_LOCK:
-            _RUNTIME_STATE["last_firmware_action"] = {
-                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-                "status": "error",
-                "device_slug": _slugify(device_slug, "tdeck"),
-                "native_firmware_entity": native_firmware_entity,
-                "app_version_entity": app_version_entity,
-                "target_version": target_version,
-                "backup_id": backup.get("id", "") if isinstance(backup, dict) else "",
-                "error": str(err),
-            }
-            _save_runtime_state(_RUNTIME_STATE)
-        return jsonify(
-            {
-                "ok": False,
-                "error": str(err),
-                "device_slug": _slugify(device_slug, "tdeck"),
-                "native_firmware_entity": native_firmware_entity,
-                "app_version_entity": app_version_entity,
-                "target_version": target_version,
-                "backup": backup or {},
-            }
-        ), 502
-    finally:
-        lock.release()
+    if not _as_str(payload.get("mode"), "").strip():
+        payload["mode"] = "install_only"
+    result, status_code = _execute_firmware_workflow(payload)
+    return jsonify(result), status_code
 
 
 @app.get("/api/meta/contracts")

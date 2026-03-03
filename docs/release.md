@@ -2,12 +2,12 @@
 
 ## Baseline
 
-- Current add-on manifest version in repo: `0.20.6`
+- Current add-on manifest version in repo: `0.21.0`
 - Public install templates now track `stable`.
 
 ## Unreleased (Current `main`)
 
-### Admin Center V3 reliability + direct-apply foundation
+### Admin Center v0.21.0 recovery + robust workflow
 
 1. Discovery hardening:
    - health no longer blocks on full discovery fetch
@@ -35,11 +35,22 @@
    - latest stable release endpoint (`/api/update/latest`)
    - HA update package generator endpoint (`/api/generate/ha_update_package`)
    - Updates tab with release status and package output remains
-8. Add-on update visibility + firmware pending flow:
-   - add-on runtime version state persisted in `/data/runtime_state.json`
-   - `GET /api/firmware/status` and `POST /api/firmware/update`
-   - Overview now shows “Add-on updated” vs “Firmware pending” state
-   - default update action is `Backup + Update Firmware` with managed-file scope
+8. Ingress 404 fix:
+   - frontend transport moved to ingress-relative API calls (`api/...`)
+   - added transport diagnostics strip in Overview
+   - startup now reports actionable `method/path/status/error` on API failures
+9. Firmware workflow hardening:
+   - new endpoints:
+     - `GET /api/firmware/capabilities`
+     - `POST /api/firmware/workflow`
+     - `GET /api/diagnostics/runtime`
+   - `POST /api/firmware/update` kept as compatibility alias
+   - auto-detect + fallback method selection (`esphome_service`, `native_update_entity`, `manual_fallback`)
+   - legacy firmware status surfaced as `unknown_legacy`
+10. Discovery API scale metadata:
+   - stage reporting (`queued`, `loading_states`, `indexing`, `completed`, `failed`, `cancelled`)
+   - response metadata: `filtered_total`, `returned`, `query_time_ms`
+   - optional `fields=minimal` mode for Explorer performance
 
 ### Add-on manifest/runtime
 
@@ -80,11 +91,12 @@
 
 ## Next tag recommendation
 
-1. `v0.20.6-admin-update-visibility`
-   - add-on version visibility fix + in-app firmware pending prompt + backup-first firmware update action
-2. `v0.21.0-admin-apply-backup`
-   - managed apply + backup/restore + workspace multi-device foundation
-3. follow with firmware modularization tag after validation:
+1. `v0.21.0-admin-robust-workflow`
+   - ingress 404 elimination
+   - discovery scale/diagnostics hardening
+   - firmware auto-detect + fallback workflow
+2. next:
+   - `v0.22.0-admin-mapping-canvas-v1`
    - `v0.23.0-firmware-modular-ui`
 
 ## Tagging flow

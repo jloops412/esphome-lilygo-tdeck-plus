@@ -134,7 +134,7 @@ If HA says the repo is not valid or add-on build fails:
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.20.6`).
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.21.0`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
 
 If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
@@ -152,14 +152,24 @@ If HA still shows an old add-on version:
 
 1. Confirm GitHub `main` has the new `tdeck_admin_center/config.yaml` version committed.
 2. In HA Add-on Store: remove repo, restart Supervisor, re-add repo URL.
-3. Reopen store and verify version `0.20.6`.
+3. Reopen store and verify version `0.21.0`.
 
-In-app firmware pending prompt flow:
+Ingress/API 404 recovery (fixed in `0.21.0`):
 
-1. After add-on update, Overview shows `In-App Update Status`.
-2. If firmware version differs from `App Release Version`, it shows firmware pending.
-3. Use `Backup + Update Firmware` (default) to snapshot managed files before triggering `update.install`.
-4. Backup scope is managed files only:
+1. Admin Center now uses ingress-relative API transport (`api/...`) instead of absolute `/api/...`.
+2. Overview shows transport diagnostics (`API Base`, `Last Path`, `Last Status`, `Last Error`).
+3. If transport is failing, use `Refresh Health` and check `System Status` before retrying discovery/workflow actions.
+
+Firmware workflow (auto-detect + fallback):
+
+1. Open `Overview -> Firmware Workflow`.
+2. Use:
+   - `Backup + Auto Update` (recommended)
+   - `Backup + Build/Install` (if ESPHome services are available)
+   - `Install Only`
+   - `Manual Next Steps` (fallback guidance)
+3. Legacy firmware with no version sensor is surfaced as `unknown_legacy` (not a silent failure).
+4. Backup scope remains managed files only:
    - `/config/esphome/tdeck/<device_slug>/tdeck-install.yaml`
    - `/config/esphome/tdeck/<device_slug>/tdeck-overrides.yaml`
 

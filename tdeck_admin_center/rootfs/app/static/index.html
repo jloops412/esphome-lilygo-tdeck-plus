@@ -51,16 +51,26 @@
           <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
           <label>Git Ref <input id="git_ref" value="stable" /></label>
           <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-          <label>App Release Version <input id="app_release_version" value="v0.20.6" /></label>
+          <label>App Release Version <input id="app_release_version" value="v0.21.0" /></label>
         </div>
         <div class="card">
-          <h3>In-App Update Status</h3>
+          <h3>System Status</h3>
+          <div id="transport_status" class="mono compact">API transport loading...</div>
+          <div id="runtime_diag" class="mono compact">Runtime diagnostics loading...</div>
+          <div class="actions">
+            <button id="refresh_runtime_btn" class="btn-soft">Refresh Runtime Diagnostics</button>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Firmware Workflow</h3>
           <div id="firmware_status_summary" class="mono compact">Loading...</div>
           <div id="firmware_pending_banner" class="meta-line"></div>
           <div class="actions">
             <button id="fw_status_refresh_btn" class="btn-soft">Refresh Firmware Status</button>
-            <button id="fw_update_backup_btn">Backup + Update Firmware</button>
-            <button id="fw_update_no_backup_btn" class="btn-soft">Update Firmware (No Backup)</button>
+            <button id="fw_workflow_auto_btn">Backup + Auto Update</button>
+            <button id="fw_workflow_build_btn" class="btn-soft">Backup + Build/Install</button>
+            <button id="fw_workflow_install_btn" class="btn-soft">Install Only</button>
+            <button id="fw_manual_steps_btn" class="btn-soft">Manual Next Steps</button>
           </div>
           <div id="firmware_update_result" class="mono compact"></div>
         </div>

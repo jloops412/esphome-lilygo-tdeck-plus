@@ -4,7 +4,7 @@ Home Assistant add-on (Ingress) for T-Deck configuration, mapping, and managed d
 
 ## Version Track
 
-- Current add-on manifest version: `0.20.6`
+- Current add-on manifest version: `0.21.0`
 - API/UI model: V3 foundation
 
 ## V3 Capabilities
@@ -58,7 +58,10 @@ Home Assistant add-on (Ingress) for T-Deck configuration, mapping, and managed d
 25. `GET /api/backups/list`
 26. `POST /api/backups/restore`
 27. `GET /api/firmware/status`
-28. `POST /api/firmware/update`
+28. `GET /api/firmware/capabilities`
+29. `POST /api/firmware/workflow`
+30. `POST /api/firmware/update` (compat alias)
+31. `GET /api/diagnostics/runtime`
 
 ## Add-on Options
 
@@ -78,3 +81,7 @@ Managed apply is intentionally constrained:
 ## Build Note
 
 `/run.sh` build failure was fixed by explicitly copying `run.sh` in Docker image and normalizing CRLF before chmod.
+
+## Ingress Note
+
+`0.21.0` fixes HA ingress `404` failures by using ingress-relative API calls from the frontend (`api/...`), not absolute `/api/...`.

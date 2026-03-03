@@ -1,8 +1,15 @@
-
+﻿
 const state = {
   contracts: null,
   workspace: null,
   activeDeviceIndex: 0,
+  transport: {
+    api_base_resolved: "",
+    last_api_error: "",
+    last_status_code: 0,
+    last_path: "",
+    attempts: 0,
+  },
   entities: {
     page: 1,
     page_size: 100,
@@ -112,6 +119,45 @@ function safeText(v) {
     .replace(/'/g, "&#39;");
 }
 
+function setTransportStatus() {
+  const out = e("transport_status");
+  if (!out) return;
+  const t = state.transport || {};
+  const lines = [
+    `API Base: ${t.api_base_resolved || "--"}`,
+    `Last Path: ${t.last_path || "--"}`,
+    `Last Status: ${t.last_status_code || "--"}`,
+    `Attempts: ${t.attempts || 0}`,
+  ];
+  if (t.last_api_error) lines.push(`Last Error: ${t.last_api_error}`);
+  out.textContent = lines.join("\n");
+  out.style.color = t.last_api_error ? "#ffb4c0" : "";
+}
+
+function normalizeApiPath(path) {
+  let p = String(path || "").trim();
+  if (!p) return "api/health";
+  p = p.replace(/^https?:\/\/[^/]+/i, "");
+  p = p.replace(/^\.\//, "");
+  p = p.replace(/^\/+/, "");
+  if (!p.startsWith("api/")) p = `api/${p}`;
+  return p;
+}
+
+function ingressBasePath() {
+  const path = String(window.location.pathname || "/");
+  if (path.endsWith("/")) return path;
+  const idx = path.lastIndexOf("/");
+  return idx >= 0 ? path.slice(0, idx + 1) : "/";
+}
+
+function buildApiCandidates(path) {
+  const normalized = normalizeApiPath(path);
+  const joined = `${ingressBasePath().replace(/\/+$/, "")}/${normalized}`.replace(/\/{2,}/g, "/");
+  const candidates = [normalized, `./${normalized}`, joined];
+  return Array.from(new Set(candidates));
+}
+
 function slugify(raw) {
   return String(raw || "tdeck")
     .toLowerCase()
@@ -181,36 +227,70 @@ function bindTabs() {
   });
 }
 
+async function apiRequest(method, path, body = undefined, signal = undefined) {
+  const candidates = buildApiCandidates(path);
+  let lastErr = null;
+  state.transport.attempts = candidates.length;
+
+  for (let idx = 0; idx < candidates.length; idx += 1) {
+    const candidate = candidates[idx];
+    const options = {
+      method,
+      signal,
+      headers: {},
+    };
+    if (body !== undefined) {
+      options.headers["Content-Type"] = "application/json";
+      options.body = JSON.stringify(body);
+    }
+    try {
+      const res = await fetch(candidate, options);
+      let data = {};
+      try {
+        data = await res.json();
+      } catch (_err) {
+        data = {};
+      }
+      state.transport.last_path = candidate;
+      state.transport.last_status_code = res.status;
+      if (!res.ok || !data.ok) {
+        const err = new Error(`${method} ${candidate} -> ${data.error || `${res.status} ${res.statusText}`}`);
+        err.status = res.status;
+        lastErr = err;
+        state.transport.last_api_error = err.message;
+        if (res.status === 404 && idx < candidates.length - 1) {
+          continue;
+        }
+        throw err;
+      }
+      state.transport.last_api_error = "";
+      const marker = "api/";
+      const idx = candidate.lastIndexOf(marker);
+      state.transport.api_base_resolved = idx >= 0 ? candidate.slice(0, idx + marker.length) : candidate;
+      setTransportStatus();
+      return data;
+    } catch (err) {
+      if (err?.name === "AbortError") throw err;
+      lastErr = err;
+      state.transport.last_path = candidate;
+      state.transport.last_api_error = `${method} ${candidate} -> ${err?.message || "request_failed"}`;
+      state.transport.last_status_code = Number(err?.status || 0);
+      if (idx < candidates.length - 1) {
+        continue;
+      }
+    }
+  }
+
+  setTransportStatus();
+  throw lastErr || new Error("API request failed");
+}
+
 async function apiGet(path, signal = undefined) {
-  const res = await fetch(path, { signal });
-  let data = {};
-  try {
-    data = await res.json();
-  } catch (_err) {
-    data = {};
-  }
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || `${res.status} ${res.statusText}`);
-  }
-  return data;
+  return apiRequest("GET", path, undefined, signal);
 }
 
 async function apiPost(path, body) {
-  const res = await fetch(path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  let data = {};
-  try {
-    data = await res.json();
-  } catch (_err) {
-    data = {};
-  }
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || `${res.status} ${res.statusText}`);
-  }
-  return data;
+  return apiRequest("POST", path, body);
 }
 function renderDeviceSelector() {
   const select = e("device_select");
@@ -229,7 +309,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.20.6";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.21.0";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -392,7 +472,7 @@ function updateProfileFromTopFields() {
   p.device.git_ref = e("git_ref").value.trim() || "stable";
   p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.20.6");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.21.0");
   p.slots.light_slot_count = Number(e("light_slot_count").value || "6");
   p.slots.camera_slot_count = Number(e("camera_slot_count").value || "0");
   p.settings.ha_base_url = e("ha_base_url").value.trim();
@@ -552,17 +632,18 @@ function applySelectedEntityToActiveField() {
 function formatJobText(job) {
   if (!job) return "Discovery idle";
   const status = job.status || "unknown";
+  const stage = job.stage || status;
   const pct = Number(job.progress || 0);
   const rows = Number(job.rows || 0);
   const total = Number(job.total || 0);
   const duration = Number(job.duration_ms || 0);
   const err = job.error ? ` | error: ${job.error}` : "";
-  return `Discovery ${status} | ${pct}% | rows ${rows}${total ? `/${total}` : ""} | ${duration}ms${err}`;
+  return `Discovery ${status}/${stage} | ${pct}% | rows ${rows}${total ? `/${total}` : ""} | ${duration}ms${err}`;
 }
 
 async function startDiscoveryJob(force = false, options = {}) {
   const waitForCompletion = asBool(options.wait_for_completion, false);
-  const data = await apiPost("/api/discovery/jobs/start", { force });
+  const data = await apiPost("api/discovery/jobs/start", { force });
   const job = data.job || null;
   if (job?.id) state.entities.jobId = job.id;
   setDiscoveryStatus(formatJobText(job), job?.status === "failed");
@@ -587,7 +668,7 @@ async function pollDiscoveryJob(jobId) {
   let terminalStateReached = false;
   try {
     while (true) {
-      const data = await apiGet(`/api/discovery/jobs/${encodeURIComponent(jobId)}`);
+      const data = await apiGet(`api/discovery/jobs/${encodeURIComponent(jobId)}`);
       const job = data.job || {};
       setDiscoveryStatus(formatJobText(job), job.status === "failed");
       if (["completed", "failed", "cancelled"].includes(job.status)) {
@@ -618,7 +699,7 @@ async function cancelDiscoveryJob() {
     setStatus("No active discovery job to cancel.");
     return;
   }
-  const data = await apiPost(`/api/discovery/jobs/${encodeURIComponent(jobId)}/cancel`, {});
+  const data = await apiPost(`api/discovery/jobs/${encodeURIComponent(jobId)}/cancel`, {});
   const job = data.job || null;
   if (job && ["cancelled", "completed", "failed"].includes(job.status || "")) {
     state.entities.jobId = "";
@@ -629,40 +710,76 @@ async function cancelDiscoveryJob() {
 }
 
 async function refreshHealth() {
-  const data = await apiGet("/api/health");
+  const data = await apiGet("api/health");
   const cache = data.cache || {};
   const haStatus = data.ha_connected ? "connected" : `error (${data.ha_error || "unreachable"})`;
+  const transport = data.transport || {};
+  const discovery = data.discovery || {};
+  const firmwareCaps = data.firmware_capability_summary || {};
   e("health_summary").textContent =
     `Addon version: ${data.addon_version || "--"}\n` +
     `Addon updated flag: ${data.addon_updated_since_last_run ? "yes" : "no"}\n` +
     `Firmware summary: ${data.firmware_status_summary || "--"}\n` +
+    `Firmware method: ${firmwareCaps.recommended_method || "--"}\n` +
     `HA: ${haStatus}\n` +
+    `Transport path: ${transport.request_path || "--"}\n` +
+    `Transport base hint: ${transport.api_base_hint || "--"}\n` +
+    `Discovery status: ${discovery.status || "--"}\n` +
+    `Discovery stage: ${discovery.stage || "--"}\n` +
     `Entities cached: ${cache.entities || 0}\n` +
     `Domains: ${cache.domains || 0}\n` +
     `Cache age: ${cache.cache_age_ms || 0} ms\n` +
     `Last fetch duration: ${cache.last_duration_ms || 0} ms\n` +
     `Profiles: ${data.profiles?.count || 0} | Workspaces: ${data.workspaces?.count || 0}`;
   if (data.discovery_job) setDiscoveryStatus(formatJobText(data.discovery_job), data.discovery_job.status === "failed");
+  setTransportStatus();
+}
+
+async function refreshRuntimeDiagnostics() {
+  const data = await apiGet("api/diagnostics/runtime");
+  const out = e("runtime_diag");
+  if (!out) return;
+  const lines = [
+    `Selected device: ${data.selected_device_slug || "--"}`,
+    `Last action: ${data.runtime_state?.last_firmware_action?.status || "--"}`,
+    `Last error: ${data.runtime_state?.last_firmware_action?.error || "--"}`,
+    `Discovery cache stale: ${data.discovery_cache?.stale ? "yes" : "no"}`,
+    `Discovery rows: ${data.discovery_cache?.last_total || data.discovery_cache?.rows || 0}`,
+  ];
+  out.textContent = lines.join("\n");
 }
 
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.20.6"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.21.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
-  return `/api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
+  return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
+}
+
+function firmwareCapabilitiesQuery() {
+  const p = currentProfile();
+  const slug = getDeviceSlug();
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.21.0"));
+  const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
+  const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
+  return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
 }
 
 async function refreshFirmwareStatus() {
-  const data = await apiGet(firmwareStatusQuery());
+  const [data, caps] = await Promise.all([apiGet(firmwareStatusQuery()), apiGet(firmwareCapabilitiesQuery())]);
   state.firmwareStatus = data;
+  const capabilities = caps.capabilities || {};
   const lines = [
     `Status: ${data.status_text || "--"}`,
     `Target: ${data.target_version || "--"}`,
     `Installed: ${data.installed_version || "--"}`,
+    `Method: ${data.method || capabilities.recommended_method || "--"}`,
     `Native Entity: ${data.native_firmware_entity || "--"} (${data.native_state || "--"})`,
     `Version Entity: ${data.app_version_entity || "--"}`,
+    `ESPHome Build/Install: ${capabilities.esphome_build_install_available ? "yes" : "no"}`,
+    `Native Update Path: ${capabilities.native_update_available ? "yes" : "no"}`,
     `Addon Updated Flag: ${data.runtime?.addon_updated_since_last_run ? "yes" : "no"}`,
   ];
   if (Array.isArray(data.issues) && data.issues.length > 0) {
@@ -671,48 +788,70 @@ async function refreshFirmwareStatus() {
   e("firmware_status_summary").textContent = lines.join("\n");
 
   const banner = e("firmware_pending_banner");
-  if (data.firmware_pending) {
+  if (data.status_text === "unknown_legacy") {
+    banner.textContent = "Firmware version is unknown (legacy install). Use Backup + Build/Install or Backup + Install to bring this device under managed updates.";
+    banner.style.color = "#ffd38a";
+  } else if (data.firmware_pending) {
     banner.textContent = "Add-on updated and firmware is pending. Update firmware to align with the current app release.";
     banner.style.color = "#ffd38a";
+  } else if ((data.method || capabilities.recommended_method) === "manual_fallback") {
+    banner.textContent = "No automatic firmware path detected. Use Manual Next Steps for guided recovery.";
+    banner.style.color = "#ffb4c0";
   } else {
     banner.textContent = "Firmware is up to date with the selected app release target.";
     banner.style.color = "";
   }
 
-  const withBackup = e("fw_update_backup_btn");
-  const noBackup = e("fw_update_no_backup_btn");
-  const canAttempt = !!data.native_firmware_entity;
-  withBackup.disabled = !canAttempt;
-  noBackup.disabled = !canAttempt;
+  const autoBtn = e("fw_workflow_auto_btn");
+  const buildBtn = e("fw_workflow_build_btn");
+  const installBtn = e("fw_workflow_install_btn");
+  const manualBtn = e("fw_manual_steps_btn");
+  const canBuild = !!capabilities.esphome_build_install_available;
+  const canInstall = !!capabilities.native_update_available || !!capabilities.esphome_install_available;
+  if (autoBtn) autoBtn.disabled = !canInstall && !canBuild;
+  if (buildBtn) buildBtn.disabled = !canBuild;
+  if (installBtn) installBtn.disabled = !canInstall;
+  if (manualBtn) manualBtn.disabled = false;
 }
 
-async function triggerFirmwareUpdate(backupFirst = true) {
+async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true) {
   const promptText = backupFirst
-    ? "Run managed backup and trigger firmware update?"
-    : "Trigger firmware update without backup?";
+    ? `Run managed backup and firmware workflow (${mode})?`
+    : `Run firmware workflow (${mode}) without backup?`;
   if (!window.confirm(promptText)) return;
   const body = profilePayload();
   body.device_slug = getDeviceSlug();
   body.backup_first = !!backupFirst;
+  body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.20.6");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.21.0");
 
-  const data = await apiPost("/api/firmware/update", body);
+  const data = await apiPost("api/firmware/workflow", body);
+  const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
   const resultLines = [
-    `Action: ${data.action || "update.install"}`,
+    `Workflow: ${data.selected_method || "--"} (${data.mode || mode})`,
     `Device: ${data.device_slug || "--"}`,
+    `Target: ${data.target_version || "--"}`,
     `Entity: ${data.native_firmware_entity || "--"}`,
     `Backup: ${data.backup?.id || "none"}`,
+    `Result: ${data.summary || data.status?.status_text || "--"}`,
   ];
+  attempted.forEach((row) => {
+    resultLines.push(`- ${row.step || row.action || "step"}: ${row.status || "--"}${row.error ? ` (${row.error})` : ""}`);
+  });
+  if (Array.isArray(data.manual_next_steps) && data.manual_next_steps.length > 0) {
+    resultLines.push("Manual next steps:");
+    data.manual_next_steps.forEach((line) => resultLines.push(`- ${line}`));
+  }
   e("firmware_update_result").textContent = resultLines.join("\n");
-  setStatus(`Firmware update requested for ${data.device_slug}${data.backup?.id ? ` (backup ${data.backup.id})` : ""}`);
-  await Promise.all([refreshFirmwareStatus(), refreshBackups()]);
+  setStatus(`Firmware workflow ${data.ok ? "completed" : "failed"} for ${data.device_slug || "--"}`, !data.ok);
+  await Promise.all([refreshFirmwareStatus(), refreshBackups(), refreshRuntimeDiagnostics()]);
 }
 
 async function loadDomains() {
   const jobParam = state.entities.jobId ? `?job_id=${encodeURIComponent(state.entities.jobId)}` : "";
-  const data = await apiGet(`/api/discovery/domains${jobParam}`);
+  const data = await apiGet(`api/discovery/domains${jobParam}`);
   renderDomains(data.domains || []);
 }
 
@@ -732,7 +871,7 @@ async function refreshEntities({ resetPage = false } = {}) {
   e("explorer_meta").textContent = "Loading entities...";
   try {
     const data = await apiGet(
-      `/api/discovery/entities?job_id=${jobId}&domain=${domain}&q=${q}&page=${state.entities.page}&page_size=${pageSize}&sort=${sort}&only_mappable=${onlyMappable}`,
+      `api/discovery/entities?job_id=${jobId}&domain=${domain}&q=${q}&page=${state.entities.page}&page_size=${pageSize}&sort=${sort}&only_mappable=${onlyMappable}&fields=minimal`,
       state.entities.controller.signal
     );
     state.entities.pages = data.pages || 1;
@@ -740,7 +879,8 @@ async function refreshEntities({ resetPage = false } = {}) {
     renderEntities(data.entities || []);
     e("page_label").textContent = `Page ${data.page || 1} / ${data.pages || 1}`;
     const job = data.job || null;
-    e("explorer_meta").textContent = `Loaded ${data.count || 0} of ${data.total || 0} | cache ${data.cache_age_ms || 0}ms${data.stale ? " | STALE" : ""}${job ? ` | job ${job.status}` : ""}`;
+    e("explorer_meta").textContent =
+      `Loaded ${data.returned || data.count || 0} of ${data.filtered_total || data.total || 0} | query ${data.query_time_ms || 0}ms | cache ${data.cache_age_ms || 0}ms${data.stale ? " | STALE" : ""}${job ? ` | job ${job.status}/${job.stage || "--"}` : ""}`;
     if (job) setDiscoveryStatus(formatJobText(job), job.status === "failed");
     if (data.stale && data.last_error) setStatus(`Discovery warning: ${data.last_error}`, true);
   } catch (err) {
@@ -792,7 +932,7 @@ function profilePayload() {
 
 async function generate() {
   const body = profilePayload();
-  const [install, overrides] = await Promise.all([apiPost("/api/generate/install", body), apiPost("/api/generate/overrides", body)]);
+  const [install, overrides] = await Promise.all([apiPost("api/generate/install", body), apiPost("api/generate/overrides", body)]);
   e("install_out").value = install.yaml || "";
   e("overrides_out").value = overrides.yaml || "";
   const validation = install.validation || overrides.validation || {};
@@ -802,7 +942,7 @@ async function generate() {
 }
 
 async function previewApply() {
-  const data = await apiPost("/api/apply/preview", profilePayload());
+  const data = await apiPost("api/apply/preview", profilePayload());
   const preview = data.preview || {};
   e("apply_preview_install_diff").value = preview.install?.diff || "No install changes";
   e("apply_preview_overrides_diff").value = preview.overrides?.diff || "No overrides changes";
@@ -814,14 +954,14 @@ async function previewApply() {
 
 async function commitApply() {
   if (!window.confirm("Apply generated config to managed files with automatic backup?")) return;
-  const data = await apiPost("/api/apply/commit", profilePayload());
+  const data = await apiPost("api/apply/commit", profilePayload());
   setStatus(`Applied to ${data.device_slug}. Backup ${data.backup?.id || "created"}`);
   await refreshBackups();
 }
 
 async function refreshBackups() {
   const slug = getDeviceSlug();
-  const data = await apiGet(`/api/backups/list?device_slug=${encodeURIComponent(slug)}`);
+  const data = await apiGet(`api/backups/list?device_slug=${encodeURIComponent(slug)}`);
   const select = e("backup_select");
   select.innerHTML = "";
   (data.backups || []).forEach((row) => {
@@ -841,12 +981,12 @@ async function restoreBackup() {
     return;
   }
   if (!window.confirm(`Restore backup '${backupId}' for ${slug}?`)) return;
-  const data = await apiPost("/api/backups/restore", { device_slug: slug, backup_id: backupId });
+  const data = await apiPost("api/backups/restore", { device_slug: slug, backup_id: backupId });
   setStatus(`Restored backup ${data.restored?.backup_id || backupId} for ${slug}`);
 }
 async function refreshLatestRelease() {
   const channel = e("update_channel").value || "stable";
-  const data = await apiGet(`/api/update/latest?channel=${encodeURIComponent(channel)}`);
+  const data = await apiGet(`api/update/latest?channel=${encodeURIComponent(channel)}`);
   state.latestRelease = data;
   const lines = [
     `Channel: ${data.channel || channel}`,
@@ -865,13 +1005,13 @@ async function generateHaUpdatePackage() {
   body.channel = e("update_channel").value || "stable";
   body.ha_installed_version_entity = e("ha_installed_version_entity").value.trim();
   body.ha_native_firmware_entity = e("ha_native_firmware_entity").value.trim();
-  const data = await apiPost("/api/generate/ha_update_package", body);
+  const data = await apiPost("api/generate/ha_update_package", body);
   e("ha_update_package_out").value = data.yaml || "";
   setStatus(`Generated HA update package (latest stable: ${data.latest?.version || "unknown"})`);
 }
 
 async function loadProfiles() {
-  const data = await apiGet("/api/profile/list");
+  const data = await apiGet("api/profile/list");
   const select = e("profile_list");
   select.innerHTML = "";
   (data.profiles || []).forEach((name) => {
@@ -885,7 +1025,7 @@ async function loadProfiles() {
 async function saveProfile() {
   const payload = profilePayload();
   payload.name = state.workspace.workspace_name;
-  const data = await apiPost("/api/profile/save", payload);
+  const data = await apiPost("api/profile/save", payload);
   await loadProfiles();
   setStatus(`Saved workspace ${data.workspace_name || data.profile_name}`);
 }
@@ -893,7 +1033,7 @@ async function saveProfile() {
 async function loadSelectedProfile() {
   const selected = e("profile_list").value;
   if (!selected) return;
-  const data = await apiGet(`/api/profile/load?name=${encodeURIComponent(selected)}`);
+  const data = await apiGet(`api/profile/load?name=${encodeURIComponent(selected)}`);
   state.workspace = ensureWorkspace(data.workspace || data.profile, state.contracts.defaults || {});
   state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
   syncProfileToForm();
@@ -904,7 +1044,7 @@ async function deleteSelectedProfile() {
   const selected = e("profile_list").value;
   if (!selected) return;
   if (!window.confirm(`Delete workspace/profile '${selected}'?`)) return;
-  await apiPost("/api/profile/delete", { name: selected });
+  await apiPost("api/profile/delete", { name: selected });
   await loadProfiles();
   setStatus(`Deleted ${selected}`);
 }
@@ -913,7 +1053,7 @@ async function renameSelectedProfile() {
   const selected = e("profile_list").value;
   const target = e("profile_rename_to").value.trim();
   if (!selected || !target) return;
-  const data = await apiPost("/api/profile/rename", { old_name: selected, new_name: target });
+  const data = await apiPost("api/profile/rename", { old_name: selected, new_name: target });
   await loadProfiles();
   e("workspace_name").value = data.workspace_name || data.profile_name;
   state.workspace.workspace_name = data.workspace_name || data.profile_name;
@@ -921,7 +1061,7 @@ async function renameSelectedProfile() {
 }
 
 async function validateProfile() {
-  const data = await apiPost("/api/profile/validate", profilePayload());
+  const data = await apiPost("api/profile/validate", profilePayload());
   const lines = [];
   lines.push(`OK: ${data.ok}`);
   lines.push(`Errors: ${(data.errors || []).length}`);
@@ -960,17 +1100,32 @@ function bindProfileEvents() {
   e("fw_status_refresh_btn").addEventListener("click", () => {
     refreshFirmwareStatus().catch((err) => setStatus(`Firmware status error: ${err.message}`, true));
   });
-  e("fw_update_backup_btn").addEventListener("click", () => {
-    triggerFirmwareUpdate(true).catch((err) => {
+  e("fw_workflow_auto_btn").addEventListener("click", () => {
+    triggerFirmwareWorkflow("auto", true).catch((err) => {
       e("firmware_update_result").textContent = `Update failed: ${err.message}`;
       setStatus(`Firmware update failed: ${err.message}`, true);
     });
   });
-  e("fw_update_no_backup_btn").addEventListener("click", () => {
-    triggerFirmwareUpdate(false).catch((err) => {
+  e("fw_workflow_build_btn").addEventListener("click", () => {
+    triggerFirmwareWorkflow("build_install", true).catch((err) => {
       e("firmware_update_result").textContent = `Update failed: ${err.message}`;
       setStatus(`Firmware update failed: ${err.message}`, true);
     });
+  });
+  e("fw_workflow_install_btn").addEventListener("click", () => {
+    triggerFirmwareWorkflow("install_only", false).catch((err) => {
+      e("firmware_update_result").textContent = `Update failed: ${err.message}`;
+      setStatus(`Firmware update failed: ${err.message}`, true);
+    });
+  });
+  e("fw_manual_steps_btn").addEventListener("click", () => {
+    triggerFirmwareWorkflow("manual_fallback", false).catch((err) => {
+      e("firmware_update_result").textContent = `Manual flow failed: ${err.message}`;
+      setStatus(`Manual flow failed: ${err.message}`, true);
+    });
+  });
+  e("refresh_runtime_btn").addEventListener("click", () => {
+    refreshRuntimeDiagnostics().catch((err) => setStatus(`Runtime diagnostics error: ${err.message}`, true));
   });
 }
 
@@ -979,7 +1134,7 @@ async function bootstrap() {
   bindExplorerEvents();
   bindProfileEvents();
 
-  const meta = await apiGet("/api/meta/contracts");
+  const meta = await apiGet("api/meta/contracts");
   state.contracts = meta.contracts || {};
   state.workspace = ensureWorkspace(meta.default_workspace || meta.default_profile, meta.default_profile || {});
   state.activeDeviceIndex = Number(state.workspace.active_device_index || 0);
@@ -999,6 +1154,7 @@ async function bootstrap() {
 
   await runStep("Health", refreshHealth);
   await runStep("Firmware status", refreshFirmwareStatus);
+  await runStep("Runtime diagnostics", refreshRuntimeDiagnostics);
   await runStep("Profile list", loadProfiles);
   await runStep("Discovery start", () => startDiscoveryJob(false, { wait_for_completion: false }));
   await runStep("Latest release", refreshLatestRelease);
@@ -1015,3 +1171,4 @@ async function bootstrap() {
 }
 
 bootstrap().catch((err) => setStatus(`Startup error: ${err.message}`, true));
+

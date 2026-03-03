@@ -91,7 +91,10 @@ The add-on now supports managed direct-apply in a guarded scope:
 25. `GET /api/backups/list?device_slug=`
 26. `POST /api/backups/restore`
 27. `GET /api/firmware/status?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
-28. `POST /api/firmware/update`
+28. `GET /api/firmware/capabilities?device_slug=&target_version=&native_firmware_entity=&app_version_entity=`
+29. `POST /api/firmware/workflow`
+30. `POST /api/firmware/update` (compat alias to workflow install-only mode)
+31. `GET /api/diagnostics/runtime`
 
 ## Discovery Performance Model
 
@@ -143,9 +146,17 @@ This survives add-on restarts/upgrades unless add-on data is removed.
    - `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
 4. Reopen Add-on Store and install `T-Deck Admin Center`.
 
+### Ingress `404` on health/status/entities
+
+Fixed in add-on `0.21.0`:
+
+1. Frontend now uses ingress-relative API paths (`api/...`) instead of absolute `/api/...`.
+2. Overview includes transport diagnostics (`API Base`, `Last Path`, `Last Status`, `Last Error`).
+3. Health endpoint returns ingress/server diagnostics (`api_base_hint`, `request_path`, `script_root`).
+
 ### Add-on build failure (`/run.sh` missing)
 
-Fixed in add-on `0.20.2` and newer (current `0.20.6`):
+Fixed in add-on `0.20.2` and newer:
 
 1. Dockerfile now copies `run.sh` explicitly.
 2. Dockerfile normalizes CRLF before chmod.
@@ -180,6 +191,11 @@ If you still see this error, run the same repo-cache refresh sequence above and 
 
 ### Add-on updated vs firmware pending
 
-1. `Overview -> In-App Update Status` compares target release vs installed firmware entity state.
-2. If pending, use `Backup + Update Firmware` to snapshot managed files before update.
-3. Backup manifests include `reason: pre_firmware_update` and firmware context.
+1. `Overview -> Firmware Workflow` compares target release vs installed firmware entity state.
+2. If firmware is legacy or unknown, status shows `unknown_legacy` and still offers safe workflow actions.
+3. Workflow modes:
+   - `auto` (default)
+   - `build_install`
+   - `install_only`
+   - `manual_fallback`
+4. Backup manifests include `reason: pre_firmware_update` or `pre_build_install` with workflow context.
