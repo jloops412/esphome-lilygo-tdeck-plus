@@ -34,6 +34,7 @@ By default it tracks `ref: "stable"` so users receive tested release updates wit
    - `entity_sensi_*` mappings
 4. Optional cameras:
    - `camera_slot_count`, `camera_slot_#_entity`, `ha_base_url`
+   - optional runtime paging keys: `generated_camera_slot_cap`, `generated_camera_page_size`
 5. App update metadata:
    - `app_release_channel` (default `stable`)
    - `app_release_version` (set to current release tag)
@@ -66,14 +67,14 @@ Personal mappings live separately:
 ## Features
 
 - Home launcher with dynamic weather icon
-- Modular lights controller (slot-based, up to 8)
+- Modular lights controller (paged virtual slots, up to 24)
 - Color Studio page for light color/kelvin controls
 - Weather overview + scroll-safe details page
 - Climate Controller + Climate Tools pages
 - Reader page (news/word/quote feeds)
 - Settings with category panels
 - Theme Studio (token-based swatch editor, 3 palettes)
-- Optional camera snapshots (up to 2 slots, manual + auto refresh)
+- Optional camera snapshots (paged virtual slots, up to 8, manual + auto refresh)
 - Screensaver timeout + wake-source diagnostics
 - Strict ALT-only keyboard shortcut model
 - Admin Center `Guided` + `Advanced` dual-mode UX
@@ -87,8 +88,9 @@ Camera support is optional and inert by default (`camera_slot_count: "0"`).
 
 Enable by setting substitutions:
 
-- `camera_slot_count: "1"` or `"2"`
-- `camera_slot_1_entity`, `camera_slot_2_entity`
+- `camera_slot_count: "1"` to `"8"`
+- `camera_slot_1_entity` ... `camera_slot_8_entity`
+- optional paging: `generated_camera_page_size` (default `4`)
 - `ha_base_url` (for `/local/...` image fetch)
 
 Snapshot flow:
@@ -126,7 +128,7 @@ Home Assistant add-on (Ingress):
    - run Guided flow (`Device -> Features -> Entities -> Theme -> Layout -> Deploy`)
    - use Advanced tabs for profile, update, and raw YAML workflows
 
-Admin Center V5 (`0.23.1`) highlights:
+Admin Center V6 (`0.24.0`) highlights:
 
 1. Dashboard-first landing with action cards (`Connect Device`, `Map Entities`, `Theme`, `Layout`, `Deploy`, `Recover`).
 2. Guided UX remains default; Advanced mode is still available for power users.
@@ -138,8 +140,20 @@ Admin Center V5 (`0.23.1`) highlights:
    - `reader_feeds`
    - `system_entities`
 4. Camera auto-detect onboarding added with scan/accept/ignore flows.
-5. Workspace/profile schema moved to `4.0` with compatibility normalization.
-6. Managed generation now includes:
+5. Workspace/profile schema moved to `4.1` with compatibility normalization.
+6. Guided Step 3 rebuild:
+   - inline smart entity comboboxes per row
+   - add/remove/duplicate/reorder per row
+   - bulk actions (`enable all`, `disable all`, `remove disabled`, `dedupe`)
+   - atomic backend transaction path (`/api/entities/bulk_apply`)
+7. Slot runtime controls exposed in Guided step:
+   - `light_slot_cap` / `camera_slot_cap`
+   - `light_page_size` / `camera_page_size`
+   - one-click `Auto-Fit to Enabled Rows`
+8. Firmware slot UX now uses paged virtual lists:
+   - Lights page rows 1-6 + Prev/Next
+   - Cameras page rows 1-4 + Prev/Next + detail preview
+9. Managed generation now includes:
    - `generated/entities.generated.yaml`
    - `generated/theme.generated.yaml`
    - `generated/layout.generated.yaml`
@@ -147,9 +161,9 @@ Admin Center V5 (`0.23.1`) highlights:
    - `generated/pages/lights.generated.yaml`
    - `generated/pages/weather.generated.yaml`
    - `generated/pages/climate.generated.yaml`
-7. Apply, backup, and restore flows now preserve the expanded generated artifact set.
-8. Firmware workflow still uses capability-based auto-detect + fallback with legacy-safe status handling.
-9. Startup hotfix:
+10. Apply, backup, and restore flows now preserve the expanded generated artifact set.
+11. Firmware workflow still uses capability-based auto-detect + fallback with legacy-safe status handling.
+12. Startup hotfix remains in place:
    - fixed frontend bootstrap syntax regression that caused stuck `Status loading... / Initializing...`
    - added explicit startup state (`booting/ready/error`) and retry button
    - added versioned static assets (`app.js?v=<version>`, `styles.css?v=<version>`) and no-cache index delivery
@@ -159,7 +173,7 @@ If HA says the repo is not valid or add-on build fails:
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.23.1`).
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.24.0`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
 
 If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
@@ -177,11 +191,11 @@ If HA still shows an old add-on version:
 
 1. Confirm GitHub `main` has the new `tdeck_admin_center/config.yaml` version committed.
 2. In HA Add-on Store: remove repo, restart Supervisor, re-add repo URL.
-3. Reopen store and verify version `0.23.1`.
+3. Reopen store and verify version `0.24.0`.
 
 If the add-on UI is stuck at `Status loading... / Initializing...`:
 
-1. Verify add-on version is `0.23.1` or newer.
+1. Verify add-on version is `0.24.0` or newer.
 2. Open the add-on via Ingress and click `Retry Startup`.
 3. Check `System Health`:
    - `Transport base hint`

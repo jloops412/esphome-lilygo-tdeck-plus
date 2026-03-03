@@ -14,6 +14,11 @@ globals:
     restore_value: yes
     initial_value: "0"
 
+  - id: lights_page_start
+    type: int
+    restore_value: yes
+    initial_value: "0"
+
   - id: selected_light_name
     type: std::string
     restore_value: no
@@ -270,6 +275,10 @@ globals:
     type: int
     restore_value: no
     initial_value: "0"
+  - id: cameras_page_start
+    type: int
+    restore_value: yes
+    initial_value: "0"
   - id: camera_last_refresh_ms
     type: uint32_t
     restore_value: no
@@ -287,6 +296,10 @@ globals:
     restore_value: no
     initial_value: '""'
   - id: camera_slot_2_url
+    type: std::string
+    restore_value: no
+    initial_value: '""'
+  - id: camera_detail_url
     type: std::string
     restore_value: no
     initial_value: '""'

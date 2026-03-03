@@ -4,9 +4,9 @@ Home Assistant add-on (Ingress) for T-Deck workspace management, entity mapping,
 
 ## Version Track
 
-- Current add-on manifest version: `0.23.1`
-- API/UI model: V5 dashboard + guided + advanced workflows
-- Workspace/profile schema: `4.0` (legacy normalization retained)
+- Current add-on manifest version: `0.24.0`
+- API/UI model: V6 dashboard + guided + advanced workflows
+- Workspace/profile schema: `4.1` (legacy normalization retained)
 
 ## V5 Capabilities
 
@@ -57,33 +57,36 @@ Home Assistant add-on (Ingress) for T-Deck workspace management, entity mapping,
 13. `POST /api/entities/update`
 14. `POST /api/entities/remove`
 15. `POST /api/entities/reorder`
-16. `POST /api/cameras/autodetect`
-17. `POST /api/cameras/accept_detected`
-18. `POST /api/cameras/ignore_detected`
-19. `POST /api/profile/save`
-20. `GET /api/profile/load`
-21. `POST /api/profile/validate`
-22. `POST /api/layout/validate`
-23. `POST /api/layout/save`
-24. `POST /api/layout/reset_page`
-25. `GET /api/theme/palettes`
-26. `GET /api/theme/state`
-27. `POST /api/theme/preview`
-28. `POST /api/theme/apply`
-29. `POST /api/theme/apply_web`
-30. `POST /api/theme/apply_device_sync`
-31. `POST /api/theme/resolve_conflict`
-32. `POST /api/apply/preview`
-33. `POST /api/apply/commit`
-34. `GET /api/backups/list`
-35. `POST /api/backups/restore`
-36. `GET /api/firmware/status`
-37. `GET /api/firmware/capabilities`
-38. `POST /api/firmware/workflow`
-39. `GET /api/update/latest`
-40. `POST /api/generate/install`
-41. `POST /api/generate/overrides`
-42. `POST /api/generate/ha_update_package`
+16. `POST /api/entities/bulk_apply`
+17. `GET /api/entities/slot_caps`
+18. `POST /api/entities/auto_fit_caps`
+19. `POST /api/cameras/autodetect`
+20. `POST /api/cameras/accept_detected`
+21. `POST /api/cameras/ignore_detected`
+22. `POST /api/profile/save`
+23. `GET /api/profile/load`
+24. `POST /api/profile/validate`
+25. `POST /api/layout/validate`
+26. `POST /api/layout/save`
+27. `POST /api/layout/reset_page`
+28. `GET /api/theme/palettes`
+29. `GET /api/theme/state`
+30. `POST /api/theme/preview`
+31. `POST /api/theme/apply`
+32. `POST /api/theme/apply_web`
+33. `POST /api/theme/apply_device_sync`
+34. `POST /api/theme/resolve_conflict`
+35. `POST /api/apply/preview`
+36. `POST /api/apply/commit`
+37. `GET /api/backups/list`
+38. `POST /api/backups/restore`
+39. `GET /api/firmware/status`
+40. `GET /api/firmware/capabilities`
+41. `POST /api/firmware/workflow`
+42. `GET /api/update/latest`
+43. `POST /api/generate/install`
+44. `POST /api/generate/overrides`
+45. `POST /api/generate/ha_update_package`
 
 ## Managed Scope
 
@@ -114,7 +117,7 @@ Configured via add-on options (`/data/options.json`):
 
 If the UI is stuck at `Status loading...` / `Initializing...`:
 
-1. Verify add-on version is `0.23.1` or newer.
+1. Verify add-on version is `0.24.0` or newer.
 2. Click `Retry Startup` in the mode/status panel.
 3. Check transport diagnostics:
    - `API Base`
@@ -122,3 +125,8 @@ If the UI is stuck at `Status loading...` / `Initializing...`:
    - `Last Path`
    - `Last Status`
 4. If still stale, remove/re-add custom repo and restart Supervisor before reinstalling.
+6. Guided Step 3 slot-management studio
+   - inline smart entity comboboxes for row mapping
+   - per-row controls (`select`, `clear`, `duplicate`, `move`, `delete`)
+   - bulk controls (`enable all`, `disable all`, `remove disabled`, `dedupe`)
+   - slot runtime controls (`slot cap`, `page size`) with auto-fit action

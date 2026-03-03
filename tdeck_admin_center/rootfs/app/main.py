@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import re
 import shutil
@@ -25,8 +25,8 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.23.1")) or "0.23.1"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.23.1") or "v0.23.1"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.24.0")) or "0.24.0"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.24.0") or "v0.24.0"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
@@ -34,8 +34,8 @@ SERVICE_CACHE_TTL_SECONDS = 20
 DISCOVERY_JOB_POLL_TTL_SECONDS = 180
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
-PROFILE_SCHEMA_VERSION = "4.0"
-WORKSPACE_SCHEMA_VERSION = "4.0"
+PROFILE_SCHEMA_VERSION = "4.1"
+WORKSPACE_SCHEMA_VERSION = "4.1"
 ENTITY_COLLECTION_LIMITS = {
     "lights": {"default_max": 24, "hard_max": 64},
     "cameras": {"default_max": 8, "hard_max": 24},
@@ -43,6 +43,10 @@ ENTITY_COLLECTION_LIMITS = {
     "climate_controls": {"default_max": 24, "hard_max": 64},
     "reader_feeds": {"default_max": 16, "hard_max": 32},
     "system_entities": {"default_max": 24, "hard_max": 64},
+}
+SLOT_RUNTIME_LIMITS = {
+    "lights": {"default_cap": 24, "min_cap": 8, "max_cap": 24, "default_page_size": 6, "min_page_size": 4, "max_page_size": 6},
+    "cameras": {"default_cap": 8, "min_cap": 2, "max_cap": 8, "default_page_size": 4, "min_page_size": 2, "max_page_size": 4},
 }
 LAYOUT_GRID_DEFAULTS = {"cols": 4, "rows": 6}
 DEFAULT_LAYOUT_PAGE_IDS = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"]
@@ -536,11 +540,15 @@ def _q_single(value: Any) -> str:
 
 
 def _default_substitutions() -> Dict[str, str]:
-    return {
+    out = {
         "name": "lilygo-tdeck-plus",
         "friendly_name": "LilyGO T-Deck Plus",
         "app_release_channel": DEFAULT_RELEASE_CHANNEL,
         "app_release_version": DEFAULT_APP_RELEASE_VERSION,
+        "generated_light_slot_cap": str(SLOT_RUNTIME_LIMITS["lights"]["default_cap"]),
+        "generated_camera_slot_cap": str(SLOT_RUNTIME_LIMITS["cameras"]["default_cap"]),
+        "generated_light_page_size": str(SLOT_RUNTIME_LIMITS["lights"]["default_page_size"]),
+        "generated_camera_page_size": str(SLOT_RUNTIME_LIMITS["cameras"]["default_page_size"]),
         "gps_rx_pin": "44",
         "gps_tx_pin": "43",
         "gps_baud_rate": "9600",
@@ -663,6 +671,13 @@ def _default_substitutions() -> Dict[str, str]:
         "theme_radius": "10",
         "theme_icon_mode": "0",
     }
+    for idx in range(9, SLOT_RUNTIME_LIMITS["lights"]["max_cap"] + 1):
+        out[f"light_slot_{idx}_name"] = f"Spare {idx}"
+        out[f"light_slot_{idx}_entity"] = f"light.replace_me_slot_{idx}"
+    for idx in range(3, SLOT_RUNTIME_LIMITS["cameras"]["max_cap"] + 1):
+        out[f"camera_slot_{idx}_name"] = f"Camera {idx}"
+        out[f"camera_slot_{idx}_entity"] = f"camera.replace_me_{idx}"
+    return out
 
 
 def _required_by_feature() -> Dict[str, List[str]]:
@@ -722,6 +737,9 @@ def _contracts() -> Dict[str, Any]:
         "dashboard_actions": ["connect_device", "map_entities", "theme", "layout", "deploy", "recover"],
         "entity_collection_keys": list(ENTITY_COLLECTION_LIMITS.keys()),
         "entity_collection_limits": ENTITY_COLLECTION_LIMITS,
+        "slot_runtime_limits": SLOT_RUNTIME_LIMITS,
+        "slot_runtime_defaults": _default_slot_runtime(),
+        "entity_collections_meta_defaults": _default_entity_collections_meta(),
         "layout_pages": list(_default_layout_pages().keys()),
         "defaults": defaults,
     }
@@ -898,6 +916,71 @@ def _default_camera_autodetect_state() -> Dict[str, Any]:
     }
 
 
+def _default_slot_runtime() -> Dict[str, int]:
+    return {
+        "light_slot_cap": SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        "camera_slot_cap": SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        "light_page_size": SLOT_RUNTIME_LIMITS["lights"]["default_page_size"],
+        "camera_page_size": SLOT_RUNTIME_LIMITS["cameras"]["default_page_size"],
+    }
+
+
+def _normalize_slot_runtime(slot_runtime: Any) -> Dict[str, int]:
+    incoming = slot_runtime if isinstance(slot_runtime, dict) else {}
+    return {
+        "light_slot_cap": _as_int(
+            incoming.get("light_slot_cap"),
+            SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+            SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+            SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+        ),
+        "camera_slot_cap": _as_int(
+            incoming.get("camera_slot_cap"),
+            SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+            SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+            SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+        ),
+        "light_page_size": _as_int(
+            incoming.get("light_page_size"),
+            SLOT_RUNTIME_LIMITS["lights"]["default_page_size"],
+            SLOT_RUNTIME_LIMITS["lights"]["min_page_size"],
+            SLOT_RUNTIME_LIMITS["lights"]["max_page_size"],
+        ),
+        "camera_page_size": _as_int(
+            incoming.get("camera_page_size"),
+            SLOT_RUNTIME_LIMITS["cameras"]["default_page_size"],
+            SLOT_RUNTIME_LIMITS["cameras"]["min_page_size"],
+            SLOT_RUNTIME_LIMITS["cameras"]["max_page_size"],
+        ),
+    }
+
+
+def _default_entity_collections_meta() -> Dict[str, Dict[str, Any]]:
+    out: Dict[str, Dict[str, Any]] = {}
+    for key in ENTITY_COLLECTION_LIMITS.keys():
+        out[key] = {
+            "sort": "name",
+            "show_disabled": False,
+            "last_query": "",
+            "draft_dirty": False,
+        }
+    return out
+
+
+def _normalize_entity_collections_meta(meta: Any) -> Dict[str, Dict[str, Any]]:
+    incoming = meta if isinstance(meta, dict) else {}
+    defaults = _default_entity_collections_meta()
+    out: Dict[str, Dict[str, Any]] = {}
+    for key in ENTITY_COLLECTION_LIMITS.keys():
+        raw = incoming.get(key) if isinstance(incoming.get(key), dict) else {}
+        out[key] = _deep_merge(defaults[key], raw)
+        out[key]["sort"] = _as_str(out[key].get("sort"), "name") or "name"
+        out[key]["show_disabled"] = _as_bool(out[key].get("show_disabled"), False)
+        out[key]["last_query"] = _as_str(out[key].get("last_query"), "")
+        out[key]["draft_dirty"] = _as_bool(out[key].get("draft_dirty"), False)
+    return out
+
+
 def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
     lights: List[Dict[str, Any]] = []
     cameras: List[Dict[str, Any]] = []
@@ -906,6 +989,9 @@ def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
     reader_feeds: List[Dict[str, Any]] = []
     system_entities: List[Dict[str, Any]] = []
     slots = profile.get("slots", {}) if isinstance(profile.get("slots"), dict) else {}
+    slot_runtime = _normalize_slot_runtime(profile.get("slot_runtime"))
+    light_cap = _as_int(slot_runtime.get("light_slot_cap"), SLOT_RUNTIME_LIMITS["lights"]["default_cap"], SLOT_RUNTIME_LIMITS["lights"]["min_cap"], SLOT_RUNTIME_LIMITS["lights"]["max_cap"])
+    camera_cap = _as_int(slot_runtime.get("camera_slot_cap"), SLOT_RUNTIME_LIMITS["cameras"]["default_cap"], SLOT_RUNTIME_LIMITS["cameras"]["min_cap"], SLOT_RUNTIME_LIMITS["cameras"]["max_cap"])
     slot_lights = slots.get("lights", []) if isinstance(slots.get("lights"), list) else []
     slot_cameras = slots.get("cameras", []) if isinstance(slots.get("cameras"), list) else []
     entities = profile.get("entities", {}) if isinstance(profile.get("entities"), dict) else {}
@@ -917,7 +1003,7 @@ def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
                 "id": f"light_{idx+1}",
                 "name": _as_str(item.get("name"), f"Light {idx+1}"),
                 "entity_id": _as_str(item.get("entity"), ""),
-                "enabled": idx < _as_int(slots.get("light_slot_count"), 6, 1, 8),
+                "enabled": idx < _as_int(slots.get("light_slot_count"), 6, 1, light_cap),
             }
         )
     for idx, item in enumerate(slot_cameras):
@@ -926,7 +1012,7 @@ def _profile_collections_default(profile: Dict[str, Any]) -> Dict[str, Any]:
                 "id": f"camera_{idx+1}",
                 "name": _as_str(item.get("name"), f"Camera {idx+1}"),
                 "entity_id": _as_str(item.get("entity"), ""),
-                "enabled": idx < _as_int(slots.get("camera_slot_count"), 0, 0, 2),
+                "enabled": idx < _as_int(slots.get("camera_slot_count"), 0, 0, camera_cap),
             }
         )
     weather_map = {
@@ -1081,6 +1167,19 @@ def _normalize_profile_collections(profile: Dict[str, Any]) -> Dict[str, Any]:
 def _sync_slots_from_collections(profile: Dict[str, Any]) -> None:
     collections = _normalize_profile_collections(profile)
     profile["entity_collections"] = collections
+    profile["slot_runtime"] = _normalize_slot_runtime(profile.get("slot_runtime"))
+    light_cap = _as_int(
+        profile["slot_runtime"].get("light_slot_cap"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+    )
+    camera_cap = _as_int(
+        profile["slot_runtime"].get("camera_slot_cap"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+    )
     lights = collections["lights"]
     cameras = collections["cameras"]
     enabled_lights = [x for x in lights if _as_bool(x.get("enabled"), True)]
@@ -1088,7 +1187,7 @@ def _sync_slots_from_collections(profile: Dict[str, Any]) -> None:
     slots = profile.get("slots", {}) if isinstance(profile.get("slots"), dict) else {}
     slot_lights: List[Dict[str, Any]] = []
     slot_cameras: List[Dict[str, Any]] = []
-    for idx in range(8):
+    for idx in range(light_cap):
         item = enabled_lights[idx] if idx < len(enabled_lights) else {}
         slot_lights.append(
             {
@@ -1096,7 +1195,7 @@ def _sync_slots_from_collections(profile: Dict[str, Any]) -> None:
                 "entity": _as_str(item.get("entity_id"), f"light.replace_me_slot_{idx+1}"),
             }
         )
-    for idx in range(2):
+    for idx in range(camera_cap):
         item = enabled_cameras[idx] if idx < len(enabled_cameras) else {}
         slot_cameras.append(
             {
@@ -1106,8 +1205,11 @@ def _sync_slots_from_collections(profile: Dict[str, Any]) -> None:
         )
     slots["lights"] = slot_lights
     slots["cameras"] = slot_cameras
-    slots["light_slot_count"] = _as_int(min(len(enabled_lights), 8), 0, 1, 8)
-    slots["camera_slot_count"] = _as_int(min(len(enabled_cameras), 2), 0, 0, 2)
+    slots["light_slot_count"] = _as_int(min(len(enabled_lights), light_cap), 0, 1, light_cap)
+    slots["camera_slot_count"] = _as_int(min(len(enabled_cameras), camera_cap), 0, 0, camera_cap)
+    # Transition compatibility for legacy fixed-slot consumers.
+    slots["legacy_lights"] = slot_lights[:8]
+    slots["legacy_cameras"] = slot_cameras[:2]
     profile["slots"] = slots
 
 
@@ -1524,11 +1626,12 @@ def _default_profile() -> Dict[str, Any]:
         },
         "features": {"lights": True, "weather": True, "climate": True, "cameras": False, "reader": True, "gps": True},
         "slots": {
-            "light_slot_count": _as_int(defaults["light_slot_count"], 6, 1, 8),
+            "light_slot_count": _as_int(defaults["light_slot_count"], 6, 1, SLOT_RUNTIME_LIMITS["lights"]["max_cap"]),
             "lights": lights,
-            "camera_slot_count": _as_int(defaults["camera_slot_count"], 0, 0, 2),
+            "camera_slot_count": _as_int(defaults["camera_slot_count"], 0, 0, SLOT_RUNTIME_LIMITS["cameras"]["max_cap"]),
             "cameras": cameras,
         },
+        "slot_runtime": _default_slot_runtime(),
         "entities": entities,
         "ui": ui,
         "theme": theme,
@@ -1541,6 +1644,7 @@ def _default_profile() -> Dict[str, Any]:
                 "cameras_max": ENTITY_COLLECTION_LIMITS["cameras"]["default_max"],
             },
         },
+        "entity_collections_meta": _default_entity_collections_meta(),
         "layout_pages": _default_layout_pages(),
         "theme_studio": {
             "active_palette": "ocean_dark",
@@ -1741,7 +1845,7 @@ def _workspace_active_profile(
 def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     merged = _deep_merge(json.loads(json.dumps(_default_profile())), profile or {})
 
-    merged["schema_version"] = _as_str(merged.get("schema_version") or PROFILE_SCHEMA_VERSION)
+    merged["schema_version"] = PROFILE_SCHEMA_VERSION
     merged["profile_name"] = _safe_profile_name(merged.get("profile_name"), "default")
     if not isinstance(merged.get("landing_state"), dict):
         merged["landing_state"] = _default_landing_state()
@@ -1755,21 +1859,35 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     for key in ["lights", "weather", "climate", "cameras", "reader", "gps"]:
         merged["features"][key] = _as_bool(merged["features"].get(key), key != "cameras")
 
+    merged["slot_runtime"] = _normalize_slot_runtime(merged.get("slot_runtime"))
+    light_cap = _as_int(
+        merged["slot_runtime"].get("light_slot_cap"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+    )
+    camera_cap = _as_int(
+        merged["slot_runtime"].get("camera_slot_cap"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+    )
+
     slots = merged["slots"]
-    slots["light_slot_count"] = _as_int(slots.get("light_slot_count"), 6, 1, 8)
-    slots["camera_slot_count"] = _as_int(slots.get("camera_slot_count"), 0, 0, 2)
+    slots["light_slot_count"] = _as_int(slots.get("light_slot_count"), 6, 1, light_cap)
+    slots["camera_slot_count"] = _as_int(slots.get("camera_slot_count"), 0, 0, camera_cap)
 
     lights = slots.get("lights") if isinstance(slots.get("lights"), list) else []
-    while len(lights) < 8:
+    while len(lights) < light_cap:
         idx = len(lights) + 1
         lights.append({"name": f"Light {idx}", "entity": f"light.replace_me_slot_{idx}"})
-    slots["lights"] = lights[:8]
+    slots["lights"] = lights[:light_cap]
 
     cameras = slots.get("cameras") if isinstance(slots.get("cameras"), list) else []
-    while len(cameras) < 2:
+    while len(cameras) < camera_cap:
         idx = len(cameras) + 1
         cameras.append({"name": f"Camera {idx}", "entity": f"camera.replace_me_{idx}"})
-    slots["cameras"] = cameras[:2]
+    slots["cameras"] = cameras[:camera_cap]
 
     for item in slots["lights"]:
         item["name"] = _as_str(item.get("name"), "Light")
@@ -1786,6 +1904,7 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["theme"] = {}
     if not isinstance(merged.get("settings"), dict):
         merged["settings"] = {}
+    merged["entity_collections_meta"] = _normalize_entity_collections_meta(merged.get("entity_collections_meta"))
 
     for key in _contracts()["ui_keys"]:
         merged["ui"][key] = _as_bool(merged["ui"].get(key), True)
@@ -1856,22 +1975,51 @@ def _profile_to_substitutions(profile: Dict[str, Any], overrides: Dict[str, Any]
         if key in substitutions:
             substitutions[key] = _as_str(value, substitutions[key])
 
-    light_count = _as_int(p["slots"].get("light_slot_count"), 6, 1, 8)
-    camera_count = _as_int(p["slots"].get("camera_slot_count"), 0, 0, 2)
+    slot_runtime = _normalize_slot_runtime(p.get("slot_runtime"))
+    light_cap = _as_int(
+        slot_runtime.get("light_slot_cap"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+    )
+    camera_cap = _as_int(
+        slot_runtime.get("camera_slot_cap"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+    )
+    light_page_size = _as_int(
+        slot_runtime.get("light_page_size"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_page_size"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_page_size"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_page_size"],
+    )
+    camera_page_size = _as_int(
+        slot_runtime.get("camera_page_size"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_page_size"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_page_size"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_page_size"],
+    )
+    light_count = _as_int(p["slots"].get("light_slot_count"), 6, 1, light_cap)
+    camera_count = _as_int(p["slots"].get("camera_slot_count"), 0, 0, camera_cap)
     substitutions["light_slot_count"] = str(light_count)
     substitutions["camera_slot_count"] = str(camera_count)
+    substitutions["generated_light_slot_cap"] = str(light_cap)
+    substitutions["generated_camera_slot_cap"] = str(camera_cap)
+    substitutions["generated_light_page_size"] = str(light_page_size)
+    substitutions["generated_camera_page_size"] = str(camera_page_size)
 
     lights = p["slots"].get("lights", [])
-    for idx in range(1, 9):
+    for idx in range(1, light_cap + 1):
         entry = lights[idx - 1] if idx - 1 < len(lights) else {}
-        substitutions[f"light_slot_{idx}_name"] = _as_str(entry.get("name"), substitutions[f"light_slot_{idx}_name"])
-        substitutions[f"light_slot_{idx}_entity"] = _as_str(entry.get("entity"), substitutions[f"light_slot_{idx}_entity"])
+        substitutions[f"light_slot_{idx}_name"] = _as_str(entry.get("name"), substitutions.get(f"light_slot_{idx}_name", f"Light {idx}"))
+        substitutions[f"light_slot_{idx}_entity"] = _as_str(entry.get("entity"), substitutions.get(f"light_slot_{idx}_entity", f"light.replace_me_slot_{idx}"))
 
     cameras = p["slots"].get("cameras", [])
-    for idx in range(1, 3):
+    for idx in range(1, camera_cap + 1):
         entry = cameras[idx - 1] if idx - 1 < len(cameras) else {}
-        substitutions[f"camera_slot_{idx}_name"] = _as_str(entry.get("name"), substitutions[f"camera_slot_{idx}_name"])
-        substitutions[f"camera_slot_{idx}_entity"] = _as_str(entry.get("entity"), substitutions[f"camera_slot_{idx}_entity"])
+        substitutions[f"camera_slot_{idx}_name"] = _as_str(entry.get("name"), substitutions.get(f"camera_slot_{idx}_name", f"Camera {idx}"))
+        substitutions[f"camera_slot_{idx}_entity"] = _as_str(entry.get("entity"), substitutions.get(f"camera_slot_{idx}_entity", f"camera.replace_me_{idx}"))
 
     for key in _contracts()["ui_keys"]:
         if key in p.get("ui", {}):
@@ -1956,6 +2104,19 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     errors: List[str] = []
     warnings: List[str] = []
     collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
+    slot_runtime = _normalize_slot_runtime(p.get("slot_runtime"))
+    light_cap = _as_int(
+        slot_runtime.get("light_slot_cap"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+    )
+    camera_cap = _as_int(
+        slot_runtime.get("camera_slot_cap"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+    )
     lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
     cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
 
@@ -1968,16 +2129,20 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     if not app_release_version:
         errors.append("app_release_version is required.")
     elif not re.match(r"^v\d+\.\d+\.\d+([\-+].+)?$", app_release_version):
-        warnings.append("app_release_version should follow semantic tag style (for example v0.23.1).")
+        warnings.append("app_release_version should follow semantic tag style (for example v0.24.0).")
     if app_release_channel not in {"stable", "beta", "dev"}:
         warnings.append("app_release_channel should be stable, beta, or dev.")
 
     features = p.get("features", {})
     if _as_bool(features.get("lights"), True):
-        light_count = _as_int(substitutions.get("light_slot_count"), 6, 1, 8)
+        light_count = _as_int(substitutions.get("light_slot_count"), 6, 1, light_cap)
         enabled_lights = [x for x in lights if _as_bool(x.get("enabled"), True)]
         if len(enabled_lights) == 0:
             warnings.append("lights feature enabled but no enabled lights in dynamic collections.")
+        if len(enabled_lights) > light_cap:
+            errors.append(
+                f"enabled lights ({len(enabled_lights)}) exceed light_slot_cap ({light_cap}). Run auto-fit caps or disable rows."
+            )
         if len(lights) > ENTITY_COLLECTION_LIMITS["lights"]["hard_max"]:
             errors.append(f"lights collection exceeds hard limit {ENTITY_COLLECTION_LIMITS['lights']['hard_max']}.")
         for idx in range(1, light_count + 1):
@@ -1993,12 +2158,16 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
             if _is_placeholder(substitutions.get(key, "")):
                 errors.append(f"{key} is required when climate feature is enabled.")
     if _as_bool(features.get("cameras"), False):
-        camera_count = _as_int(substitutions.get("camera_slot_count"), 0, 0, 2)
+        camera_count = _as_int(substitutions.get("camera_slot_count"), 0, 0, camera_cap)
         enabled_cameras = [x for x in cameras if _as_bool(x.get("enabled"), True)]
         if len(cameras) > ENTITY_COLLECTION_LIMITS["cameras"]["hard_max"]:
             errors.append(f"cameras collection exceeds hard limit {ENTITY_COLLECTION_LIMITS['cameras']['hard_max']}.")
         if len(enabled_cameras) == 0:
             warnings.append("cameras feature enabled but no enabled cameras in dynamic collections.")
+        if len(enabled_cameras) > camera_cap:
+            errors.append(
+                f"enabled cameras ({len(enabled_cameras)}) exceed camera_slot_cap ({camera_cap}). Run auto-fit caps or disable rows."
+            )
         if camera_count <= 0:
             warnings.append("Cameras feature is enabled but camera_slot_count is 0.")
         for idx in range(1, camera_count + 1):
@@ -2040,36 +2209,79 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _mapping_suggestions(key: str, query: str = "", limit: int = 12) -> List[Dict[str, Any]]:
+def _mapping_suggestions(
+    key: str,
+    query: str = "",
+    limit: int = 12,
+    collection: str = "",
+    role: str = "",
+    domain_hint: str = "",
+    exclude_entities: set[str] | None = None,
+) -> List[Dict[str, Any]]:
     key = _as_str(key).strip()
     query = _as_str(query).strip().lower()
-    hints = DOMAIN_HINTS.get(key, [])
+    role = _as_str(role).strip()
+    collection = _as_str(collection).strip().lower()
+    hint_domain = _as_str(domain_hint).strip().lower()
+    hints = [x.lower() for x in DOMAIN_HINTS.get(key, [])]
+    if role and role in DOMAIN_HINTS:
+        hints.extend([x.lower() for x in DOMAIN_HINTS.get(role, [])])
+    if collection == "lights":
+        hints.append("light")
+    elif collection == "cameras":
+        hints.append("camera")
+    elif collection == "climate_controls":
+        hints.append("climate")
+    elif collection == "weather_metrics":
+        hints.extend(["weather", "sensor"])
+    if hint_domain:
+        hints.append(hint_domain)
+    if not hints and key.startswith("entity_"):
+        tail = key.replace("entity_", "", 1)
+        if tail.startswith("wx_"):
+            hints.extend(["weather", "sensor"])
+        elif tail.startswith("sensi_"):
+            hints.extend(["climate", "sensor", "number", "switch"])
+    hints = sorted(set([h for h in hints if h]))
     cache = _discovery_cache_snapshot()
     rows = cache.get("rows", [])
+    excluded = exclude_entities or set()
 
-    scored: List[Tuple[int, Dict[str, Any]]] = []
+    scored: List[Tuple[int, str, Dict[str, Any]]] = []
     for row in rows:
         entity_id = _as_str(row.get("entity_id"))
         domain = _as_str(row.get("domain"))
         friendly = _as_str(row.get("friendly_name"))
+        if entity_id and entity_id.lower() in excluded:
+            continue
         score = 0
+        reasons: List[str] = []
         if hints and domain in hints:
             score += 40
+            reasons.append("domain-match")
         if query:
             if query in entity_id.lower():
                 score += 35
+                reasons.append("id-match")
             if query in friendly.lower():
                 score += 25
+                reasons.append("name-match")
+        if role and role.lower() in entity_id.lower():
+            score += 10
+            reasons.append("role-hint")
         if "replace_me" in entity_id.lower():
             score -= 100
         if row.get("mappable"):
             score += 5
+        if not query and hints:
+            # Keep good-domain options even without text query.
+            score += 3
         if score > 0:
-            scored.append((score, row))
+            scored.append((score, ",".join(reasons) if reasons else "ranked", row))
 
-    scored.sort(key=lambda x: (-x[0], _as_str(x[1].get("entity_id"))))
+    scored.sort(key=lambda x: (-x[0], _as_str(x[2].get("entity_id"))))
     out: List[Dict[str, Any]] = []
-    for score, row in scored[:limit]:
+    for score, reason, row in scored[:limit]:
         out.append(
             {
                 "score": score,
@@ -2077,6 +2289,7 @@ def _mapping_suggestions(key: str, query: str = "", limit: int = 12) -> List[Dic
                 "friendly_name": _as_str(row.get("friendly_name")),
                 "domain": _as_str(row.get("domain")),
                 "state": _as_str(row.get("state")),
+                "reason": reason,
             }
         )
     return out
@@ -2257,12 +2470,17 @@ def _build_generated_entities_yaml(profile: Dict[str, Any]) -> str:
     collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
     lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
     cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+    slot_runtime = _normalize_slot_runtime(p.get("slot_runtime"))
     lines: List[str] = [
         "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
         "substitutions:",
         f"  generated_entities_revision: {_q(str(int(_now())))}",
         f"  generated_light_count_total: {_q(str(len(lights)))}",
         f"  generated_camera_count_total: {_q(str(len(cameras)))}",
+        f"  generated_light_slot_cap: {_q(str(slot_runtime.get('light_slot_cap', SLOT_RUNTIME_LIMITS['lights']['default_cap'])))}",
+        f"  generated_camera_slot_cap: {_q(str(slot_runtime.get('camera_slot_cap', SLOT_RUNTIME_LIMITS['cameras']['default_cap'])))}",
+        f"  generated_light_page_size: {_q(str(slot_runtime.get('light_page_size', SLOT_RUNTIME_LIMITS['lights']['default_page_size'])))}",
+        f"  generated_camera_page_size: {_q(str(slot_runtime.get('camera_page_size', SLOT_RUNTIME_LIMITS['cameras']['default_page_size'])))}",
     ]
     lines.append("")
     lines.append("# Dynamic collection summary")
@@ -3796,8 +4014,44 @@ def api_mapping_suggest() -> Any:
     key = _as_str(payload.get("key"), "")
     query = _as_str(payload.get("q"), "")
     limit = _as_int(payload.get("limit"), 12, 1, 50)
-    suggestions = _mapping_suggestions(key, query, limit=limit)
-    return jsonify({"ok": True, "key": key, "count": len(suggestions), "suggestions": suggestions})
+    collection = _as_str(payload.get("collection"), "").strip().lower()
+    role = _as_str(payload.get("role"), "")
+    domain_hint = _as_str(payload.get("domain_hint"), "")
+    exclude_assigned = _as_bool(payload.get("exclude_assigned"), False)
+    active_device_slug = _as_str(payload.get("active_device_slug"), "")
+    exclude_entities: set[str] = set()
+    if exclude_assigned:
+        ws = _load_workspace_or_default(_safe_profile_name(payload.get("workspace"), "default"))
+        profile, _ = _workspace_active_profile(ws, ws.get("active_device_index", 0), active_device_slug)
+        collections = profile.get("entity_collections", {}) if isinstance(profile.get("entity_collections"), dict) else {}
+        for rows in collections.values():
+            if not isinstance(rows, list):
+                continue
+            for row in rows:
+                if isinstance(row, dict):
+                    entity_id = _as_str(row.get("entity_id"), "").strip().lower()
+                    if entity_id:
+                        exclude_entities.add(entity_id)
+    suggestions = _mapping_suggestions(
+        key,
+        query,
+        limit=limit,
+        collection=collection,
+        role=role,
+        domain_hint=domain_hint,
+        exclude_entities=exclude_entities,
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "key": key,
+            "collection": collection,
+            "role": role,
+            "domain_hint": domain_hint,
+            "count": len(suggestions),
+            "suggestions": suggestions,
+        }
+    )
 
 
 @app.get("/api/meta/templates")
@@ -3883,8 +4137,248 @@ def api_entities_collections() -> Any:
             "device_slug": _managed_device_slug(profile),
             "collections": collections,
             "limits": collections.get("limits", {}),
+            "slot_runtime": _normalize_slot_runtime(profile.get("slot_runtime")),
+            "entity_collections_meta": _normalize_entity_collections_meta(profile.get("entity_collections_meta")),
             "contracts": {
                 "entity_collection_limits": ENTITY_COLLECTION_LIMITS,
+                "slot_runtime_limits": SLOT_RUNTIME_LIMITS,
+            },
+        }
+    )
+
+
+def _collection_rows(profile: Dict[str, Any], collection: str) -> List[Dict[str, Any]]:
+    profile["entity_collections"] = _normalize_profile_collections(profile)
+    return profile["entity_collections"].get(collection, [])
+
+
+def _find_collection_index(rows: List[Dict[str, Any]], item_id: str, fallback_index: int = -1) -> int:
+    if item_id:
+        want = _slugify(item_id, "")
+        for idx, row in enumerate(rows):
+            if _slugify(row.get("id"), "") == want:
+                return idx
+    if fallback_index >= 0 and fallback_index < len(rows):
+        return fallback_index
+    return -1
+
+
+def _apply_collection_op(profile: Dict[str, Any], op: Dict[str, Any], notices: List[str]) -> Tuple[bool, str]:
+    collection = _as_str(op.get("collection"), "").strip().lower()
+    if collection not in ENTITY_COLLECTION_LIMITS:
+        return False, f"collection must be one of: {', '.join(sorted(ENTITY_COLLECTION_LIMITS.keys()))}"
+    rows = _collection_rows(profile, collection)
+    action = _as_str(op.get("op"), "").strip().lower()
+    hard_max = _as_int(ENTITY_COLLECTION_LIMITS.get(collection, {}).get("hard_max"), 64, 1, 4096)
+
+    if action == "add":
+        if len(rows) >= hard_max:
+            return False, f"{collection} reached hard limit {hard_max}"
+        item = op.get("item") if isinstance(op.get("item"), dict) else {}
+        next_idx = len(rows) + 1
+        rows.append(
+            {
+                "id": _slugify(item.get("id"), f"{collection[:-1]}_{next_idx}"),
+                "name": _as_str(item.get("name"), f"{collection[:-1].title()} {next_idx}"),
+                "entity_id": _as_str(item.get("entity_id") or item.get("entity"), ""),
+                "role": _as_str(item.get("role"), ""),
+                "enabled": _as_bool(item.get("enabled"), True),
+            }
+        )
+    elif action == "update":
+        item_id = _slugify(op.get("item_id"), "")
+        at_index = _as_int(op.get("index"), -1, -1, None)
+        patch = op.get("patch") if isinstance(op.get("patch"), dict) else {}
+        idx = _find_collection_index(rows, item_id, at_index)
+        if idx < 0:
+            return False, f"item not found for update in {collection}"
+        row = rows[idx]
+        if "id" in patch:
+            row["id"] = _slugify(patch.get("id"), row.get("id"))
+        if "name" in patch:
+            row["name"] = _as_str(patch.get("name"), row.get("name"))
+        if "entity_id" in patch or "entity" in patch:
+            row["entity_id"] = _as_str(patch.get("entity_id") or patch.get("entity"), row.get("entity_id"))
+        if "role" in patch:
+            row["role"] = _as_str(patch.get("role"), row.get("role"))
+        if "enabled" in patch:
+            row["enabled"] = _as_bool(patch.get("enabled"), True)
+    elif action == "remove":
+        item_id = _slugify(op.get("item_id"), "")
+        at_index = _as_int(op.get("index"), -1, -1, None)
+        idx = _find_collection_index(rows, item_id, at_index)
+        if idx < 0:
+            return False, f"item not found for remove in {collection}"
+        rows.pop(idx)
+    elif action == "reorder":
+        from_index = _as_int(op.get("from_index"), -1, -1, None)
+        to_index = _as_int(op.get("to_index"), -1, -1, None)
+        if from_index < 0 or from_index >= len(rows) or to_index < 0 or to_index >= len(rows):
+            return False, "from_index/to_index out of range"
+        item = rows.pop(from_index)
+        rows.insert(to_index, item)
+    elif action in {"enable_all", "disable_all"}:
+        enabled = action == "enable_all"
+        for row in rows:
+            row["enabled"] = enabled
+    elif action == "dedupe":
+        seen: set[str] = set()
+        deduped: List[Dict[str, Any]] = []
+        removed = 0
+        for row in rows:
+            entity_id = _as_str(row.get("entity_id"), "").strip().lower()
+            if not entity_id:
+                deduped.append(row)
+                continue
+            if entity_id in seen:
+                removed += 1
+                continue
+            seen.add(entity_id)
+            deduped.append(row)
+        rows[:] = deduped
+        notices.append(f"{collection}: dedupe removed {removed} duplicate rows")
+    else:
+        return False, f"unsupported op '{action}'"
+
+    profile["entity_collections"][collection] = rows
+    profile["entity_collections_meta"] = _normalize_entity_collections_meta(profile.get("entity_collections_meta"))
+    meta = profile["entity_collections_meta"].get(collection, {})
+    meta["draft_dirty"] = True
+    meta["updated_at"] = int(_now())
+    profile["entity_collections_meta"][collection] = meta
+    return True, ""
+
+
+@app.post("/api/entities/bulk_apply")
+def api_entities_bulk_apply() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    ops = payload.get("ops") if isinstance(payload.get("ops"), list) else []
+    if not ops:
+        return jsonify({"ok": False, "error": "ops[] is required"}), 400
+    errors: List[str] = []
+    notices: List[str] = []
+    for pos, op in enumerate(ops):
+        if not isinstance(op, dict):
+            errors.append(f"op[{pos}] is not an object")
+            continue
+        ok, err = _apply_collection_op(profile, op, notices)
+        if not ok:
+            errors.append(f"op[{pos}] {err}")
+    _sync_slots_from_collections(profile)
+    validation = _validate_profile(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    status_code = 200 if not errors else 400
+    return jsonify(
+        {
+            "ok": len(errors) == 0,
+            "errors": errors,
+            "notices": notices,
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "validation": {
+                "ok": validation["ok"],
+                "errors": validation["errors"],
+                "warnings": validation["warnings"],
+            },
+        }
+    ), status_code
+
+
+@app.get("/api/entities/slot_caps")
+def api_entities_slot_caps() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    profile = _normalize_profile(profile)
+    collections = profile.get("entity_collections", {}) if isinstance(profile.get("entity_collections"), dict) else {}
+    lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
+    cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+    enabled_lights = len([x for x in lights if _as_bool(x.get("enabled"), True)])
+    enabled_cameras = len([x for x in cameras if _as_bool(x.get("enabled"), True)])
+    slot_runtime = _normalize_slot_runtime(profile.get("slot_runtime"))
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": _managed_device_slug(profile),
+            "slot_runtime": slot_runtime,
+            "limits": SLOT_RUNTIME_LIMITS,
+            "enabled_counts": {"lights": enabled_lights, "cameras": enabled_cameras},
+            "overflow": {
+                "lights": enabled_lights > _as_int(
+                    slot_runtime.get("light_slot_cap"),
+                    SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+                    SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+                    SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+                ),
+                "cameras": enabled_cameras > _as_int(
+                    slot_runtime.get("camera_slot_cap"),
+                    SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+                    SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+                    SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+                ),
+            },
+        }
+    )
+
+
+@app.post("/api/entities/auto_fit_caps")
+def api_entities_auto_fit_caps() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    profile = _normalize_profile(profile)
+    collections = profile.get("entity_collections", {}) if isinstance(profile.get("entity_collections"), dict) else {}
+    lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
+    cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+    enabled_lights = len([x for x in lights if _as_bool(x.get("enabled"), True)])
+    enabled_cameras = len([x for x in cameras if _as_bool(x.get("enabled"), True)])
+    slot_runtime = _normalize_slot_runtime(profile.get("slot_runtime"))
+    light_cap = _as_int(
+        slot_runtime.get("light_slot_cap"),
+        SLOT_RUNTIME_LIMITS["lights"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["lights"]["max_cap"],
+    )
+    camera_cap = _as_int(
+        slot_runtime.get("camera_slot_cap"),
+        SLOT_RUNTIME_LIMITS["cameras"]["default_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["min_cap"],
+        SLOT_RUNTIME_LIMITS["cameras"]["max_cap"],
+    )
+    changed = False
+    if enabled_lights > light_cap:
+        if enabled_lights > SLOT_RUNTIME_LIMITS["lights"]["max_cap"]:
+            return jsonify({"ok": False, "error": f"enabled lights {enabled_lights} exceed hard cap {SLOT_RUNTIME_LIMITS['lights']['max_cap']}"}), 400
+        slot_runtime["light_slot_cap"] = enabled_lights
+        changed = True
+    if enabled_cameras > camera_cap:
+        if enabled_cameras > SLOT_RUNTIME_LIMITS["cameras"]["max_cap"]:
+            return jsonify({"ok": False, "error": f"enabled cameras {enabled_cameras} exceed hard cap {SLOT_RUNTIME_LIMITS['cameras']['max_cap']}"}), 400
+        slot_runtime["camera_slot_cap"] = enabled_cameras
+        changed = True
+    profile["slot_runtime"] = _normalize_slot_runtime(slot_runtime)
+    _sync_slots_from_collections(profile)
+    validation = _validate_profile(profile)
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify(
+        {
+            "ok": True,
+            "changed": changed,
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "slot_runtime": profile.get("slot_runtime", {}),
+            "validation": {
+                "ok": validation["ok"],
+                "errors": validation["errors"],
+                "warnings": validation["warnings"],
             },
         }
     )
@@ -4794,3 +5288,4 @@ def _static_file_response(path: str) -> Any:
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8099, debug=False)
+

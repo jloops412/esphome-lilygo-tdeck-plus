@@ -2,7 +2,7 @@ substitutions:
   name: lilygo-tdeck-plus
   friendly_name: "LilyGO T-Deck Plus"
   app_release_channel: "stable"
-  app_release_version: "v0.23.1"
+  app_release_version: "v0.24.0"
   gps_rx_pin: "44"
   gps_tx_pin: "43"
   gps_baud_rate: "9600"
@@ -76,3 +76,4 @@ wifi:
   ap:
     ssid: "${friendly_name} Fallback"
     password: "esphome1234"
+

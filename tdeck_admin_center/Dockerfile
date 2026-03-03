@@ -1,5 +1,5 @@
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20
-ARG BUILD_VERSION=0.23.1
+ARG BUILD_VERSION=0.24.0
 FROM ${BUILD_FROM}
 
 ENV LANG=C.UTF-8
@@ -14,3 +14,4 @@ COPY run.sh /run.sh
 RUN sed -i 's/\r$//' /run.sh && chmod a+x /run.sh
 
 CMD ["/run.sh"]
+

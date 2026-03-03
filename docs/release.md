@@ -2,10 +2,41 @@
 
 ## Baseline
 
-- Current add-on manifest version in repo: `0.23.1`
+- Current add-on manifest version in repo: `0.24.0`
 - Public install templates now track `stable`.
 
 ## Unreleased (Current `main`)
+
+### Admin Center + Firmware v0.24.0 guided step 3 + paged slots
+
+1. Guided Step 3 rewritten as slot-management studio:
+   - inline smart entity comboboxes
+   - row-level actions (`select`, `clear`, `duplicate`, `move`, `delete`)
+   - bulk actions (`enable all`, `disable all`, `remove disabled`, `dedupe`)
+2. New slot runtime APIs:
+   - `POST /api/entities/bulk_apply`
+   - `GET /api/entities/slot_caps`
+   - `POST /api/entities/auto_fit_caps`
+3. Workspace/profile schema upgraded to `4.1` with automatic normalization.
+4. Slot runtime model added:
+   - `light_slot_cap` / `camera_slot_cap`
+   - `light_page_size` / `camera_page_size`
+5. Firmware lights page upgraded to paged virtual list:
+   - six visible rows + `Prev`/`Next` paging controls
+   - supports configured light slots up to cap (`24` in this pass)
+6. Firmware cameras page upgraded to paged virtual list:
+   - four visible rows + `Prev`/`Next` paging controls
+   - single detail image pipeline with per-slot snapshot load
+7. Dynamic diagnostics labels updated for paged slot models in settings and camera detail flow.
+8. Public substitutions expanded:
+   - `generated_light_slot_cap`
+   - `generated_camera_slot_cap`
+   - `generated_light_page_size`
+   - `generated_camera_page_size`
+9. Install/template defaults bumped to `app_release_version: v0.24.0`.
+10. Add-on metadata/version bumped:
+    - `tdeck_admin_center/config.yaml` -> `0.24.0`
+    - `tdeck_admin_center/Dockerfile` build default -> `0.24.0`
 
 ### Admin Center v0.23.1 robust startup hotfix
 
@@ -173,9 +204,10 @@
 
 ## Next tag recommendation
 
-1. `v0.23.1-admin-startup-hotfix`
+1. `v0.24.0-guided-step3-paged-slots`
+2. `v0.23.1-admin-startup-hotfix`
    - startup bootstrap fix + ingress/cache hardening + startup diagnostics UX
-2. next:
+3. next:
    - `v0.23.2-admin-guided-flow-polish`
    - `v0.24.0-canvas-advanced-layout-constraints`
 

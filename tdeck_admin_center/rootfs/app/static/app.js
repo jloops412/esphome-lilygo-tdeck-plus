@@ -1,4 +1,4 @@
-﻿
+
 const state = {
   contracts: null,
   workspace: null,
@@ -43,6 +43,8 @@ const state = {
     startup_error_text: "",
     in_progress: false,
   },
+  rowSuggestTimers: {},
+  collectionDirty: false,
 };
 
 const WEATHER_FIELDS = [
@@ -458,7 +460,7 @@ function currentProfile() {
 function ensureWorkspace(ws, fallbackProfile) {
   if (!ws || typeof ws !== "object") {
     ws = {
-      schema_version: "4.0",
+      schema_version: "4.1",
       workspace_name: "default",
       active_device_index: 0,
       devices: [deepClone(fallbackProfile)],
@@ -630,7 +632,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.23.1";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.24.0";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -832,6 +834,31 @@ function ensureCollections(profile) {
     const current = Number(profile.entity_collections.limits[limitKey] || meta.defaultMax);
     profile.entity_collections.limits[limitKey] = Number.isFinite(current) ? current : meta.defaultMax;
   });
+  if (!profile.slot_runtime || typeof profile.slot_runtime !== "object") {
+    profile.slot_runtime = {
+      light_slot_cap: 24,
+      camera_slot_cap: 8,
+      light_page_size: 6,
+      camera_page_size: 4,
+    };
+  }
+  profile.slot_runtime.light_slot_cap = clampInt(profile.slot_runtime.light_slot_cap || 24, 8, 24);
+  profile.slot_runtime.camera_slot_cap = clampInt(profile.slot_runtime.camera_slot_cap || 8, 2, 8);
+  profile.slot_runtime.light_page_size = clampInt(profile.slot_runtime.light_page_size || 6, 4, 6);
+  profile.slot_runtime.camera_page_size = clampInt(profile.slot_runtime.camera_page_size || 4, 2, 4);
+  if (!profile.entity_collections_meta || typeof profile.entity_collections_meta !== "object") {
+    profile.entity_collections_meta = {};
+  }
+  COLLECTION_KEYS.forEach((key) => {
+    if (!profile.entity_collections_meta[key] || typeof profile.entity_collections_meta[key] !== "object") {
+      profile.entity_collections_meta[key] = {
+        sort: "name",
+        show_disabled: false,
+        last_query: "",
+        draft_dirty: false,
+      };
+    }
+  });
   if (!profile.entity_collections.lights.length && Array.isArray(profile.slots?.lights)) {
     profile.slots.lights.forEach((slot, idx) => {
       profile.entity_collections.lights.push({
@@ -861,24 +888,116 @@ function syncSlotsFromCollections(profile) {
   const enabledLights = profile.entity_collections.lights.filter((x) => asBool(x.enabled));
   const enabledCameras = profile.entity_collections.cameras.filter((x) => asBool(x.enabled));
   profile.slots = profile.slots || {};
-  profile.slots.light_slot_count = Math.max(1, Math.min(8, enabledLights.length || 1));
-  profile.slots.camera_slot_count = Math.max(0, Math.min(2, enabledCameras.length || 0));
+  const lightCap = clampInt(profile.slot_runtime?.light_slot_cap || 24, 8, 24);
+  const cameraCap = clampInt(profile.slot_runtime?.camera_slot_cap || 8, 2, 8);
+  profile.slots.light_slot_count = Math.max(1, Math.min(lightCap, enabledLights.length || 1));
+  profile.slots.camera_slot_count = Math.max(0, Math.min(cameraCap, enabledCameras.length || 0));
   profile.slots.lights = [];
   profile.slots.cameras = [];
-  for (let i = 0; i < 8; i += 1) {
+  for (let i = 0; i < lightCap; i += 1) {
     const item = enabledLights[i] || {};
     profile.slots.lights.push({
       name: item.name || `Light ${i + 1}`,
       entity: item.entity_id || `light.replace_me_slot_${i + 1}`,
     });
   }
-  for (let i = 0; i < 2; i += 1) {
+  for (let i = 0; i < cameraCap; i += 1) {
     const item = enabledCameras[i] || {};
     profile.slots.cameras.push({
       name: item.name || `Camera ${i + 1}`,
       entity: item.entity_id || `camera.replace_me_${i + 1}`,
     });
   }
+  profile.slots.legacy_lights = profile.slots.lights.slice(0, 8);
+  profile.slots.legacy_cameras = profile.slots.cameras.slice(0, 2);
+}
+
+function collectionDomainHint(collectionName) {
+  if (collectionName === "lights") return "light";
+  if (collectionName === "cameras") return "camera";
+  if (collectionName === "weather_metrics") return "sensor";
+  if (collectionName === "climate_controls") return "climate";
+  return "";
+}
+
+function setCollectionDirty(isDirty = true) {
+  state.collectionDirty = !!isDirty;
+}
+
+function renderSlotCapsSummary() {
+  const p = currentProfile();
+  if (!p) return;
+  ensureCollections(p);
+  const out = e("slot_caps_summary");
+  if (!out) return;
+  const enabledLights = (p.entity_collections?.lights || []).filter((x) => asBool(x.enabled)).length;
+  const enabledCameras = (p.entity_collections?.cameras || []).filter((x) => asBool(x.enabled)).length;
+  const lightCap = Number(p.slot_runtime?.light_slot_cap || 24);
+  const cameraCap = Number(p.slot_runtime?.camera_slot_cap || 8);
+  const lightPage = Number(p.slot_runtime?.light_page_size || 6);
+  const cameraPage = Number(p.slot_runtime?.camera_page_size || 4);
+  out.textContent =
+    `Lights enabled ${enabledLights}/${lightCap} (page ${lightPage})\n` +
+    `Cameras enabled ${enabledCameras}/${cameraCap} (page ${cameraPage})\n` +
+    `Profile state: ${state.collectionDirty ? "unsaved changes" : "synced"}`;
+  out.style.color = (enabledLights > lightCap || enabledCameras > cameraCap) ? "#ffb4c0" : "";
+}
+
+async function bulkApplyOps(ops, successText = "") {
+  const body = profilePayload();
+  body.ops = Array.isArray(ops) ? ops : [];
+  body.persist = false;
+  const data = await apiPost("api/entities/bulk_apply", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setCollectionDirty(true);
+  renderSlotCapsSummary();
+  if (successText) setStatus(successText);
+  return data;
+}
+
+async function updateCollectionItem(collectionName, itemId, patch) {
+  await bulkApplyOps([{ op: "update", collection: collectionName, item_id: itemId, patch }]);
+}
+
+async function queueEntitySuggestions(inputNode, collectionName, item) {
+  if (!inputNode || !item) return;
+  const key = inputNode.id;
+  if (state.rowSuggestTimers[key]) clearTimeout(state.rowSuggestTimers[key]);
+  state.rowSuggestTimers[key] = setTimeout(async () => {
+    try {
+      const payload = {
+        key: item.role || item.id || "",
+        q: inputNode.value || "",
+        limit: 10,
+        collection: collectionName,
+        role: item.role || "",
+        domain_hint: collectionDomainHint(collectionName),
+        exclude_assigned: true,
+        active_device_slug: getDeviceSlug(),
+        workspace: state.workspace?.workspace_name || "default",
+      };
+      const data = await apiPost("api/mapping/suggest", payload);
+      const listId = `${inputNode.id}_list`;
+      let datalist = e(listId);
+      if (!datalist) {
+        datalist = document.createElement("datalist");
+        datalist.id = listId;
+        inputNode.insertAdjacentElement("afterend", datalist);
+        inputNode.setAttribute("list", listId);
+      }
+      datalist.innerHTML = "";
+      (data.suggestions || []).forEach((row) => {
+        const opt = document.createElement("option");
+        opt.value = row.entity_id || "";
+        opt.label = `${row.friendly_name || row.entity_id || ""} | ${row.reason || "ranked"} | score ${row.score || 0}`;
+        datalist.appendChild(opt);
+      });
+    } catch (_err) {
+      // suggestions are best-effort; field remains editable.
+    }
+  }, 220);
 }
 
 function renderCollectionRows(collectionName, bodyId) {
@@ -894,48 +1013,112 @@ function renderCollectionRows(collectionName, bodyId) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
-      <td><input id="${rid}_entity" value="${safeText(item.entity_id || "")}" /></td>
-      <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
       <td>
+        <input id="${rid}_entity" class="entity-combo-input" value="${safeText(item.entity_id || "")}" placeholder="Type or pick an entity..." />
+      </td>
+      <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
+      <td class="row-actions">
+        <button class="btn-soft" id="${rid}_select">Select</button>
+        <button class="btn-soft" id="${rid}_clear">Clear</button>
+        <button class="btn-soft" id="${rid}_dup">Duplicate</button>
         <button class="btn-soft" id="${rid}_up">Up</button>
         <button class="btn-soft" id="${rid}_down">Down</button>
-        <button class="btn-warn" id="${rid}_del">Del</button>
+        <button class="btn-warn" id="${rid}_del">Delete</button>
       </td>
     `;
     body.appendChild(tr);
-    e(`${rid}_name`)?.addEventListener("input", (ev) => {
-      item.name = ev.target.value;
-      syncSlotsFromCollections(p);
+
+    const nameNode = e(`${rid}_name`);
+    const entityNode = e(`${rid}_entity`);
+    const enabledNode = e(`${rid}_enabled`);
+
+    nameNode?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { name: ev.target.value }).catch((err) =>
+        setStatus(`Row update failed: ${err.message}`, true)
+      );
     });
-    e(`${rid}_entity`)?.addEventListener("input", (ev) => {
-      item.entity_id = ev.target.value;
-      syncSlotsFromCollections(p);
+
+    entityNode?.addEventListener("focus", (ev) => {
+      markActiveInput(ev.target);
+      queueEntitySuggestions(entityNode, collectionName, item);
     });
-    e(`${rid}_entity`)?.addEventListener("focus", (ev) => markActiveInput(ev.target));
-    e(`${rid}_enabled`)?.addEventListener("change", (ev) => {
-      item.enabled = ev.target.checked;
-      syncSlotsFromCollections(p);
+    entityNode?.addEventListener("input", () => {
+      queueEntitySuggestions(entityNode, collectionName, item);
+    });
+    entityNode?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { entity_id: ev.target.value }).catch((err) =>
+        setStatus(`Entity update failed: ${err.message}`, true)
+      );
+    });
+
+    enabledNode?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { enabled: ev.target.checked }).catch((err) =>
+        setStatus(`Enable toggle failed: ${err.message}`, true)
+      );
+    });
+
+    e(`${rid}_select`)?.addEventListener("click", async () => {
+      try {
+        const payload = {
+          key: item.role || item.id || "",
+          q: entityNode?.value || "",
+          limit: 10,
+          collection: collectionName,
+          role: item.role || "",
+          domain_hint: collectionDomainHint(collectionName),
+          exclude_assigned: true,
+          active_device_slug: getDeviceSlug(),
+          workspace: state.workspace?.workspace_name || "default",
+        };
+        const data = await apiPost("api/mapping/suggest", payload);
+        const top = (data.suggestions || [])[0];
+        if (!top?.entity_id) {
+          setStatus("No ranked suggestions found for this row", true);
+          return;
+        }
+        await updateCollectionItem(collectionName, item.id, { entity_id: top.entity_id });
+        setStatus(`Mapped ${item.name || item.id} -> ${top.entity_id}`);
+      } catch (err) {
+        setStatus(`Select failed: ${err.message}`, true);
+      }
+    });
+
+    e(`${rid}_clear`)?.addEventListener("click", () => {
+      updateCollectionItem(collectionName, item.id, { entity_id: "" }).catch((err) =>
+        setStatus(`Clear failed: ${err.message}`, true)
+      );
+    });
+    e(`${rid}_dup`)?.addEventListener("click", async () => {
+      try {
+        await bulkApplyOps([
+          {
+            op: "add",
+            collection: collectionName,
+            item: {
+              name: `${item.name || "Copy"} Copy`,
+              entity_id: item.entity_id || "",
+              role: item.role || "",
+              enabled: asBool(item.enabled),
+            },
+          },
+        ], `${collectionName}: duplicated row`);
+      } catch (err) {
+        setStatus(`Duplicate failed: ${err.message}`, true);
+      }
     });
     e(`${rid}_up`)?.addEventListener("click", () => {
       if (idx <= 0) return;
-      const temp = rows[idx - 1];
-      rows[idx - 1] = rows[idx];
-      rows[idx] = temp;
-      syncSlotsFromCollections(p);
-      renderCollections();
+      bulkApplyOps([{ op: "reorder", collection: collectionName, from_index: idx, to_index: idx - 1 }], `${collectionName}: moved row`)
+        .catch((err) => setStatus(`Reorder failed: ${err.message}`, true));
     });
     e(`${rid}_down`)?.addEventListener("click", () => {
       if (idx >= rows.length - 1) return;
-      const temp = rows[idx + 1];
-      rows[idx + 1] = rows[idx];
-      rows[idx] = temp;
-      syncSlotsFromCollections(p);
-      renderCollections();
+      bulkApplyOps([{ op: "reorder", collection: collectionName, from_index: idx, to_index: idx + 1 }], `${collectionName}: moved row`)
+        .catch((err) => setStatus(`Reorder failed: ${err.message}`, true));
     });
     e(`${rid}_del`)?.addEventListener("click", () => {
-      rows.splice(idx, 1);
-      syncSlotsFromCollections(p);
-      renderCollections();
+      bulkApplyOps([{ op: "remove", collection: collectionName, item_id: item.id }], `${collectionName}: row removed`)
+        .catch((err) => setStatus(`Delete failed: ${err.message}`, true));
     });
   });
 }
@@ -946,6 +1129,10 @@ function renderCollections() {
   ensureCollections(p);
   if (e("lights_max")) e("lights_max").value = String(p.entity_collections.limits?.lights_max || 24);
   if (e("cameras_max")) e("cameras_max").value = String(p.entity_collections.limits?.cameras_max || 8);
+  if (e("light_slot_cap")) e("light_slot_cap").value = String(p.slot_runtime?.light_slot_cap || 24);
+  if (e("camera_slot_cap")) e("camera_slot_cap").value = String(p.slot_runtime?.camera_slot_cap || 8);
+  if (e("light_page_size")) e("light_page_size").value = String(p.slot_runtime?.light_page_size || 6);
+  if (e("camera_page_size")) e("camera_page_size").value = String(p.slot_runtime?.camera_page_size || 4);
   renderCollectionRows("lights", "lights_collection_body");
   renderCollectionRows("cameras", "cameras_collection_body");
   renderAdditionalCollectionRows();
@@ -958,7 +1145,7 @@ function renderCollections() {
       `Climate Controls: ${(p.entity_collections.climate_controls || []).length}\n` +
       `Reader Feeds: ${(p.entity_collections.reader_feeds || []).length}\n` +
       `System Entities: ${(p.entity_collections.system_entities || []).length}\n` +
-      `Mapped to FW slots: lights=${p.slots?.light_slot_count || 0}/8 cameras=${p.slots?.camera_slot_count || 0}/2`;
+      `Mapped to FW slots: lights=${p.slots?.light_slot_count || 0}/${p.slot_runtime?.light_slot_cap || 24} cameras=${p.slots?.camera_slot_count || 0}/${p.slot_runtime?.camera_slot_cap || 8}`;
   }
   const health = e("collections_summary");
   if (health) {
@@ -967,6 +1154,35 @@ function renderCollections() {
       `weather_metrics=${(p.entity_collections.weather_metrics || []).length} | climate_controls=${(p.entity_collections.climate_controls || []).length}\n` +
       `reader_feeds=${(p.entity_collections.reader_feeds || []).length} | system_entities=${(p.entity_collections.system_entities || []).length}`;
   }
+  renderSlotCapsSummary();
+}
+
+async function refreshSlotCaps() {
+  const data = await apiGet(`api/entities/slot_caps?workspace=${encodeURIComponent(state.workspace?.workspace_name || "default")}&device_slug=${encodeURIComponent(getDeviceSlug())}`);
+  const p = currentProfile();
+  if (p && data.slot_runtime) {
+    p.slot_runtime = {
+      ...(p.slot_runtime || {}),
+      ...data.slot_runtime,
+    };
+    syncSlotsFromCollections(p);
+  }
+  renderCollections();
+  const enabled = data.enabled_counts || {};
+  const overflow = data.overflow || {};
+  setStatus(
+    `Slot caps refreshed. lights=${enabled.lights || 0}/${data.slot_runtime?.light_slot_cap || "--"} cameras=${enabled.cameras || 0}/${data.slot_runtime?.camera_slot_cap || "--"}`,
+    !!(overflow.lights || overflow.cameras)
+  );
+}
+
+async function autoFitSlotCaps() {
+  const data = await apiPost("api/entities/auto_fit_caps", profilePayload());
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  setCollectionDirty(true);
+  setStatus(data.changed ? "Auto-fit increased slot caps to match enabled rows" : "Auto-fit found no cap changes");
 }
 
 function currentAdditionalCollection() {
@@ -998,46 +1214,84 @@ function renderAdditionalCollectionRows() {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
-      <td><input id="${rid}_entity" value="${safeText(item.entity_id || "")}" /></td>
+      <td><input id="${rid}_entity" class="entity-combo-input" value="${safeText(item.entity_id || "")}" placeholder="Type or pick an entity..." /></td>
       <td><input id="${rid}_role" value="${safeText(item.role || "")}" placeholder="entity_* substitution key" /></td>
       <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
       <td>
+        <button class="btn-soft" id="${rid}_select">Select</button>
         <button class="btn-soft" id="${rid}_up">Up</button>
         <button class="btn-soft" id="${rid}_down">Down</button>
         <button class="btn-warn" id="${rid}_del">Del</button>
       </td>
     `;
     body.appendChild(tr);
-    e(`${rid}_name`)?.addEventListener("input", (ev) => {
-      item.name = ev.target.value;
+    e(`${rid}_name`)?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { name: ev.target.value }).catch((err) =>
+        setStatus(`Row update failed: ${err.message}`, true)
+      );
     });
-    e(`${rid}_entity`)?.addEventListener("input", (ev) => {
-      item.entity_id = ev.target.value;
+    const entityNode = e(`${rid}_entity`);
+    entityNode?.addEventListener("input", () => {
+      queueEntitySuggestions(entityNode, collectionName, item);
     });
-    e(`${rid}_entity`)?.addEventListener("focus", (ev) => markActiveInput(ev.target));
-    e(`${rid}_role`)?.addEventListener("input", (ev) => {
-      item.role = ev.target.value;
+    entityNode?.addEventListener("focus", (ev) => {
+      markActiveInput(ev.target);
+      queueEntitySuggestions(entityNode, collectionName, item);
+    });
+    entityNode?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { entity_id: ev.target.value }).catch((err) =>
+        setStatus(`Entity update failed: ${err.message}`, true)
+      );
+    });
+    e(`${rid}_role`)?.addEventListener("change", (ev) => {
+      updateCollectionItem(collectionName, item.id, { role: ev.target.value }).catch((err) =>
+        setStatus(`Role update failed: ${err.message}`, true)
+      );
     });
     e(`${rid}_enabled`)?.addEventListener("change", (ev) => {
-      item.enabled = ev.target.checked;
+      updateCollectionItem(collectionName, item.id, { enabled: ev.target.checked }).catch((err) =>
+        setStatus(`Enable toggle failed: ${err.message}`, true)
+      );
+    });
+    e(`${rid}_select`)?.addEventListener("click", async () => {
+      try {
+        const data = await apiPost("api/mapping/suggest", {
+          key: item.role || item.id || "",
+          q: entityNode?.value || "",
+          limit: 10,
+          collection: collectionName,
+          role: item.role || "",
+          domain_hint: collectionDomainHint(collectionName),
+          exclude_assigned: true,
+          active_device_slug: getDeviceSlug(),
+          workspace: state.workspace?.workspace_name || "default",
+        });
+        const top = (data.suggestions || [])[0];
+        if (!top?.entity_id) {
+          setStatus("No ranked suggestions found for this row", true);
+          return;
+        }
+        await updateCollectionItem(collectionName, item.id, { entity_id: top.entity_id });
+      } catch (err) {
+        setStatus(`Select failed: ${err.message}`, true);
+      }
     });
     e(`${rid}_up`)?.addEventListener("click", () => {
       if (idx <= 0) return;
-      const temp = rows[idx - 1];
-      rows[idx - 1] = rows[idx];
-      rows[idx] = temp;
-      renderAdditionalCollectionRows();
+      bulkApplyOps([{ op: "reorder", collection: collectionName, from_index: idx, to_index: idx - 1 }]).catch((err) =>
+        setStatus(`Reorder failed: ${err.message}`, true)
+      );
     });
     e(`${rid}_down`)?.addEventListener("click", () => {
       if (idx >= rows.length - 1) return;
-      const temp = rows[idx + 1];
-      rows[idx + 1] = rows[idx];
-      rows[idx] = temp;
-      renderAdditionalCollectionRows();
+      bulkApplyOps([{ op: "reorder", collection: collectionName, from_index: idx, to_index: idx + 1 }]).catch((err) =>
+        setStatus(`Reorder failed: ${err.message}`, true)
+      );
     });
     e(`${rid}_del`)?.addEventListener("click", () => {
-      rows.splice(idx, 1);
-      renderAdditionalCollectionRows();
+      bulkApplyOps([{ op: "remove", collection: collectionName, item_id: item.id }]).catch((err) =>
+        setStatus(`Delete failed: ${err.message}`, true)
+      );
     });
   });
 }
@@ -1055,15 +1309,22 @@ function addCollectionItem(collectionName) {
     return;
   }
   const idx = rows.length + 1;
-  rows.push({
-    id: `${collectionName.slice(0, -1)}_${idx}`,
-    name: `${collectionName.slice(0, -1).toUpperCase()} ${idx}`,
-    entity_id: "",
-    role: meta.role || "",
-    enabled: true,
-  });
-  syncSlotsFromCollections(p);
-  renderCollections();
+  bulkApplyOps(
+    [
+      {
+        op: "add",
+        collection: collectionName,
+        item: {
+          id: `${collectionName.slice(0, -1)}_${idx}`,
+          name: `${collectionName.slice(0, -1).toUpperCase()} ${idx}`,
+          entity_id: "",
+          role: meta.role || "",
+          enabled: true,
+        },
+      },
+    ],
+    `${collectionName}: row added`
+  ).catch((err) => setStatus(`Add failed: ${err.message}`, true));
 }
 
 function ensureLayoutPages() {
@@ -1368,6 +1629,7 @@ async function applyTheme() {
 function syncProfileToForm() {
   const p = currentProfile();
   if (!p) return;
+  setCollectionDirty(false);
   ensureThemeStudio(p);
   ensureLayoutPages();
   ensureCollections(p);
@@ -1419,10 +1681,14 @@ function updateProfileFromTopFields() {
   p.device.git_ref = e("git_ref").value.trim() || "stable";
   p.device.git_url = e("git_url").value.trim() || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.1");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.24.0");
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
   if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
+  if (e("light_slot_cap")) p.slot_runtime.light_slot_cap = clampInt(e("light_slot_cap").value || "24", 8, 24);
+  if (e("camera_slot_cap")) p.slot_runtime.camera_slot_cap = clampInt(e("camera_slot_cap").value || "8", 2, 8);
+  if (e("light_page_size")) p.slot_runtime.light_page_size = clampInt(e("light_page_size").value || "6", 4, 6);
+  if (e("camera_page_size")) p.slot_runtime.camera_page_size = clampInt(e("camera_page_size").value || "4", 2, 4);
   if (e("additional_collection_max")) {
     const collection = currentAdditionalCollection();
     const meta = COLLECTION_META[collection] || { limitKey: `${collection}_max`, defaultMax: 24 };
@@ -1442,6 +1708,8 @@ function updateProfileFromTopFields() {
   state.workspace.deployment.git_url = p.device.git_url;
   state.workspace.deployment.app_release_version = p.settings.app_release_version;
   syncSlotsFromCollections(p);
+  setCollectionDirty(true);
+  renderSlotCapsSummary();
   syncUpdateDefaultsFromProfile();
 }
 function addDevice() {
@@ -1487,7 +1755,7 @@ function removeDevice() {
 }
 
 function bindTopFieldEvents() {
-  ["workspace_name", "profile_name", "device_name", "device_friendly_name", "git_ref", "git_url", "app_release_version", "ha_base_url", "camera_refresh_interval_s", "camera_snapshot_dir", "ha_installed_version_entity", "ha_native_firmware_entity"]
+  ["workspace_name", "profile_name", "device_name", "device_friendly_name", "git_ref", "git_url", "app_release_version", "ha_base_url", "camera_refresh_interval_s", "camera_snapshot_dir", "ha_installed_version_entity", "ha_native_firmware_entity", "light_slot_cap", "camera_slot_cap", "light_page_size", "camera_page_size"]
     .forEach((id) => {
       const node = e(id);
       if (node) node.addEventListener("input", updateProfileFromTopFields);
@@ -1514,6 +1782,74 @@ function bindTopFieldEvents() {
   });
   e("lights_add_btn")?.addEventListener("click", () => addCollectionItem("lights"));
   e("cameras_add_btn")?.addEventListener("click", () => addCollectionItem("cameras"));
+  e("lights_enable_all_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "enable_all", collection: "lights" }], "lights: all rows enabled").catch((err) =>
+      setStatus(`Bulk enable failed: ${err.message}`, true)
+    );
+  });
+  e("lights_disable_all_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "disable_all", collection: "lights" }], "lights: all rows disabled").catch((err) =>
+      setStatus(`Bulk disable failed: ${err.message}`, true)
+    );
+  });
+  e("lights_dedupe_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "dedupe", collection: "lights" }], "lights: dedupe complete").catch((err) =>
+      setStatus(`Dedupe failed: ${err.message}`, true)
+    );
+  });
+  e("lights_remove_disabled_btn")?.addEventListener("click", async () => {
+    const p = currentProfile();
+    if (!p) return;
+    const rows = p.entity_collections?.lights || [];
+    const ops = [];
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      if (!asBool(rows[i].enabled)) ops.push({ op: "remove", collection: "lights", index: i });
+    }
+    if (!ops.length) {
+      setStatus("lights: no disabled rows to remove");
+      return;
+    }
+    bulkApplyOps(ops, "lights: removed disabled rows").catch((err) =>
+      setStatus(`Remove disabled failed: ${err.message}`, true)
+    );
+  });
+  e("cameras_enable_all_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "enable_all", collection: "cameras" }], "cameras: all rows enabled").catch((err) =>
+      setStatus(`Bulk enable failed: ${err.message}`, true)
+    );
+  });
+  e("cameras_disable_all_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "disable_all", collection: "cameras" }], "cameras: all rows disabled").catch((err) =>
+      setStatus(`Bulk disable failed: ${err.message}`, true)
+    );
+  });
+  e("cameras_dedupe_btn")?.addEventListener("click", () => {
+    bulkApplyOps([{ op: "dedupe", collection: "cameras" }], "cameras: dedupe complete").catch((err) =>
+      setStatus(`Dedupe failed: ${err.message}`, true)
+    );
+  });
+  e("cameras_remove_disabled_btn")?.addEventListener("click", () => {
+    const p = currentProfile();
+    if (!p) return;
+    const rows = p.entity_collections?.cameras || [];
+    const ops = [];
+    for (let i = rows.length - 1; i >= 0; i -= 1) {
+      if (!asBool(rows[i].enabled)) ops.push({ op: "remove", collection: "cameras", index: i });
+    }
+    if (!ops.length) {
+      setStatus("cameras: no disabled rows to remove");
+      return;
+    }
+    bulkApplyOps(ops, "cameras: removed disabled rows").catch((err) =>
+      setStatus(`Remove disabled failed: ${err.message}`, true)
+    );
+  });
+  e("slot_caps_refresh_btn")?.addEventListener("click", () => {
+    refreshSlotCaps().catch((err) => setStatus(`Slot caps refresh failed: ${err.message}`, true));
+  });
+  e("slot_caps_fit_btn")?.addEventListener("click", () => {
+    autoFitSlotCaps().catch((err) => setStatus(`Auto-fit failed: ${err.message}`, true));
+  });
   e("additional_collection_select")?.addEventListener("change", () => {
     state.additionalCollection = currentAdditionalCollection();
     renderAdditionalCollectionRows();
@@ -1726,7 +2062,7 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.1"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.24.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1735,7 +2071,7 @@ function firmwareStatusQuery() {
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.23.1"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.24.0"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -1799,7 +2135,7 @@ async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipCo
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.23.1");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.24.0");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -2300,6 +2636,7 @@ async function bootstrap(options = {}) {
     await runStep("Template catalog", refreshTemplateCatalog);
     await runStep("Theme palettes", refreshThemePalettes);
     await runStep("Discovery start", () => startDiscoveryJob(false, { wait_for_completion: false }));
+    await runStep("Slot caps", refreshSlotCaps);
     await runStep("Latest release", refreshLatestRelease);
     await runStep("Backup list", refreshBackups);
 
@@ -2327,4 +2664,5 @@ bootstrap().catch((err) => {
   setStartupState("error", msg, true);
   setStatus(msg, true);
 });
+
 

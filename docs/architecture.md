@@ -30,9 +30,14 @@
   - `theme_radius`
   - `theme_icon_mode`
 - optional cameras:
-  - `camera_slot_count` (`0..2`)
+  - `camera_slot_count` (`0..8`)
   - `camera_slot_#_entity`
   - `camera_refresh_interval_s`
+- generated slot runtime controls:
+  - `generated_light_slot_cap` (`8..24`)
+  - `generated_camera_slot_cap` (`2..8`)
+  - `generated_light_page_size` (`4..6`)
+  - `generated_camera_page_size` (`2..4`)
 
 ## Runtime model
 
@@ -67,6 +72,7 @@
 - HA `camera.snapshot` writes files into `/config/www/tdeck`
 - `online_image` loads from `/local/tdeck/camX.jpg` with cache busting
 - manual and interval-driven refresh supported
+- camera page uses paged virtual list rows (default `4` rows/page)
 - camera diagnostics are surfaced in Settings diagnostics panel
 
 ## Theme studio model

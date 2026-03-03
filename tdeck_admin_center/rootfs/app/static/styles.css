@@ -125,6 +125,10 @@ body {
   gap: 12px;
 }
 
+.compact-grid {
+  gap: 8px;
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -253,6 +257,16 @@ td code {
 
 td input {
   width: 100%;
+}
+
+.entity-combo-input {
+  width: 100%;
+}
+
+.row-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(72px, 1fr));
+  gap: 6px;
 }
 
 .pager {

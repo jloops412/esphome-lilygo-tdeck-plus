@@ -107,7 +107,7 @@
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
             <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
-            <label>App Release Version <input id="app_release_version" value="v0.23.1" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.24.0" /></label>
           </div>
           <div class="card">
             <h3>System Health</h3>
@@ -142,30 +142,46 @@
         <div class="grid2">
           <div class="card">
             <h3>Dynamic Lights Collection</h3>
-            <label>Max Lights <input id="lights_max" type="number" min="1" max="64" value="24" /></label>
+            <label>Collection Max <input id="lights_max" type="number" min="1" max="64" value="24" /></label>
+            <div class="grid2 compact-grid">
+              <label>FW Slot Cap <input id="light_slot_cap" type="number" min="8" max="24" value="24" /></label>
+              <label>Page Size <input id="light_page_size" type="number" min="4" max="6" value="6" /></label>
+            </div>
             <div class="actions">
               <button id="lights_add_btn" class="btn-soft">Add Light</button>
+              <button id="lights_enable_all_btn" class="btn-soft">Bulk Enable</button>
+              <button id="lights_disable_all_btn" class="btn-soft">Bulk Disable</button>
+              <button id="lights_remove_disabled_btn" class="btn-warn">Remove Disabled</button>
+              <button id="lights_dedupe_btn" class="btn-soft">Dedupe</button>
             </div>
             <table>
               <thead>
-                <tr><th>Name</th><th>Entity</th><th>On</th><th>Actions</th></tr>
+                <tr><th>Name</th><th>Entity</th><th>On</th><th>Row Actions</th></tr>
               </thead>
               <tbody id="lights_collection_body"></tbody>
             </table>
           </div>
           <div class="card">
             <h3>Dynamic Cameras Collection</h3>
-            <label>Max Cameras <input id="cameras_max" type="number" min="0" max="24" value="8" /></label>
+            <label>Collection Max <input id="cameras_max" type="number" min="0" max="24" value="8" /></label>
+            <div class="grid2 compact-grid">
+              <label>FW Slot Cap <input id="camera_slot_cap" type="number" min="2" max="8" value="8" /></label>
+              <label>Page Size <input id="camera_page_size" type="number" min="2" max="4" value="4" /></label>
+            </div>
             <label>HA Base URL <input id="ha_base_url" /></label>
             <label>Refresh Interval Seconds <input id="camera_refresh_interval_s" /></label>
             <label class="checkbox-row"><input type="checkbox" id="camera_snapshot_enable" /> Snapshot enabled</label>
             <label>Snapshot Directory <input id="camera_snapshot_dir" /></label>
             <div class="actions">
               <button id="cameras_add_btn" class="btn-soft">Add Camera</button>
+              <button id="cameras_enable_all_btn" class="btn-soft">Bulk Enable</button>
+              <button id="cameras_disable_all_btn" class="btn-soft">Bulk Disable</button>
+              <button id="cameras_remove_disabled_btn" class="btn-warn">Remove Disabled</button>
+              <button id="cameras_dedupe_btn" class="btn-soft">Dedupe</button>
             </div>
             <table>
               <thead>
-                <tr><th>Name</th><th>Entity</th><th>On</th><th>Actions</th></tr>
+                <tr><th>Name</th><th>Entity</th><th>On</th><th>Row Actions</th></tr>
               </thead>
               <tbody id="cameras_collection_body"></tbody>
             </table>
@@ -197,6 +213,11 @@
           <div class="card">
             <h3>Collection Health</h3>
             <div id="collections_summary" class="mono compact">Collection summary loading...</div>
+            <div id="slot_caps_summary" class="mono compact">Slot caps loading...</div>
+            <div class="actions">
+              <button id="slot_caps_refresh_btn" class="btn-soft">Refresh Caps</button>
+              <button id="slot_caps_fit_btn" class="btn-soft">Auto-Fit to Enabled Rows</button>
+            </div>
             <div class="mono compact">
 Use the <code>Role</code> field for substitution keys (for example <code>entity_wx_temp_sensor</code>,
 <code>entity_sensi_climate</code>, <code>entity_feed_bbc</code>, <code>entity_ha_unit_system</code>).
@@ -529,3 +550,4 @@ When done, validate and deploy in Step 6.
   <script src="./app.js?v=__ASSET_VERSION__" onerror="window.__tdeckScriptLoadError('Frontend asset failed to load. Refresh the add-on page or check add-on cache.');"></script>
 </body>
 </html>
+

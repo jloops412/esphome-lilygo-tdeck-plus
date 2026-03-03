@@ -27,7 +27,7 @@ The add-on now supports managed direct-apply in a guarded scope:
      - `Device: http://<device-ip>`
      - `HA: Add-ons -> T-Deck Admin Center`
 
-## Admin Center V5 UX (v0.23.1)
+## Admin Center V6 UX (v0.24.0)
 
 Dashboard + dual mode:
 
@@ -36,6 +36,29 @@ Dashboard + dual mode:
 3. `Advanced`: tabbed controls for profiles, updates, generation, and diagnostics.
 
 Guided mode keeps primary workflows obvious for first-time users while Dashboard/Advanced expose full power controls and diagnostics.
+Workspace/profile schema is `4.1` with automatic normalization of legacy profiles.
+
+### Guided Step 3 (Entity Studio)
+
+1. Inline smart combobox per row for direct entity replacement.
+2. Per-row actions:
+   - `Select`
+   - `Clear`
+   - `Duplicate`
+   - `Move up/down`
+   - `Delete`
+3. Collection bulk actions:
+   - `Add Row`
+   - `Enable All`
+   - `Disable All`
+   - `Remove Disabled`
+   - `Dedupe`
+4. Slot runtime controls are surfaced directly:
+   - `light_slot_cap`
+   - `camera_slot_cap`
+   - `light_page_size`
+   - `camera_page_size`
+5. `Auto-Fit to Enabled Rows` updates slot caps to match enabled rows when safe.
 
 ## Admin Center Tabs
 
@@ -121,14 +144,17 @@ Guided mode keeps primary workflows obvious for first-time users while Dashboard
 44. `POST /api/entities/update`
 45. `POST /api/entities/remove`
 46. `POST /api/entities/reorder`
-47. `GET /api/layout/load`
-48. `POST /api/layout/validate`
-49. `POST /api/layout/save`
-50. `POST /api/layout/reset_page`
-51. `GET /api/theme/palettes`
-52. `POST /api/theme/preview`
-53. `POST /api/theme/apply`
-54. `POST /api/theme/contrast_check`
+47. `POST /api/entities/bulk_apply`
+48. `GET /api/entities/slot_caps`
+49. `POST /api/entities/auto_fit_caps`
+50. `GET /api/layout/load`
+51. `POST /api/layout/validate`
+52. `POST /api/layout/save`
+53. `POST /api/layout/reset_page`
+54. `GET /api/theme/palettes`
+55. `POST /api/theme/preview`
+56. `POST /api/theme/apply`
+57. `POST /api/theme/contrast_check`
 
 ## Discovery Performance Model
 
@@ -197,7 +223,7 @@ Fixed in add-on `0.21.0`:
 
 ### UI stuck at `Status loading... / Initializing...`
 
-Fixed in add-on `0.23.1`:
+Fixed in add-on `0.23.1` and retained in `0.24.0`:
 
 1. Startup now exposes explicit state (`booting`, `ready`, `error`) and an inline error banner.
 2. `Retry Startup` reruns startup once without page reload loops.
@@ -208,7 +234,7 @@ Fixed in add-on `0.23.1`:
 
 Recovery sequence:
 
-1. Confirm add-on version `0.23.1` or newer.
+1. Confirm add-on version `0.24.0` or newer.
 2. Open `System Health` and inspect transport diagnostics (`API Base`, `Last Path`, `Last Status`).
 3. Click `Retry Startup`.
 4. If still failing, run add-on store repo cache refresh (remove repo, restart Supervisor, re-add repo URL).
