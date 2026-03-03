@@ -1,187 +1,111 @@
-# Handoff Context
+﻿# Handoff Context
 
-## Repo state
+## Scope Completed (This Pass)
 
-- Branch: `main`
-- Last released install ref before this pass: `v0.19.1-select-template-hotfix`
-- This pass is local/unreleased until tagged.
+This pass added update visibility and firmware-pending flow on top of the V3 foundation:
 
-## Implemented in this pass
+1. add-on version bumped to `0.20.6` for HA store visibility refresh
+2. runtime version state persisted (`/data/runtime_state.json`)
+3. health endpoint now reports `addon_version`, `addon_updated_since_last_run`, `firmware_status_summary`
+4. firmware APIs added:
+   - `GET /api/firmware/status`
+   - `POST /api/firmware/update`
+5. Overview now includes “In-App Update Status” with:
+   - firmware pending banner
+   - `Backup + Update Firmware` action
+   - optional no-backup update action
 
-### 1) Keyboard strict ALT reliability fix
+## Core Decisions Implemented
 
-Files:
+1. Reliability-first: discovery/startup transparency shipped before deeper UX builder features.
+2. Direct apply is guarded and scoped to managed files only (`/config/esphome/tdeck`).
+3. Every apply operation creates a rollback snapshot before writing.
+4. Legacy profile payloads remain supported via workspace normalization.
 
-- `esphome/packages/input_keyboard_i2c_lvgl.yaml`
-- `esphome/packages/persistence_globals.yaml`
-- `esphome/install/*.yaml`
-
-Changes:
-
-1. Fixed root-cause bug where ALT combos were published then returned early (commands never executed).
-2. Added tunable ALT arm timeout:
-   - `keyboard_alt_timeout_ms` (default `900`)
-3. Added diagnostics globals:
-   - `kb_alt_armed`
-   - `kb_alt_last_timeout_ms`
-   - `kb_last_shortcut_text`
-
-### 2) Home header overlap reduction
+## Key Backend Changes
 
 File:
-
-- `esphome/packages/ui_lvgl.yaml`
-
-Changes:
-
-1. Tightened status/substatus text.
-2. Repositioned camera/sleep controls.
-3. Shifted home tile rows down for cleaner top header spacing.
-
-### 3) Settings admin clarity + diagnostics expansion
-
-File:
-
-- `esphome/packages/ui_lvgl.yaml`
-
-Changes:
-
-1. Added `Settings -> System` admin hints:
-   - `settings_admin_help_lbl`
-   - `settings_admin_device_url_lbl`
-   - `settings_admin_ha_addon_lbl`
-2. Added diagnostics labels:
-   - `settings_camera_state_lbl`
-   - `settings_camera_refresh_lbl`
-   - `settings_diag_shortcut_lbl`
-3. Added camera refresh diagnostics globals:
-   - `camera_refresh_status_text`
-   - `camera_last_snapshot_result`
-
-### 4) Theme Studio swatch rebuild
-
-Files:
-
-- `esphome/packages/ui_lvgl.yaml`
-- `esphome/packages/persistence_globals.yaml`
-
-Changes:
-
-1. Removed RGB slider UI from Theme Studio.
-2. Added swatch model:
-   - `theme_swatch_page` (3 pages)
-   - `theme_swatch_index`
-   - `theme_edit_color`
-3. Added scripts:
-   - `theme_swatch_page_prev`
-   - `theme_swatch_page_next`
-   - `theme_apply_swatch`
-   - `theme_render_swatch_page`
-4. Added 24 swatch buttons on page, with 3 pages (72 total colors).
-5. Kept token apply/revert and shape/icon controls.
-
-### 5) HA Add-on Admin Center v1
-
-Files added:
-
-- `repository.yaml`
-- `tdeck_admin_center/config.yaml`
-- `tdeck_admin_center/Dockerfile`
-- `tdeck_admin_center/run.sh`
 - `tdeck_admin_center/rootfs/app/main.py`
+
+Added/updated:
+1. discovery cache model expanded with duration/total metadata.
+2. new discovery job lifecycle:
+   - `POST /api/discovery/jobs/start`
+   - `GET /api/discovery/jobs/<id>`
+   - `POST /api/discovery/jobs/<id>/cancel`
+3. discovery endpoints now consume cached data plus optional job context.
+4. workspace model helpers:
+   - `_default_workspace`
+   - `_normalize_workspace`
+   - `_workspace_active_profile`
+5. managed apply + backup + restore endpoints:
+   - `POST /api/apply/preview`
+   - `POST /api/apply/commit`
+   - `GET /api/backups/list`
+   - `POST /api/backups/restore`
+6. mapping suggestions endpoint:
+   - `POST /api/mapping/suggest`
+7. add-on options consumed from `/data/options.json`:
+   - managed root
+   - backup retention count
+
+## Add-on Manifest Changes
+
+File:
+- `tdeck_admin_center/config.yaml`
+
+Added:
+1. `map: [config:rw]`
+2. `options` + `schema` for:
+   - `managed_root`
+   - `backup_keep_count`
+
+## Frontend Changes
+
+Files:
 - `tdeck_admin_center/rootfs/app/static/index.html`
 - `tdeck_admin_center/rootfs/app/static/app.js`
-- `tdeck_admin_center/rootfs/app/static/styles.css`
-- `tdeck_admin_center/README.md`
 
-Behavior:
+Added/updated:
+1. workspace/device controls in Overview.
+2. explicit discovery status panel.
+3. job-based discovery wiring with polling and timeout handling.
+4. apply preview + apply commit actions in Generate tab.
+5. backup list and restore actions.
+6. bootstrap flow now reports "ready with issues" when startup steps fail.
 
-1. Ingress add-on UI.
-2. Discovery endpoints for HA entities/domains.
-3. Install YAML and overrides YAML generation endpoints.
-4. v1 is generate/export only (no automatic overwrite in `/config/esphome`).
+## Docs Updated
 
-## Follow-up fix (post-pass): HA add-on repository/build compatibility
+1. `README.md`
+2. `docs/admin-center.md`
+3. `docs/release.md`
+4. `docs/handoff-context.md`
 
-Files:
+## Validation Run
 
-- `tdeck_admin_center/config.yaml`
-- `tdeck_admin_center/build.yaml`
-- `tdeck_admin_center/Dockerfile`
-- `README.md`
-- `docs/release.md`
+1. `python -m py_compile tdeck_admin_center/rootfs/app/main.py` passed.
+2. Flask test-client smoke passed for:
+   - `/api/meta/contracts`
+   - `/api/profile/list`
+   - `/api/workspace/list`
+   - `/api/discovery/jobs/start`
+   - `/api/discovery/domains`
+   - `/api/discovery/entities`
+   - `/api/apply/preview`
 
-Changes:
+## Not Run Here
 
-1. Add-on manifest compatibility updates:
-   - removed `map` entirely (v1 add-on is generate/export only)
-   - removed `ports` block for ingress-only add-on
-   - removed `i386` from supported arch list
-   - bumped add-on version to `0.20.1`
-2. Build compatibility updates:
-   - moved to HA `*-base:3.20` images
-   - Dockerfile now installs `python3` + `py3-flask` + `py3-requests` explicitly
-3. Added explicit README recovery steps for:
-   - "not a valid add-on repository"
-   - unknown add-on image build error
+1. Full add-on install/restart cycle inside live Home Assistant Supervisor.
+2. Full browser smoke on ingress UI with real HA entity volumes.
+3. Full ESPHome compile/flash regression for firmware packages.
 
-## Follow-up fix (current): add-on build failure `/run.sh` missing
+## Immediate Next Steps
 
-Files:
-
-- `tdeck_admin_center/Dockerfile`
-- `tdeck_admin_center/config.yaml`
-- `README.md`
-- `docs/admin-center.md`
-- `docs/release.md`
-- this handoff file
-
-Changes:
-
-1. Root cause fixed:
-   - Dockerfile previously copied only `rootfs/`, so `/run.sh` was absent at `chmod`.
-2. Dockerfile hotfix:
-   - `COPY run.sh /run.sh`
-   - `RUN sed -i 's/\r$//' /run.sh && chmod a+x /run.sh`
-   - default `ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20`
-3. Add-on version bumped:
-   - `tdeck_admin_center/config.yaml` -> `version: "0.20.2"`
-4. Docs now use one canonical cache-refresh recovery sequence and call out `0.20.2`.
-
-## Mission continuation priority queue (after add-on install verified)
-
-1. Reliability:
-   - re-verify climate `+/-` deterministic path
-   - re-verify thermostat ack/resync integrity
-   - re-verify auto-screensaver idle behavior with input-noise suppression
-2. UX:
-   - remove any residual overlap/clipping across all pages
-   - keep consistent modern LVGL icon/style hierarchy
-3. Camera module:
-   - keep public default inert (`camera_slot_count: "0"`)
-   - keep personal profile enabled and verify snapshot refresh/diagnostics
-4. Admin Center v1 polish:
-   - improve discovery filters and mapping presets
-   - keep generate/export only (non-destructive)
-
-## Docs updated in this pass
-
-- `README.md`
-- `docs/admin-center.md`
-- `docs/cameras.md`
-- `docs/architecture.md`
-- `docs/migration.md`
-- `docs/release.md`
-- this handoff file
-
-## Known constraints
-
-1. Local environment here does not include `esphome` CLI; compile/config validation was not run locally.
-2. GPS behavior still depends on hardware/antenna/sky visibility.
-3. Keyboard backlight firmware control remains deferred (manual keyboard `Alt+B`).
-
-## Next recommended steps
-
-1. Reinstall `T-Deck Admin Center` from HA custom repository and verify version `0.20.2`.
-2. Validate add-on ingress and API endpoints.
-3. Continue mission queue with reliability checks first, then UX and camera/admin polish.
+1. Verify ingress UI with live HA:
+   - discovery job start/poll behavior
+   - entity explorer latency with large entity sets
+2. Validate managed apply writes/backup restore against real `/config/esphome/tdeck`.
+3. Add explicit workspace CRUD UI (`/api/workspace/*`) in a follow-up.
+4. Continue Phase 4/5 from mission plan:
+   - mapping ranking UX refinements
+   - canvas builder foundation for Home/Lights/Climate/Weather.

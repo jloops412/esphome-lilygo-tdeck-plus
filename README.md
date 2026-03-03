@@ -15,6 +15,7 @@ Use:
 - `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
 
 This file is the public drop-in entrypoint and pulls modular package files from this repo.
+By default it tracks `ref: "stable"` so users receive tested release updates without changing their entity mappings.
 
 ### Quick Start
 
@@ -33,6 +34,9 @@ This file is the public drop-in entrypoint and pulls modular package files from 
    - `entity_sensi_*` mappings
 4. Optional cameras:
    - `camera_slot_count`, `camera_slot_#_entity`, `ha_base_url`
+5. App update metadata:
+   - `app_release_channel` (default `stable`)
+   - `app_release_version` (set to current release tag)
 
 ### Common install errors
 
@@ -106,22 +110,89 @@ Home Assistant add-on (Ingress):
 3. Open Web UI from the add-on panel.
 4. Use it to:
    - discover entities
+   - run asynchronous discovery jobs with visible progress/error state
+   - build mappings via profile wizard
+   - manage multi-device workspaces
+   - validate profile contracts
    - generate drop-in install YAML
    - generate overrides YAML
+   - preview/apply managed config files directly under `/config/esphome/tdeck`
+   - auto-snapshot backups and restore checkpoints
+   - generate Home Assistant update-package YAML for app update button flow
+
+Admin Center V3 reliability updates:
+
+1. Job-based discovery (`start/status/cancel`) with progress and timeout-safe UX.
+2. Health endpoint no longer blocks on full entity pulls.
+3. Cached HA discovery + paginated explorer + stale/fresh diagnostics.
+4. Manual cache refresh triggers explicit forced discovery jobs.
+5. Startup no longer masks discovery failures as generic success.
+6. Managed apply engine with pre-apply backups and restore.
 
 If HA says the repo is not valid or add-on build fails:
 
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center` (`0.20.2`).
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.20.6`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
 
 If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
 
+If entity loading looks stuck in the add-on UI:
+
+1. Open `Overview` and check HA status.
+2. Check the `Discovery` status line for running/failed job state.
+3. Click `Refresh Discovery Cache` (starts forced discovery).
+4. Wait for discovery to reach `completed`, `failed`, or `cancelled`.
+5. Reset explorer filters (`domain=all`, clear search, page size 100).
+6. Check stale-cache error text in the explorer meta line.
+
+If HA still shows an old add-on version:
+
+1. Confirm GitHub `main` has the new `tdeck_admin_center/config.yaml` version committed.
+2. In HA Add-on Store: remove repo, restart Supervisor, re-add repo URL.
+3. Reopen store and verify version `0.20.6`.
+
+In-app firmware pending prompt flow:
+
+1. After add-on update, Overview shows `In-App Update Status`.
+2. If firmware version differs from `App Release Version`, it shows firmware pending.
+3. Use `Backup + Update Firmware` (default) to snapshot managed files before triggering `update.install`.
+4. Backup scope is managed files only:
+   - `/config/esphome/tdeck/<device_slug>/tdeck-install.yaml`
+   - `/config/esphome/tdeck/<device_slug>/tdeck-overrides.yaml`
+
+Direct apply and backup flow:
+
+1. Open `Generate` tab.
+2. Click `Preview Apply` to inspect install/override diffs.
+3. Click `Apply to Managed Files` to write:
+   - `/config/esphome/tdeck/<device_slug>/tdeck-install.yaml`
+   - `/config/esphome/tdeck/<device_slug>/tdeck-overrides.yaml`
+4. Each apply creates a snapshot under:
+   - `/config/esphome/tdeck/.backups/<device_slug>/<timestamp>/`
+5. Use `Refresh Backups` and `Restore Selected Backup` to roll back.
+
 Companion static generator (repo):
 
 - `tools/admin-center/index.html`
+
+## HA Update Button Flow
+
+Goal: update firmware from HA without overwriting user mappings/settings.
+
+1. Firmware publishes installed app metadata:
+   - `sensor.<device>_app_version`
+   - `sensor.<device>_app_channel`
+2. Admin Center `Updates` tab fetches latest stable release from GitHub.
+3. Admin Center generates a HA package YAML (save under your HA `packages` folder) that creates:
+   - latest stable version sensor
+   - template update entity (`update.tdeck_app_update_<device>`)
+   - install action proxy to native ESPHome firmware updater (`update.<device>_firmware`)
+4. Pressing update in HA triggers OTA via native ESPHome update entity.
+5. User entity mappings and app settings remain intact because update runs from the user's existing ESPHome node config.
+6. If the native updater entity is missing, enable the ESPHome firmware update entity in HA and re-run package generation.
 
 ## Architecture
 

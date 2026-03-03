@@ -1,5 +1,5 @@
 name: T-Deck Admin Center
-version: "0.20.4"
+version: "0.20.6"
 slug: tdeck_admin_center
 description: Discover Home Assistant entities and generate T-Deck ESPHome install YAML/overrides.
 url: "https://github.com/jloops412/esphome-lilygo-tdeck-plus"
@@ -18,3 +18,11 @@ panel_title: T-Deck Admin
 hassio_api: true
 homeassistant_api: true
 auth_api: true
+map:
+  - config:rw
+options:
+  managed_root: /config/esphome/tdeck
+  backup_keep_count: 30
+schema:
+  managed_root: str
+  backup_keep_count: int(5,500)

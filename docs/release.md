@@ -1,43 +1,96 @@
-# Release Notes
+﻿# Release Notes
 
-## Current baseline tag
+## Baseline
 
-- `v0.19.1-select-template-hotfix`
+- Current add-on manifest version in repo: `0.20.6`
+- Public install templates now track `stable`.
 
-## Unreleased (current `main`)
+## Unreleased (Current `main`)
 
-- strict ALT shortcut reliability fix in keyboard parser (removed ALT path early-return)
-- ALT diagnostics surfaced in settings diagnostics
-- home header overlap reduction and tighter status text
-- settings system panel now includes concise admin access instructions
-- settings diagnostics expanded with camera and shortcut status lines
-- camera refresh diagnostics strings added:
-  - `camera_refresh_status_text`
-  - `camera_last_snapshot_result`
-- Theme Studio rebuilt to swatch-based workflow:
-  - RGB sliders removed
-  - 3 palette pages x 24 swatches
-  - apply/revert by token
-  - border/radius/icon controls retained
-- HA add-on admin center v1 added:
-  - `repository.yaml`
-  - `tdeck_admin_center/*`
-  - Ingress UI + discovery + YAML generation APIs
-- HA add-on repo/install compatibility fix:
-  - `tdeck_admin_center/config.yaml` removed `map` entirely (v1 is generate/export only)
-  - removed `ports`/`i386` for cleaner ingress-only compatibility
-  - `tdeck_admin_center/build.yaml` now uses HA `*-base:3.20`
-  - `tdeck_admin_center/Dockerfile` now installs Python runtime on base image
-- HA add-on hotfix (`0.20.2`):
-  - fixed root cause of install failure: `/run.sh` missing in container
-  - `tdeck_admin_center/Dockerfile` now copies `run.sh` explicitly
-  - `tdeck_admin_center/Dockerfile` normalizes CRLF before chmod (`sed -i 's/\r$//'`)
-  - `ARG BUILD_FROM` now has default value to avoid invalid-default warning
-- docs and README refreshed for public install/admin/camera behavior
+### Admin Center V3 reliability + direct-apply foundation
 
-## Tagging process
+1. Discovery hardening:
+   - health no longer blocks on full discovery fetch
+   - async discovery jobs (`start/status/cancel`)
+   - stale-cache + duration + last-error metadata
+   - paginated entity API remains in place
+2. Explorer UX hardening:
+   - explicit discovery status panel
+   - startup flow no longer masks discovery failures
+   - debounced search + in-flight cancellation preserved
+3. Workspace/profile system:
+   - workspace schema `2.0` with `devices[]`
+   - active-device selection and per-device validation reporting
+   - compatibility path for legacy profile payloads
+4. Generator and apply expansion:
+   - full substitution contract coverage
+   - workspace/device-aware install and overrides generation
+   - managed apply preview and commit endpoints
+   - auto backup snapshot + restore endpoints
+5. Contracts/meta endpoint:
+   - `/api/meta/contracts` for frontend-driven form rendering
+6. Mapping API:
+   - `/api/mapping/suggest` for ranked entity suggestions
+7. Update intelligence (unchanged flow, integrated into V3 UI):
+   - latest stable release endpoint (`/api/update/latest`)
+   - HA update package generator endpoint (`/api/generate/ha_update_package`)
+   - Updates tab with release status and package output remains
+8. Add-on update visibility + firmware pending flow:
+   - add-on runtime version state persisted in `/data/runtime_state.json`
+   - `GET /api/firmware/status` and `POST /api/firmware/update`
+   - Overview now shows “Add-on updated” vs “Firmware pending” state
+   - default update action is `Backup + Update Firmware` with managed-file scope
+
+### Add-on manifest/runtime
+
+1. Add-on now declares config map access:
+   - `map: [config:rw]`
+2. Add-on options schema added:
+   - `managed_root`
+   - `backup_keep_count`
+3. Default managed root:
+   - `/config/esphome/tdeck`
+
+### Firmware/public contract updates
+
+1. Added public substitution keys:
+   - `app_release_channel`
+   - `app_release_version`
+   - `ui_show_*`
+   - `home_tile_show_*`
+   - `theme_token_*`
+   - `theme_border_width`, `theme_radius`, `theme_icon_mode`
+2. Added firmware metadata exposure:
+   - `esphome.project.version` from `${app_release_version}`
+   - HA diagnostic text sensors for app version/channel
+3. Public install refs switched from `main` to `stable`.
+4. Home tile visibility now honors UI/home toggle substitutions in LVGL dynamic updates.
+5. Settings system panel includes concise admin access instructions.
+
+### Docs/template updates
+
+1. Updated:
+   - `README.md`
+   - `docs/admin-center.md`
+   - `docs/architecture.md`
+   - `docs/entities-template.md`
+   - `docs/ha-element-framework.md`
+2. Updated mapping template:
+   - `esphome/install/entity-overrides.template.yaml`
+
+## Next tag recommendation
+
+1. `v0.20.6-admin-update-visibility`
+   - add-on version visibility fix + in-app firmware pending prompt + backup-first firmware update action
+2. `v0.21.0-admin-apply-backup`
+   - managed apply + backup/restore + workspace multi-device foundation
+3. follow with firmware modularization tag after validation:
+   - `v0.23.0-firmware-modular-ui`
+
+## Tagging flow
 
 1. Merge to `main`.
-2. Create new tag (recommended next: `v0.20.0-admin-addon-theme-swatch-camera-pass`).
-3. Update install YAML `ref` to the release tag.
-4. Publish release summary with migration notes.
+2. Create release tag.
+3. Move `stable` branch to the tested release tag.
+4. Bump `app_release_version` to the new tag value.
+5. Rebuild and validate ESPHome package pull from `stable`.
