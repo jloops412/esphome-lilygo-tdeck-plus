@@ -25,7 +25,7 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.25.0")) or "0.25.0"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.25.1")) or "0.25.1"
 DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.25.0") or "v0.25.0"
 
 CACHE_TTL_SECONDS = 15
@@ -45,9 +45,25 @@ ENTITY_COLLECTION_LIMITS = {
     "system_entities": {"default_max": 24, "hard_max": 64},
 }
 SLOT_RUNTIME_LIMITS = {
-    "lights": {"default_cap": 24, "min_cap": 8, "max_cap": 24, "default_page_size": 6, "min_page_size": 4, "max_page_size": 6},
-    "cameras": {"default_cap": 8, "min_cap": 2, "max_cap": 8, "default_page_size": 4, "min_page_size": 2, "max_page_size": 4},
+    "lights": {"default_cap": 24, "min_cap": 8, "max_cap": 48, "default_page_size": 6, "min_page_size": 4, "max_page_size": 8},
+    "cameras": {"default_cap": 8, "min_cap": 2, "max_cap": 16, "default_page_size": 4, "min_page_size": 2, "max_page_size": 6},
 }
+FEATURE_PAGE_POLICY: Dict[str, Dict[str, List[str]]] = {
+    "lights": {"required": ["ui_show_lights"], "optional": ["home_tile_show_lights"]},
+    "weather": {"required": ["ui_show_weather"], "optional": ["home_tile_show_weather"]},
+    "climate": {"required": ["ui_show_climate"], "optional": ["home_tile_show_climate"]},
+    "cameras": {"required": ["ui_show_cameras"], "optional": ["home_tile_show_cameras"]},
+    "reader": {"required": ["ui_show_reader"], "optional": ["home_tile_show_reader"]},
+    "gps": {"required": [], "optional": []},
+}
+ONBOARDING_PRESETS: Dict[str, Dict[str, bool]] = {
+    "blank": {"lights": False, "weather": False, "climate": False, "cameras": False, "reader": False, "gps": False},
+    "controller": {"lights": True, "weather": True, "climate": True, "cameras": False, "reader": False, "gps": True},
+    "weather_climate": {"lights": False, "weather": True, "climate": True, "cameras": False, "reader": False, "gps": True},
+    "security": {"lights": True, "weather": False, "climate": False, "cameras": True, "reader": False, "gps": False},
+    "media": {"lights": False, "weather": False, "climate": False, "cameras": False, "reader": True, "gps": False},
+}
+NODE_KEYWORDS = ("tdeck", "t-deck", "t deck", "lilygo", "deckplus", "deck plus")
 LAYOUT_GRID_DEFAULTS = {"cols": 4, "rows": 6}
 DEFAULT_LAYOUT_PAGE_IDS = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"]
 
@@ -475,7 +491,7 @@ def _slugify(value: Any, fallback: str = "tdeck") -> str:
 def _repo_slug_from_url(repo_url: str) -> str:
     raw = _as_str(repo_url).strip()
     if not raw:
-        return "jloops412/esphome-lilygo-tdeck-plus"
+        return "owner/repository"
     raw = raw.removesuffix(".git")
     if raw.startswith("git@github.com:"):
         return raw.split("git@github.com:", 1)[1]
@@ -487,7 +503,7 @@ def _repo_slug_from_url(repo_url: str) -> str:
     if raw.count("/") >= 1 and "github.com" not in raw:
         # fallback for already slug-like values
         return raw.strip("/")
-    return "jloops412/esphome-lilygo-tdeck-plus"
+    return "owner/repository"
 
 
 def _normalize_version_text(value: Any) -> str:
@@ -779,6 +795,35 @@ def _required_by_feature() -> Dict[str, List[str]]:
     }
 
 
+def _default_feature_flags(preset: str = "blank") -> Dict[str, bool]:
+    resolved = _as_str(preset, "blank").strip().lower()
+    base = ONBOARDING_PRESETS.get(resolved) or ONBOARDING_PRESETS["blank"]
+    out: Dict[str, bool] = {}
+    for key in ["lights", "weather", "climate", "cameras", "reader", "gps"]:
+        out[key] = _as_bool(base.get(key), False)
+    return out
+
+
+def _apply_feature_page_policy(profile: Dict[str, Any]) -> None:
+    profile["features"] = profile.get("features", {}) if isinstance(profile.get("features"), dict) else {}
+    profile["ui"] = profile.get("ui", {}) if isinstance(profile.get("ui"), dict) else {}
+    for feature, policy in FEATURE_PAGE_POLICY.items():
+        enabled = _as_bool(profile["features"].get(feature), False)
+        required = policy.get("required", []) if isinstance(policy.get("required"), list) else []
+        optional = policy.get("optional", []) if isinstance(policy.get("optional"), list) else []
+        for key in required:
+            profile["ui"][key] = enabled
+        for key in optional:
+            if not enabled:
+                profile["ui"][key] = False
+            elif key not in profile["ui"]:
+                profile["ui"][key] = True
+
+    # Core pages remain visible to guarantee recoverability.
+    profile["ui"]["ui_show_settings"] = True
+    profile["ui"]["ui_show_theme"] = True
+
+
 def _contracts() -> Dict[str, Any]:
     defaults = _default_substitutions()
     return {
@@ -830,6 +875,8 @@ def _contracts() -> Dict[str, Any]:
         "entity_collection_limits": ENTITY_COLLECTION_LIMITS,
         "slot_runtime_limits": SLOT_RUNTIME_LIMITS,
         "slot_runtime_defaults": _default_slot_runtime(),
+        "feature_page_policy": FEATURE_PAGE_POLICY,
+        "onboarding_presets": ONBOARDING_PRESETS,
         "entity_collections_meta_defaults": _default_entity_collections_meta(),
         "layout_pages": list(_default_layout_pages().keys()),
         "generated_files": [
@@ -1530,6 +1577,10 @@ def _build_discovery_row(item: Dict[str, Any]) -> Dict[str, Any] | None:
         "state": _as_str(item.get("state")),
         "unit": _as_str(attrs.get("unit_of_measurement")),
         "device_class": _as_str(attrs.get("device_class")),
+        "integration": _as_str(attrs.get("integration")) or _as_str(attrs.get("platform")),
+        "device_name": _as_str(attrs.get("device_name")),
+        "attribution": _as_str(attrs.get("attribution")),
+        "entity_category": _as_str(attrs.get("entity_category")),
         "mappable": domain in MAPPABLE_DOMAINS,
     }
 
@@ -1834,6 +1885,7 @@ def _default_profile() -> Dict[str, Any]:
     settings = {
         "app_release_channel": defaults["app_release_channel"],
         "app_release_version": defaults["app_release_version"],
+        "onboarding_preset": "blank",
         "camera_refresh_interval_s": defaults["camera_refresh_interval_s"],
         "camera_snapshot_enable": defaults["camera_snapshot_enable"],
         "camera_snapshot_dir": defaults["camera_snapshot_dir"],
@@ -1860,7 +1912,7 @@ def _default_profile() -> Dict[str, Any]:
                     "type": "light",
                     "name": row.get("name"),
                     "entity_id": row.get("entity"),
-                    "enabled": idx < 6,
+                    "enabled": False,
                     "role": "light_slot",
                     "page": "lights",
                     "group": "lights",
@@ -1894,7 +1946,7 @@ def _default_profile() -> Dict[str, Any]:
                     "type": _infer_type_id(defaults.get(key, ""), key),
                     "name": key,
                     "entity_id": defaults.get(key, ""),
-                    "enabled": True,
+                    "enabled": False,
                     "role": key,
                     "page": "home",
                     "group": _collection_for_type(_infer_type_id(defaults.get(key, ""), key), key),
@@ -1912,7 +1964,7 @@ def _default_profile() -> Dict[str, Any]:
             "git_ref": ADDON_GITHUB_REF,
             "git_url": ADDON_GITHUB_REPO_URL,
         },
-        "features": {"lights": True, "weather": True, "climate": True, "cameras": False, "reader": True, "gps": True},
+        "features": _default_feature_flags("blank"),
         "slots": {
             "light_slot_count": _as_int(defaults["light_slot_count"], 6, 1, SLOT_RUNTIME_LIMITS["lights"]["max_cap"]),
             "lights": lights,
@@ -2188,7 +2240,7 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     merged["device"]["git_url"] = _as_str(merged["device"].get("git_url"), ADDON_GITHUB_REPO_URL)
 
     for key in ["lights", "weather", "climate", "cameras", "reader", "gps"]:
-        merged["features"][key] = _as_bool(merged["features"].get(key), key != "cameras")
+        merged["features"][key] = _as_bool(merged["features"].get(key), False)
 
     merged["slot_runtime"] = _normalize_slot_runtime(merged.get("slot_runtime"))
     light_cap = _as_int(
@@ -2263,6 +2315,7 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         merged["settings"].get("app_release_version"),
         DEFAULT_APP_RELEASE_VERSION,
     )
+    merged["settings"]["onboarding_preset"] = _as_str(merged["settings"].get("onboarding_preset"), "blank")
     merged["settings"]["ha_native_firmware_entity"] = _as_str(merged["settings"].get("ha_native_firmware_entity"), "")
     merged["settings"]["ha_app_version_entity"] = _as_str(merged["settings"].get("ha_app_version_entity"), "")
     merged["settings"]["ha_esphome_compile_service"] = _as_str(merged["settings"].get("ha_esphome_compile_service"), "")
@@ -2300,6 +2353,7 @@ def _normalize_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     merged["entity_collections"] = _normalize_profile_collections(merged)
     _normalize_entity_instances(merged, incoming_has_instances=incoming_has_instances)
     _sync_slots_from_collections(merged)
+    _apply_feature_page_policy(merged)
     return merged
 
 
@@ -2365,16 +2419,16 @@ def _profile_to_substitutions(profile: Dict[str, Any], overrides: Dict[str, Any]
             substitutions[key] = _bool_str(p["ui"][key])
 
     features = p.get("features", {})
-    if not _as_bool(features.get("lights"), True):
+    if not _as_bool(features.get("lights"), False):
         substitutions["ui_show_lights"] = "false"
         substitutions["home_tile_show_lights"] = "false"
-    if not _as_bool(features.get("weather"), True):
+    if not _as_bool(features.get("weather"), False):
         substitutions["ui_show_weather"] = "false"
         substitutions["home_tile_show_weather"] = "false"
-    if not _as_bool(features.get("climate"), True):
+    if not _as_bool(features.get("climate"), False):
         substitutions["ui_show_climate"] = "false"
         substitutions["home_tile_show_climate"] = "false"
-    if not _as_bool(features.get("reader"), True):
+    if not _as_bool(features.get("reader"), False):
         substitutions["ui_show_reader"] = "false"
         substitutions["home_tile_show_reader"] = "false"
     if not _as_bool(features.get("cameras"), False):
@@ -2465,7 +2519,7 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
             f"schema_version '{p.get('schema_version')}' differs from expected '{PROFILE_SCHEMA_VERSION}'."
         )
     if not instances:
-        warnings.append("entity_instances is empty; deploy will rely on migrated legacy collections.")
+        warnings.append("entity_instances is empty; no typed elements are configured yet.")
     app_release_version = _as_str(substitutions.get("app_release_version"), "").strip()
     app_release_channel = _as_str(substitutions.get("app_release_channel"), "").strip().lower()
     if not app_release_version:
@@ -2476,7 +2530,7 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         warnings.append("app_release_channel should be stable, beta, or dev.")
 
     features = p.get("features", {})
-    if _as_bool(features.get("lights"), True):
+    if _as_bool(features.get("lights"), False):
         light_count = _as_int(substitutions.get("light_slot_count"), 6, 1, light_cap)
         enabled_lights = [x for x in lights if _as_bool(x.get("enabled"), True)]
         if len(enabled_lights) == 0:
@@ -2491,11 +2545,11 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
             key = f"light_slot_{idx}_entity"
             if _is_placeholder(substitutions.get(key, "")):
                 errors.append(f"{key} is required when lights feature is enabled.")
-    if _as_bool(features.get("weather"), True):
+    if _as_bool(features.get("weather"), False):
         for key in ["entity_wx_main", "entity_wx_temp_sensor"]:
             if _is_placeholder(substitutions.get(key, "")):
                 errors.append(f"{key} is required when weather feature is enabled.")
-    if _as_bool(features.get("climate"), True):
+    if _as_bool(features.get("climate"), False):
         for key in ["entity_sensi_climate", "entity_sensi_temperature_sensor"]:
             if _is_placeholder(substitutions.get(key, "")):
                 errors.append(f"{key} is required when climate feature is enabled.")
@@ -2516,7 +2570,7 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
             key = f"camera_slot_{idx}_entity"
             if _is_placeholder(substitutions.get(key, "")):
                 errors.append(f"{key} is required when cameras feature is enabled.")
-    if _as_bool(features.get("reader"), True):
+    if _as_bool(features.get("reader"), False):
         for key in ["entity_feed_bbc", "entity_feed_dc", "entity_feed_loudoun"]:
             if _is_placeholder(substitutions.get(key, "")):
                 warnings.append(f"{key} is unset; reader page may be partially empty.")
@@ -2577,6 +2631,8 @@ def _mapping_suggestions(
     collection: str = "",
     role: str = "",
     domain_hint: str = "",
+    type_id: str = "",
+    device_slug: str = "",
     exclude_entities: set[str] | None = None,
 ) -> List[Dict[str, Any]]:
     key = _as_str(key).strip()
@@ -2597,6 +2653,13 @@ def _mapping_suggestions(
         hints.extend(["weather", "sensor"])
     if hint_domain:
         hints.append(hint_domain)
+    type_id = _as_str(type_id).strip().lower()
+    scope_slug = _slugify(device_slug, "")
+    scope_token = re.sub(r"[^a-z0-9]", "", scope_slug)
+    if type_id in TYPE_REGISTRY:
+        type_hints = TYPE_REGISTRY.get(type_id, {}).get("domains", [])
+        if isinstance(type_hints, list):
+            hints.extend([_as_str(x, "").lower() for x in type_hints if _as_str(x, "")])
     if not hints and key.startswith("entity_"):
         tail = key.replace("entity_", "", 1)
         if tail.startswith("wx_"):
@@ -2613,7 +2676,13 @@ def _mapping_suggestions(
         entity_id = _as_str(row.get("entity_id"))
         domain = _as_str(row.get("domain"))
         friendly = _as_str(row.get("friendly_name"))
+        device_name = _as_str(row.get("device_name"))
         if entity_id and entity_id.lower() in excluded:
+            continue
+        row_blob = f"{entity_id} {friendly} {device_name}".lower()
+        row_token = re.sub(r"[^a-z0-9]", "", row_blob)
+        scope_match = not scope_token or scope_token in row_token
+        if scope_token and not scope_match:
             continue
         score = 0
         reasons: List[str] = []
@@ -2634,6 +2703,9 @@ def _mapping_suggestions(
             score -= 100
         if row.get("mappable"):
             score += 5
+        if scope_token and scope_match:
+            score += 18
+            reasons.append("device-scope")
         if not query and hints:
             # Keep good-domain options even without text query.
             score += 3
@@ -4710,45 +4782,378 @@ def api_workspace_load() -> Any:
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx})
 
 
-def _detect_esphome_nodes() -> List[Dict[str, Any]]:
-    cache = _refresh_discovery_cache(force=False)
+def _ha_get_optional(path: str, timeout: int = 15) -> Any:
+    try:
+        return _ha_get(path, timeout=timeout)
+    except Exception:
+        return None
+
+
+def _detect_slug_hints_from_entity(entity_id: str) -> List[Tuple[str, int, str]]:
+    if "." not in entity_id:
+        return []
+    object_id = entity_id.split(".", 1)[1]
+    hints: List[Tuple[str, int, str]] = []
+    if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
+        hints.append((_slugify(object_id[: -len("_firmware")], ""), 95, "native_firmware_entity"))
+    if entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
+        hints.append((_slugify(object_id[: -len("_app_version")], ""), 90, "app_version_entity"))
+    parts = [x for x in object_id.split("_") if x]
+    if parts:
+        first = _slugify(parts[0], "")
+        if first:
+            hints.append((first, 8, "object_prefix"))
+        if len(parts) >= 2:
+            hints.append((_slugify(f"{parts[0]}_{parts[1]}", ""), 6, "object_prefix_pair"))
+    return hints
+
+
+def _confidence_label(score: int) -> str:
+    if score >= 120:
+        return "high"
+    if score >= 70:
+        return "medium"
+    return "low"
+
+
+def _manual_candidate_from_input(device_slug: str, entity_id: str) -> Dict[str, Any]:
+    slug = _slugify(device_slug, "")
+    ent = _as_str(entity_id, "").strip().lower()
+    if not slug and ent and "." in ent:
+        object_id = ent.split(".", 1)[1]
+        if object_id.endswith("_firmware"):
+            slug = _slugify(object_id[: -len("_firmware")], "")
+        elif object_id.endswith("_app_version"):
+            slug = _slugify(object_id[: -len("_app_version")], "")
+        else:
+            parts = [x for x in object_id.split("_") if x]
+            if len(parts) >= 2:
+                slug = _slugify(f"{parts[0]}_{parts[1]}", "")
+            elif parts:
+                slug = _slugify(parts[0], "")
+    slug = _slugify(slug, "lilygo-tdeck-plus")
+    native = f"update.{slug}_firmware"
+    app_ver = f"sensor.{slug}_app_version"
+    reasons = ["manual_fallback"]
+    matched: List[str] = []
+    if ent:
+        matched.append(ent)
+        if ent.startswith("update.") and ent.endswith("_firmware"):
+            native = ent
+            if "native_firmware_entity" not in reasons:
+                reasons.append("native_firmware_entity")
+        if ent.startswith("sensor.") and ent.endswith("_app_version"):
+            app_ver = ent
+            if "app_version_entity" not in reasons:
+                reasons.append("app_version_entity")
+    return {
+        "device_slug": slug,
+        "native_update_entity": native,
+        "app_version_entity": app_ver,
+        "friendly_name": f"T-Deck ({slug})",
+        "entities_count": 1 if ent else 0,
+        "confidence_score": 52 if ent else 45,
+        "confidence": "medium",
+        "reasons": reasons,
+        "matched_entities": matched,
+    }
+
+
+def _detect_esphome_nodes(force_refresh: bool = False) -> List[Dict[str, Any]]:
+    cache = _refresh_discovery_cache(force=force_refresh)
     rows = cache.get("rows", []) if isinstance(cache.get("rows"), list) else []
+    entity_registry = _ha_get_optional("/config/entity_registry/list", timeout=25)
+    device_registry = _ha_get_optional("/config/device_registry/list", timeout=25)
+    config_entries = _ha_get_optional("/config/config_entries/entry", timeout=25)
+    by_entity: Dict[str, Dict[str, Any]] = {}
+    by_device_entities: Dict[str, List[str]] = {}
+    if isinstance(entity_registry, list):
+        for row in entity_registry:
+            if not isinstance(row, dict):
+                continue
+            entity_id = _as_str(row.get("entity_id"), "")
+            if entity_id:
+                by_entity[entity_id] = row
+            device_id = _as_str(row.get("device_id"), "")
+            if device_id and entity_id:
+                by_device_entities.setdefault(device_id, []).append(entity_id)
+    by_device: Dict[str, Dict[str, Any]] = {}
+    if isinstance(device_registry, list):
+        for row in device_registry:
+            if not isinstance(row, dict):
+                continue
+            did = _as_str(row.get("id"), "")
+            if did:
+                by_device[did] = row
+    by_entry: Dict[str, Dict[str, Any]] = {}
+    if isinstance(config_entries, list):
+        for row in config_entries:
+            if not isinstance(row, dict):
+                continue
+            eid = _as_str(row.get("entry_id"), "")
+            if eid:
+                by_entry[eid] = row
+    esphome_entry_ids: set[str] = set()
+    for eid, entry in by_entry.items():
+        if _as_str(entry.get("domain"), "").strip().lower() == "esphome":
+            esphome_entry_ids.add(eid)
+
+    stoplist = {
+        "sensor",
+        "switch",
+        "binary",
+        "button",
+        "number",
+        "select",
+        "text",
+        "input",
+        "weather",
+        "climate",
+        "media",
+        "camera",
+        "cover",
+        "light",
+        "fan",
+        "lock",
+        "home",
+        "assistant",
+    }
     found: Dict[str, Dict[str, Any]] = {}
+
     for row in rows:
         if not isinstance(row, dict):
             continue
         entity_id = _as_str(row.get("entity_id"), "")
-        friendly = _as_str(row.get("friendly_name"), entity_id)
         if not entity_id:
             continue
-        slug = ""
-        if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
-            slug = entity_id[len("update.") : -len("_firmware")]
-        elif entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
-            slug = entity_id[len("sensor.") : -len("_app_version")]
-        elif "tdeck" in entity_id.lower():
-            slug = _slugify(entity_id.split(".", 1)[1], "")
-        if not slug:
+        friendly = _as_str(row.get("friendly_name"), entity_id)
+        lower_blob = f"{entity_id} {friendly} {_as_str(row.get('device_name'), '')}".lower()
+        mentions_tdeck = any(k in lower_blob for k in NODE_KEYWORDS)
+        attrs_integration = _as_str(row.get("integration"), "").strip().lower()
+        reg = by_entity.get(entity_id, {})
+        config_entry = by_entry.get(_as_str(reg.get("config_entry_id"), ""), {})
+        config_domain = _as_str(config_entry.get("domain"), "").strip().lower()
+        did = _as_str(reg.get("device_id"), "")
+        dev = by_device.get(did, {})
+        manufacturer = _as_str(dev.get("manufacturer"), "")
+        model = _as_str(dev.get("model"), "")
+        dev_name = _as_str(dev.get("name_by_user"), "") or _as_str(dev.get("name"), "")
+        device_blob = f"{manufacturer} {model} {dev_name}".lower()
+        device_mentions_tdeck = any(k in device_blob for k in NODE_KEYWORDS)
+        is_esphome = attrs_integration == "esphome" or config_domain == "esphome"
+
+        slug_hints = _detect_slug_hints_from_entity(entity_id)
+        if (mentions_tdeck or device_mentions_tdeck or is_esphome) and "." in entity_id:
+            object_id = entity_id.split(".", 1)[1]
+            object_slug = _slugify(object_id, "")
+            if object_slug:
+                slug_hints.append((object_slug, 12, "keyword_object"))
+            if "_" in object_id:
+                slug_hints.append((_slugify(object_id.split("_", 1)[0], ""), 15, "keyword_prefix"))
+        if device_mentions_tdeck and dev_name:
+            slug_hints.append((_slugify(dev_name, ""), 24, "device_name"))
+
+        for slug, base_score, reason in slug_hints:
+            if not slug or len(slug) < 3 or slug in stoplist:
+                continue
+            node = found.get(
+                slug,
+                {
+                    "device_slug": slug,
+                    "native_update_entity": "",
+                    "app_version_entity": "",
+                    "friendly_name": "",
+                    "entities_count": 0,
+                    "confidence_score": 0,
+                    "confidence": "low",
+                    "reasons": [],
+                    "matched_entities": [],
+                },
+            )
+            node["entities_count"] = _as_int(node.get("entities_count"), 0, 0, None) + 1
+            node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + base_score
+            reasons = node.get("reasons", [])
+            if reason not in reasons:
+                reasons.append(reason)
+            if mentions_tdeck and "keyword:tdeck" not in reasons:
+                reasons.append("keyword:tdeck")
+                node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + 25
+            if device_mentions_tdeck and "device:tdeck" not in reasons:
+                reasons.append("device:tdeck")
+                node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + 35
+            if is_esphome and "integration:esphome" not in reasons:
+                reasons.append("integration:esphome")
+                node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + 20
+            if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
+                node["native_update_entity"] = entity_id
+            if entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
+                node["app_version_entity"] = entity_id
+            if entity_id not in node.get("matched_entities", []):
+                node["matched_entities"].append(entity_id)
+            if not _as_str(node.get("friendly_name"), ""):
+                preferred_name = dev_name or friendly
+                node["friendly_name"] = preferred_name
+            node["reasons"] = reasons
+            found[slug] = node
+
+    # Secondary path: include all ESPHome devices from device registry even when
+    # state rows are sparse or don't include T-Deck keyword hints yet.
+    for did, dev in by_device.items():
+        if not isinstance(dev, dict):
             continue
-        node = found.get(slug, {"device_slug": slug, "native_update_entity": "", "app_version_entity": "", "friendly_name": "", "entities_count": 0})
-        node["entities_count"] = _as_int(node.get("entities_count"), 0, 0, None) + 1
-        if entity_id.startswith("update.") and entity_id.endswith("_firmware"):
-            node["native_update_entity"] = entity_id
-        if entity_id.startswith("sensor.") and entity_id.endswith("_app_version"):
-            node["app_version_entity"] = entity_id
-        if not _as_str(node.get("friendly_name"), "") and friendly:
-            node["friendly_name"] = friendly
+        device_entries = dev.get("config_entries") if isinstance(dev.get("config_entries"), list) else []
+        is_esphome_device = any(_as_str(x, "") in esphome_entry_ids for x in device_entries)
+        if not is_esphome_device:
+            continue
+        name_by_user = _as_str(dev.get("name_by_user"), "")
+        name = _as_str(dev.get("name"), "")
+        model = _as_str(dev.get("model"), "")
+        manufacturer = _as_str(dev.get("manufacturer"), "")
+        identifiers = dev.get("identifiers") if isinstance(dev.get("identifiers"), list) else []
+        slug_candidates: List[str] = []
+        for raw in [name_by_user, name, model]:
+            s = _slugify(raw, "")
+            if s and len(s) >= 3:
+                slug_candidates.append(s)
+        for ident in identifiers:
+            if isinstance(ident, (list, tuple)) and len(ident) >= 2:
+                ident_value = _as_str(ident[1], "")
+                s = _slugify(ident_value, "")
+                if s and len(s) >= 3:
+                    slug_candidates.append(s)
+        if not slug_candidates:
+            continue
+        slug = slug_candidates[0]
+        node = found.get(
+            slug,
+            {
+                "device_slug": slug,
+                "native_update_entity": "",
+                "app_version_entity": "",
+                "friendly_name": "",
+                "entities_count": 0,
+                "confidence_score": 0,
+                "confidence": "low",
+                "reasons": [],
+                "matched_entities": [],
+            },
+        )
+        reasons = node.get("reasons", []) if isinstance(node.get("reasons"), list) else []
+        if "device_registry:esphome" not in reasons:
+            reasons.append("device_registry:esphome")
+            node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + 60
+        device_blob = f"{manufacturer} {model} {name_by_user or name}".lower()
+        if any(k in device_blob for k in NODE_KEYWORDS) and "device:tdeck" not in reasons:
+            reasons.append("device:tdeck")
+            node["confidence_score"] = _as_int(node.get("confidence_score"), 0, 0, None) + 30
+        node["friendly_name"] = _as_str(node.get("friendly_name"), "") or _as_str(name_by_user or name, f"T-Deck Candidate ({slug})")
+        linked_entities = by_device_entities.get(did, [])
+        if linked_entities:
+            node["entities_count"] = max(_as_int(node.get("entities_count"), 0, 0, None), len(linked_entities))
+            matched = node.get("matched_entities", []) if isinstance(node.get("matched_entities"), list) else []
+            merged = sorted(set([_as_str(x, "") for x in (matched + linked_entities) if _as_str(x, "")]))
+            node["matched_entities"] = merged[:16]
+            for ent in linked_entities:
+                ent_l = ent.lower()
+                if not _as_str(node.get("native_update_entity"), "") and ent_l.startswith("update.") and ent_l.endswith("_firmware"):
+                    node["native_update_entity"] = ent_l
+                if not _as_str(node.get("app_version_entity"), "") and ent_l.startswith("sensor.") and ent_l.endswith("_app_version"):
+                    node["app_version_entity"] = ent_l
+        node["reasons"] = reasons
         found[slug] = node
-    return sorted(found.values(), key=lambda x: _as_str(x.get("device_slug"), ""))
+
+    out: List[Dict[str, Any]] = []
+    for slug, node in found.items():
+        score = _as_int(node.get("confidence_score"), 0, 0, None)
+        has_strong = bool(_as_str(node.get("native_update_entity"), "") or _as_str(node.get("app_version_entity"), ""))
+        reasons = node.get("reasons", []) if isinstance(node.get("reasons"), list) else []
+        if not has_strong and score < 35:
+            continue
+        node["confidence_score"] = score
+        node["confidence"] = _confidence_label(score)
+        node["reasons"] = sorted(set([_as_str(x, "") for x in reasons if _as_str(x, "")]))
+        matched = node.get("matched_entities", []) if isinstance(node.get("matched_entities"), list) else []
+        node["matched_entities"] = sorted(set([_as_str(x, "") for x in matched if _as_str(x, "")]))[:16]
+        if not _as_str(node.get("friendly_name"), ""):
+            node["friendly_name"] = f"T-Deck Candidate ({slug})"
+        out.append(node)
+
+    out.sort(key=lambda x: (-_as_int(x.get("confidence_score"), 0, 0, None), _as_str(x.get("device_slug"), "")))
+    return out[:80]
+
+
+@app.get("/api/onboarding/candidates")
+def api_onboarding_candidates() -> Any:
+    try:
+        force = _as_bool(request.args.get("refresh"), False)
+        nodes = _detect_esphome_nodes(force_refresh=force)
+        cache = _discovery_cache_snapshot()
+        return jsonify(
+            {
+                "ok": True,
+                "nodes": nodes,
+                "count": len(nodes),
+                "discovery": {
+                    "cache_age_ms": cache.get("cache_age_ms", 0),
+                    "last_error": _as_str(cache.get("last_error"), ""),
+                    "last_total": _as_int(cache.get("last_total"), 0, 0, None),
+                    "last_duration_ms": _as_int(cache.get("last_duration_ms"), 0, 0, None),
+                    "stale": _as_bool(cache.get("stale"), False),
+                },
+            }
+        )
+    except Exception as err:
+        return jsonify({"ok": False, "error": str(err), "nodes": [], "count": 0}), 500
 
 
 @app.get("/api/onboarding/esphome/nodes")
 def api_onboarding_esphome_nodes() -> Any:
-    try:
-        nodes = _detect_esphome_nodes()
-        return jsonify({"ok": True, "nodes": nodes, "count": len(nodes)})
-    except Exception as err:
-        return jsonify({"ok": False, "error": str(err), "nodes": [], "count": 0}), 500
+    # Backward-compatible alias.
+    return api_onboarding_candidates()
+
+
+@app.post("/api/onboarding/verify_candidate")
+def api_onboarding_verify_candidate() -> Any:
+    payload = request.get_json(silent=True) or {}
+    device_slug = _slugify(payload.get("device_slug"), "")
+    entity_id = _as_str(payload.get("entity_id"), "").strip().lower()
+    nodes = _detect_esphome_nodes()
+    selected = None
+    if device_slug:
+        for row in nodes:
+            if _slugify(row.get("device_slug"), "") == device_slug:
+                selected = row
+                break
+    if not selected and entity_id:
+        for row in nodes:
+            matched = row.get("matched_entities", []) if isinstance(row.get("matched_entities"), list) else []
+            if entity_id in [str(x).lower() for x in matched]:
+                selected = row
+                break
+    if not selected:
+        if device_slug or entity_id:
+            selected = _manual_candidate_from_input(device_slug, entity_id)
+        else:
+            return jsonify({"ok": False, "error": "candidate_not_found", "device_slug": device_slug, "entity_id": entity_id}), 404
+
+    matched_entities = selected.get("matched_entities", []) if isinstance(selected.get("matched_entities"), list) else []
+    hints = []
+    if _as_str(selected.get("native_update_entity"), ""):
+        hints.append("native_firmware_update_entity detected")
+    if _as_str(selected.get("app_version_entity"), ""):
+        hints.append("app_version_entity detected")
+    if not hints:
+        hints.append("legacy node likely; firmware version sensor not detected")
+    if "manual_fallback" in (selected.get("reasons") if isinstance(selected.get("reasons"), list) else []):
+        hints.append("manual fallback used; candidate was created from input slug/entity")
+    return jsonify(
+        {
+            "ok": True,
+            "candidate": selected,
+            "matched_entities_sample": matched_entities[:16],
+            "hints": hints,
+        }
+    )
 
 
 @app.post("/api/onboarding/start_new")
@@ -4756,10 +5161,14 @@ def api_onboarding_start_new() -> Any:
     payload = request.get_json(silent=True) or {}
     ws = _default_workspace()
     profile, idx = _workspace_active_profile(ws, 0)
+    preset = _as_str(payload.get("preset"), "blank").strip().lower() or "blank"
     profile["device"]["name"] = _slugify(payload.get("device_name"), _as_str(profile.get("device", {}).get("name"), "lilygo-tdeck-plus"))
     profile["device"]["friendly_name"] = _as_str(payload.get("friendly_name"), _as_str(profile.get("device", {}).get("friendly_name"), "LilyGO T-Deck Plus"))
+    profile["features"] = _default_feature_flags(preset)
+    profile.setdefault("settings", {})
+    profile["settings"]["onboarding_preset"] = preset
+    _apply_feature_page_policy(profile)
     if _as_str(payload.get("app_release_version"), "").strip():
-        profile.setdefault("settings", {})
         profile["settings"]["app_release_version"] = _as_str(payload.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION)
     ws["workspace_name"] = _safe_profile_name(payload.get("workspace_name"), _as_str(ws.get("workspace_name"), "default"))
     ws = _workspace_with_profile(ws, profile, idx)
@@ -4772,8 +5181,9 @@ def api_onboarding_start_new() -> Any:
             "profile": profile,
             "active_device_index": idx,
             "saved_workspace": saved,
+            "preset": preset,
             "managed_paths": {k: str(v) for k, v in paths.items()},
-            "message": "Start New T-Deck workspace initialized.",
+            "message": "Start New T-Deck workspace initialized with deploy-safe defaults.",
         }
     )
 
@@ -4822,16 +5232,37 @@ def _catalog_autodetect_rows(limit_per_type: int = 8) -> List[Dict[str, Any]]:
 def api_onboarding_import_existing() -> Any:
     payload = request.get_json(silent=True) or {}
     nodes = _detect_esphome_nodes()
+    if not nodes:
+        nodes = _detect_esphome_nodes(force_refresh=True)
     requested_slug = _slugify(payload.get("device_slug"), "")
+    requested_entity = _as_str(payload.get("entity_id"), "").strip().lower()
     selected = None
     for row in nodes:
-        if _slugify(row.get("device_slug"), "") == requested_slug:
+        row_slug = _slugify(row.get("device_slug"), "")
+        matched = row.get("matched_entities", []) if isinstance(row.get("matched_entities"), list) else []
+        matched_lower = [str(x).lower() for x in matched]
+        if requested_slug and row_slug == requested_slug:
+            selected = row
+            break
+        if requested_entity and requested_entity in matched_lower:
             selected = row
             break
     if selected is None and nodes:
         selected = nodes[0]
     if selected is None:
-        return jsonify({"ok": False, "error": "no_esphome_nodes_detected"}), 404
+        if requested_slug or requested_entity:
+            selected = _manual_candidate_from_input(requested_slug, requested_entity)
+        else:
+            cache = _discovery_cache_snapshot()
+            return jsonify(
+                {
+                    "ok": False,
+                    "error": "no_esphome_nodes_detected",
+                    "discovery_last_error": _as_str(cache.get("last_error"), ""),
+                    "discovery_last_total": _as_int(cache.get("last_total"), 0, 0, None),
+                    "hint": "Run Scan Existing Nodes, then use manual verify by slug/entity if needed.",
+                }
+            ), 404
 
     ws = _default_workspace()
     profile, idx = _workspace_active_profile(ws, 0)
@@ -4841,6 +5272,8 @@ def api_onboarding_import_existing() -> Any:
     profile.setdefault("settings", {})
     profile["settings"]["ha_native_firmware_entity"] = _as_str(selected.get("native_update_entity"), f"update.{slug}_firmware")
     profile["settings"]["ha_app_version_entity"] = _as_str(selected.get("app_version_entity"), f"sensor.{slug}_app_version")
+    profile["features"] = _default_feature_flags("controller")
+    _apply_feature_page_policy(profile)
     app_state = _ha_get_state_safe(profile["settings"]["ha_app_version_entity"])
     if _as_bool(app_state.get("ok"), False):
         installed = _as_str(app_state.get("state"), "")
@@ -4848,6 +5281,10 @@ def api_onboarding_import_existing() -> Any:
             if not installed.lower().startswith("v"):
                 installed = f"v{installed}"
             profile["settings"]["app_release_version"] = installed
+        else:
+            profile["settings"]["installed_version_status"] = "legacy_unknown"
+    else:
+        profile["settings"]["installed_version_status"] = "legacy_unknown"
     ws["workspace_name"] = _safe_profile_name(payload.get("workspace_name"), "imported")
     ws = _workspace_with_profile(ws, profile, idx)
     ws, saved = _maybe_persist_workspace({"persist": _as_bool(payload.get("persist"), True), "name": ws["workspace_name"]}, ws)
@@ -4859,7 +5296,12 @@ def api_onboarding_import_existing() -> Any:
             "active_device_index": idx,
             "saved_workspace": saved,
             "imported_node": selected,
-            "message": "Existing ESPHome node imported into managed workspace.",
+            "message": (
+                "Existing ESPHome node imported into managed workspace. "
+                "Firmware version may appear as legacy_unknown until upgraded."
+                if "manual_fallback" not in (selected.get("reasons") if isinstance(selected.get("reasons"), list) else [])
+                else "Manual candidate imported into managed workspace. Confirm firmware/update entities in Step 1 before deploy."
+            ),
         }
     )
 
@@ -5050,6 +5492,15 @@ def _apply_instance_bulk(profile: Dict[str, Any], ops: List[Dict[str, Any]]) -> 
                 continue
             row = instances.pop(from_idx)
             instances.insert(to_idx, row)
+        elif action in {"enable_all", "disable_all"}:
+            enabled = action == "enable_all"
+            for row in instances:
+                if isinstance(row, dict):
+                    row["enabled"] = enabled
+        elif action == "remove_disabled":
+            before = len(instances)
+            instances = [row for row in instances if _as_bool(row.get("enabled"), True)]
+            notices.append(f"remove_disabled removed {before - len(instances)} rows")
         elif action == "dedupe":
             seen: set[str] = set()
             deduped: List[Dict[str, Any]] = []
@@ -5201,9 +5652,11 @@ def api_mapping_suggest() -> Any:
     limit = _as_int(payload.get("limit"), 12, 1, 50)
     collection = _as_str(payload.get("collection"), "").strip().lower()
     role = _as_str(payload.get("role"), "")
+    type_id = _as_str(payload.get("type"), "")
     domain_hint = _as_str(payload.get("domain_hint"), "")
     exclude_assigned = _as_bool(payload.get("exclude_assigned"), False)
     active_device_slug = _as_str(payload.get("active_device_slug"), "")
+    scope_device_slug = _as_str(payload.get("device_slug"), "").strip() or active_device_slug
     exclude_entities: set[str] = set()
     if exclude_assigned:
         ws = _load_workspace_or_default(_safe_profile_name(payload.get("workspace"), "default"))
@@ -5217,6 +5670,12 @@ def api_mapping_suggest() -> Any:
                     entity_id = _as_str(row.get("entity_id"), "").strip().lower()
                     if entity_id:
                         exclude_entities.add(entity_id)
+        instances = profile.get("entity_instances", []) if isinstance(profile.get("entity_instances"), list) else []
+        for row in instances:
+            if isinstance(row, dict):
+                entity_id = _as_str(row.get("entity_id"), "").strip().lower()
+                if entity_id:
+                    exclude_entities.add(entity_id)
     suggestions = _mapping_suggestions(
         key,
         query,
@@ -5224,6 +5683,8 @@ def api_mapping_suggest() -> Any:
         collection=collection,
         role=role,
         domain_hint=domain_hint,
+        type_id=type_id,
+        device_slug=scope_device_slug,
         exclude_entities=exclude_entities,
     )
     return jsonify(
@@ -5232,7 +5693,9 @@ def api_mapping_suggest() -> Any:
             "key": key,
             "collection": collection,
             "role": role,
+            "type": type_id,
             "domain_hint": domain_hint,
+            "device_slug": scope_device_slug,
             "count": len(suggestions),
             "suggestions": suggestions,
         }
@@ -6038,6 +6501,21 @@ def api_theme_apply() -> Any:
     workspace, profile, idx = _workspace_or_profile_from_payload(payload)
     tokens, palette_id, custom_tokens = _theme_tokens_from_payload(payload, _as_str(profile.get("theme_studio", {}).get("active_palette"), ""))
     workspace, profile, meta = _apply_theme_to_workspace(workspace, profile, idx, tokens, palette_id, custom_tokens, "web")
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, **meta})
+
+
+@app.post("/api/theme/reset_safe")
+def api_theme_reset_safe() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    palette_id = _as_str(payload.get("palette_id"), "ocean_dark")
+    defaults = _default_substitutions()
+    tokens: Dict[str, Any] = {}
+    for key in _contracts()["theme_keys"]:
+        if key in defaults:
+            tokens[key] = defaults[key]
+    workspace, profile, meta = _apply_theme_to_workspace(workspace, profile, idx, tokens, palette_id, {}, "web")
     workspace, saved = _maybe_persist_workspace(payload, workspace)
     return jsonify({"ok": True, "workspace": workspace, "profile": profile, "active_device_index": idx, "saved_workspace": saved, **meta})
 

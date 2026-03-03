@@ -38,6 +38,7 @@ const state = {
   dashboardSummary: null,
   cameraAutodetect: null,
   onboardingNodes: [],
+  instanceDeviceScope: "active",
   catalogDetected: [],
   additionalCollection: "weather_metrics",
   startup: {
@@ -122,6 +123,15 @@ const COLLECTION_META = {
   climate_controls: { label: "Climate Controls", role: "", limitKey: "climate_controls_max", defaultMax: 24 },
   reader_feeds: { label: "Reader Feeds", role: "", limitKey: "reader_feeds_max", defaultMax: 16 },
   system_entities: { label: "System Entities", role: "", limitKey: "system_entities_max", defaultMax: 24 },
+};
+const GUIDED_PAGE_OPTIONS = ["home", "lights", "weather", "climate", "reader", "cameras", "settings", "theme"];
+const FEATURE_PAGE_POLICY_FALLBACK = {
+  lights: { required: ["ui_show_lights"], optional: ["home_tile_show_lights"] },
+  weather: { required: ["ui_show_weather"], optional: ["home_tile_show_weather"] },
+  climate: { required: ["ui_show_climate"], optional: ["home_tile_show_climate"] },
+  cameras: { required: ["ui_show_cameras"], optional: ["home_tile_show_cameras"] },
+  reader: { required: ["ui_show_reader"], optional: ["home_tile_show_reader"] },
+  gps: { required: [], optional: [] },
 };
 const THEME_TOKEN_KEYS = [
   "theme_token_screen_bg",
@@ -393,6 +403,7 @@ function renderDashboardSummary(summary) {
 
   state.cameraAutodetect = data.camera_autodetect || {};
   renderCameraAutodetect(state.cameraAutodetect);
+  renderDeployPreflight(validation, firmware);
 }
 
 async function refreshDashboardSummary() {
@@ -651,38 +662,122 @@ function applyProfileBasicsToForm() {
   e("device_name").value = p.device?.name || "";
   e("device_friendly_name").value = p.device?.friendly_name || "";
   e("git_ref").value = p.device?.git_ref || state.workspace.deployment?.git_ref || "stable";
-  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/owner/repository.git";
   e("git_url").value = p.device?.git_url || state.workspace.deployment?.git_url || defaultGitUrl;
   e("app_release_version").value = p.settings?.app_release_version || state.workspace.deployment?.app_release_version || defaultVersion;
+  const presetNode = e("onboarding_preset_select");
+  if (presetNode && p.settings?.onboarding_preset) {
+    presetNode.value = String(p.settings.onboarding_preset);
+  }
+}
+
+function featurePagePolicy() {
+  return state.contracts?.feature_page_policy || FEATURE_PAGE_POLICY_FALLBACK;
+}
+
+function applyFeaturePagePolicyInProfile(profile) {
+  if (!profile) return;
+  profile.features = profile.features || {};
+  profile.ui = profile.ui || {};
+  const policy = featurePagePolicy();
+  Object.entries(policy).forEach(([feature, row]) => {
+    const enabled = asBool(profile.features?.[feature], false);
+    const required = Array.isArray(row?.required) ? row.required : [];
+    const optional = Array.isArray(row?.optional) ? row.optional : [];
+    required.forEach((key) => {
+      profile.ui[key] = enabled;
+    });
+    optional.forEach((key) => {
+      if (!enabled) profile.ui[key] = false;
+      else if (profile.ui[key] === undefined) profile.ui[key] = true;
+    });
+  });
+  profile.ui.ui_show_settings = true;
+  profile.ui.ui_show_theme = true;
+}
+
+function computeUiLockState(profile) {
+  const locks = {};
+  const policy = featurePagePolicy();
+  Object.entries(policy).forEach(([feature, row]) => {
+    const enabled = asBool(profile.features?.[feature], false);
+    const required = Array.isArray(row?.required) ? row.required : [];
+    const optional = Array.isArray(row?.optional) ? row.optional : [];
+    required.forEach((key) => {
+      locks[key] = {
+        locked: true,
+        reason: enabled ? `Locked on because feature '${feature}' is enabled.` : `Locked off because feature '${feature}' is disabled.`,
+      };
+    });
+    optional.forEach((key) => {
+      if (!enabled) {
+        locks[key] = {
+          locked: true,
+          reason: `Locked off because feature '${feature}' is disabled.`,
+        };
+      } else {
+        locks[key] = locks[key] || {
+          locked: false,
+          reason: `Optional while feature '${feature}' is enabled.`,
+        };
+      }
+    });
+  });
+  locks.ui_show_settings = { locked: true, reason: "Settings is always enabled for recovery and maintenance." };
+  locks.ui_show_theme = { locked: true, reason: "Theme is always enabled for readability fixes." };
+  return locks;
 }
 
 function renderFeatureToggles() {
   const p = currentProfile();
+  if (!p) return;
+  applyFeaturePagePolicyInProfile(p);
   const host = e("feature_toggles");
+  if (!host) return;
   host.innerHTML = "";
   FEATURE_KEYS.forEach((key) => {
     const id = `feature_${key}`;
     const checked = asBool(p.features?.[key]);
     host.insertAdjacentHTML("beforeend", `<label class="checkbox-row"><input type="checkbox" id="${id}" ${checked ? "checked" : ""}/> ${key}</label>`);
-    e(id).addEventListener("change", (ev) => {
+    e(id)?.addEventListener("change", (ev) => {
       p.features[key] = ev.target.checked;
+      applyFeaturePagePolicyInProfile(p);
+      renderUiToggles();
+      setCollectionDirty(true);
     });
   });
 }
 
 function renderUiToggles() {
   const p = currentProfile();
+  if (!p) return;
+  applyFeaturePagePolicyInProfile(p);
   const keys = state.contracts?.ui_keys || [];
   const host = e("ui_toggles");
+  if (!host) return;
   host.innerHTML = "";
+  const locks = computeUiLockState(p);
   keys.forEach((key) => {
     const id = `ui_toggle_${key}`;
     const checked = asBool(p.ui?.[key]);
-    host.insertAdjacentHTML("beforeend", `<label class="checkbox-row"><input type="checkbox" id="${id}" ${checked ? "checked" : ""}/> ${key}</label>`);
-    e(id).addEventListener("change", (ev) => {
+    const lockInfo = locks[key] || { locked: false, reason: "" };
+    host.insertAdjacentHTML(
+      "beforeend",
+      `<label class="checkbox-row"><input type="checkbox" id="${id}" ${checked ? "checked" : ""} ${lockInfo.locked ? "disabled" : ""}/> ${key}</label>`
+    );
+    e(id)?.addEventListener("change", (ev) => {
       p.ui[key] = ev.target.checked;
+      setCollectionDirty(true);
     });
   });
+  const policyMeta = e("feature_policy_meta");
+  if (policyMeta) {
+    const lines = [];
+    Object.entries(locks).forEach(([key, row]) => {
+      if (row?.reason) lines.push(`${key}: ${row.reason}`);
+    });
+    policyMeta.textContent = lines.length ? lines.join("\n") : "No policy locks active.";
+  }
 }
 
 function getTemplateCatalog() {
@@ -855,10 +950,10 @@ function ensureCollections(profile) {
       camera_page_size: 4,
     };
   }
-  profile.slot_runtime.light_slot_cap = clampInt(profile.slot_runtime.light_slot_cap || 24, 8, 24);
-  profile.slot_runtime.camera_slot_cap = clampInt(profile.slot_runtime.camera_slot_cap || 8, 2, 8);
-  profile.slot_runtime.light_page_size = clampInt(profile.slot_runtime.light_page_size || 6, 4, 6);
-  profile.slot_runtime.camera_page_size = clampInt(profile.slot_runtime.camera_page_size || 4, 2, 4);
+  profile.slot_runtime.light_slot_cap = clampInt(profile.slot_runtime.light_slot_cap || 24, 8, 48);
+  profile.slot_runtime.camera_slot_cap = clampInt(profile.slot_runtime.camera_slot_cap || 8, 2, 16);
+  profile.slot_runtime.light_page_size = clampInt(profile.slot_runtime.light_page_size || 6, 4, 8);
+  profile.slot_runtime.camera_page_size = clampInt(profile.slot_runtime.camera_page_size || 4, 2, 6);
   if (!profile.entity_collections_meta || typeof profile.entity_collections_meta !== "object") {
     profile.entity_collections_meta = {};
   }
@@ -949,27 +1044,58 @@ function instanceDomainHint(typeId) {
   return String(typeId || "");
 }
 
-async function refreshOnboardingNodes() {
-  const data = await apiGet("api/onboarding/esphome/nodes");
-  state.onboardingNodes = Array.isArray(data.nodes) ? data.nodes : [];
-  const select = e("onboarding_nodes_select");
-  if (!select) return;
-  select.innerHTML = "";
-  if (!state.onboardingNodes.length) {
-    const opt = document.createElement("option");
-    opt.value = "";
-    opt.textContent = "No ESPHome nodes detected";
-    select.appendChild(opt);
+function renderOnboardingCandidates() {
+  const body = e("onboarding_candidates_body");
+  const meta = e("onboarding_candidates_meta");
+  if (!body) return;
+  body.innerHTML = "";
+  const rows = Array.isArray(state.onboardingNodes) ? state.onboardingNodes : [];
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="4">No candidates found. Use manual verify fallback below.</td></tr>`;
   } else {
-    state.onboardingNodes.forEach((row) => {
-      const opt = document.createElement("option");
-      opt.value = row.device_slug || "";
-      opt.textContent = `${row.device_slug || "device"} | ${row.friendly_name || "Unknown"} | entities ${row.entities_count || 0}`;
-      select.appendChild(opt);
+    rows.forEach((row, idx) => {
+      const rid = `onb_${idx}`;
+      const reasons = Array.isArray(row.reasons) ? row.reasons.slice(0, 4).join(", ") : "";
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${safeText(row.device_slug || "device")}<br/><small>${safeText(row.friendly_name || "Unknown")}</small></td>
+        <td>${safeText(String(row.confidence || "low"))} (${safeText(String(row.confidence_score || 0))})</td>
+        <td>${safeText(reasons || "n/a")}</td>
+        <td class="row-actions">
+          <button class="btn-soft" id="${rid}_use">Use</button>
+          <button class="btn-soft" id="${rid}_verify">Verify</button>
+        </td>
+      `;
+      body.appendChild(tr);
+      e(`${rid}_use`)?.addEventListener("click", () => {
+        if (e("onboarding_manual_slug")) e("onboarding_manual_slug").value = row.device_slug || "";
+        onboardingImportExisting(row.device_slug || "").catch((err) => setStatus(`Import failed: ${err.message}`, true));
+      });
+      e(`${rid}_verify`)?.addEventListener("click", () => {
+        if (e("onboarding_manual_slug")) e("onboarding_manual_slug").value = row.device_slug || "";
+        onboardingVerifyCandidate().catch((err) => setStatus(`Verify failed: ${err.message}`, true));
+      });
     });
   }
+  if (meta) {
+    meta.textContent = rows.length
+      ? `Detected ${rows.length} candidate node(s). Pick the highest confidence row first.`
+      : "No candidates detected yet.";
+  }
+}
+
+async function refreshOnboardingNodes(force = false) {
+  const data = await apiGet(`api/onboarding/candidates${force ? "?refresh=1" : ""}`);
+  state.onboardingNodes = Array.isArray(data.nodes) ? data.nodes : [];
+  renderOnboardingCandidates();
+  renderInstanceDeviceScopeOptions();
   const out = e("onboarding_status_lbl");
-  if (out) out.textContent = state.onboardingNodes.length ? `Detected ${state.onboardingNodes.length} existing ESPHome node(s).` : "No existing ESPHome nodes were detected.";
+  const discovery = data.discovery || {};
+  if (out) {
+    out.textContent = state.onboardingNodes.length
+      ? `Detected ${state.onboardingNodes.length} existing node candidate(s).`
+      : `No candidates found. Discovery total=${discovery.last_total || 0} error=${discovery.last_error || "none"}`;
+  }
 }
 
 async function onboardingStartNew() {
@@ -978,6 +1104,7 @@ async function onboardingStartNew() {
     device_name: e("device_name")?.value?.trim() || "lilygo-tdeck-plus",
     friendly_name: e("device_friendly_name")?.value?.trim() || "LilyGO T-Deck Plus",
     app_release_version: e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0"),
+    preset: e("onboarding_preset_select")?.value?.trim() || "blank",
     persist: true,
   };
   const data = await apiPost("api/onboarding/start_new", payload);
@@ -989,11 +1116,13 @@ async function onboardingStartNew() {
   if (out) out.textContent = data.message || "Start New completed.";
 }
 
-async function onboardingImportExisting() {
-  const slug = e("onboarding_nodes_select")?.value?.trim() || "";
+async function onboardingImportExisting(slugOverride = "") {
+  const slug = slugOverride || e("onboarding_manual_slug")?.value?.trim() || "";
+  const entityId = e("onboarding_manual_entity")?.value?.trim() || "";
   const payload = {
     workspace_name: e("workspace_name")?.value?.trim() || "imported",
     device_slug: slug,
+    entity_id: entityId,
     persist: true,
   };
   const data = await apiPost("api/onboarding/import_existing", payload);
@@ -1003,6 +1132,26 @@ async function onboardingImportExisting() {
   setStatus("Imported existing ESPHome node into managed workspace");
   const out = e("onboarding_status_lbl");
   if (out) out.textContent = data.message || "Import completed.";
+}
+
+async function onboardingVerifyCandidate() {
+  const payload = {
+    device_slug: e("onboarding_manual_slug")?.value?.trim() || "",
+    entity_id: e("onboarding_manual_entity")?.value?.trim() || "",
+  };
+  const data = await apiPost("api/onboarding/verify_candidate", payload);
+  const node = data.candidate || {};
+  const hints = Array.isArray(data.hints) ? data.hints : [];
+  const sample = Array.isArray(data.matched_entities_sample) ? data.matched_entities_sample : [];
+  const out = e("onboarding_verify_meta");
+  if (out) {
+    out.textContent =
+      `Candidate: ${node.device_slug || "--"}\n` +
+      `Confidence: ${node.confidence || "low"} (${node.confidence_score || 0})\n` +
+      `Hints: ${hints.join(" | ") || "none"}\n` +
+      `Entities: ${sample.slice(0, 6).join(" | ") || "none"}`;
+  }
+  setStatus(`Verified candidate ${node.device_slug || "--"}`);
 }
 
 async function onboardingMigrateManaged() {
@@ -1033,41 +1182,69 @@ function renderInstanceTypeOptions() {
     if (typeId === current) opt.selected = true;
     select.appendChild(opt);
   });
+  const pageSelect = e("instance_page_select");
+  if (pageSelect && !pageSelect.value) {
+    const typeId = select.value || "sensor";
+    pageSelect.value =
+      typeId === "weather"
+        ? "weather"
+        : typeId === "climate"
+          ? "climate"
+          : typeId === "camera"
+            ? "cameras"
+            : typeId === "light"
+              ? "lights"
+              : "home";
+  }
 }
 
-async function queueInstanceSuggestions(inputNode, item) {
-  if (!inputNode || !item) return;
-  const key = inputNode.id;
+async function queueInstanceSuggestions(inputNode, item, selectNode = null) {
+  if ((!inputNode && !selectNode) || !item) return;
+  const key = inputNode?.id || selectNode?.id || `suggest_${Date.now()}`;
   if (state.rowSuggestTimers[key]) clearTimeout(state.rowSuggestTimers[key]);
   state.rowSuggestTimers[key] = setTimeout(async () => {
     try {
       const payload = {
         key: item.role || item.id || "",
-        q: inputNode.value || "",
-        limit: 10,
+        q: inputNode?.value || "",
+        limit: 40,
         collection: instanceCollectionHint(item.type, item.role),
         role: item.role || "",
         domain_hint: instanceDomainHint(item.type),
+        type: item.type || "",
+        device_slug: effectiveInstanceDeviceScope(),
         exclude_assigned: true,
         active_device_slug: getDeviceSlug(),
         workspace: state.workspace?.workspace_name || "default",
       };
       const data = await apiPost("api/mapping/suggest", payload);
-      const listId = `${inputNode.id}_list`;
-      let datalist = e(listId);
-      if (!datalist) {
-        datalist = document.createElement("datalist");
-        datalist.id = listId;
-        inputNode.insertAdjacentElement("afterend", datalist);
-        inputNode.setAttribute("list", listId);
+      const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+      if (selectNode) {
+        selectNode.innerHTML = `<option value="">Pick from ranked suggestions...</option>`;
+        suggestions.forEach((row) => {
+          const opt = document.createElement("option");
+          opt.value = row.entity_id || "";
+          opt.textContent = `${row.friendly_name || row.entity_id || ""} (${row.entity_id || ""}) [${row.score || 0}]`;
+          selectNode.appendChild(opt);
+        });
       }
-      datalist.innerHTML = "";
-      (data.suggestions || []).forEach((row) => {
-        const opt = document.createElement("option");
-        opt.value = row.entity_id || "";
-        opt.label = `${row.friendly_name || row.entity_id || ""} | ${row.reason || "ranked"} | score ${row.score || 0}`;
-        datalist.appendChild(opt);
-      });
+      if (inputNode) {
+        const listId = `${inputNode.id}_list`;
+        let datalist = e(listId);
+        if (!datalist) {
+          datalist = document.createElement("datalist");
+          datalist.id = listId;
+          inputNode.insertAdjacentElement("afterend", datalist);
+          inputNode.setAttribute("list", listId);
+        }
+        datalist.innerHTML = "";
+        suggestions.forEach((row) => {
+          const opt = document.createElement("option");
+          opt.value = row.entity_id || "";
+          opt.label = `${row.friendly_name || row.entity_id || ""} | ${row.reason || "ranked"} | score ${row.score || 0}`;
+          datalist.appendChild(opt);
+        });
+      }
     } catch (_err) {}
   }, 220);
 }
@@ -1090,20 +1267,36 @@ function renderEntityInstances() {
   ensureEntityInstances(p);
   const body = e("entity_instances_body");
   const meta = e("entity_instances_meta");
+  const validationNode = e("entity_instances_validation");
   if (!body) return;
   const rows = Array.isArray(p.entity_instances) ? p.entity_instances : [];
   body.innerHTML = "";
+  const registry = state.contracts?.type_registry || {};
+  const typeOptions = (state.contracts?.core_type_ids || Object.keys(registry)).map((typeId) => ({
+    id: typeId,
+    label: registry[typeId]?.label || typeId,
+  }));
   rows.forEach((item, idx) => {
     const rid = `inst_${idx}`;
+    const typeOptionsHtml = typeOptions
+      .map((row) => `<option value="${safeText(row.id)}" ${String(item.type || "sensor") === row.id ? "selected" : ""}>${safeText(row.label)}</option>`)
+      .join("");
+    const pageOptionsHtml = GUIDED_PAGE_OPTIONS
+      .map((pageId) => `<option value="${safeText(pageId)}" ${String(item.page || "home") === pageId ? "selected" : ""}>${safeText(pageId)}</option>`)
+      .join("");
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><input id="${rid}_type" value="${safeText(item.type || "sensor")}" /></td>
+      <td><select id="${rid}_type">${typeOptionsHtml}</select></td>
       <td><input id="${rid}_name" value="${safeText(item.name || "")}" /></td>
-      <td><input id="${rid}_entity" class="entity-combo-input" value="${safeText(item.entity_id || "")}" /></td>
+      <td>
+        <input id="${rid}_entity" class="entity-combo-input" value="${safeText(item.entity_id || "")}" placeholder="Type to search or pick below..." />
+        <select id="${rid}_suggest" class="compact-select"><option value="">Pick from ranked suggestions...</option></select>
+      </td>
       <td><input id="${rid}_role" value="${safeText(item.role || "")}" /></td>
-      <td><input id="${rid}_page" value="${safeText(item.page || "home")}" /></td>
+      <td><select id="${rid}_page">${pageOptionsHtml}</select></td>
       <td><input type="checkbox" id="${rid}_enabled" ${asBool(item.enabled) ? "checked" : ""} /></td>
       <td class="row-actions">
+        <button class="btn-soft" id="${rid}_dup">Dup</button>
         <button class="btn-soft" id="${rid}_up">Up</button>
         <button class="btn-soft" id="${rid}_down">Down</button>
         <button class="btn-warn" id="${rid}_del">Delete</button>
@@ -1117,12 +1310,39 @@ function renderEntityInstances() {
     e(`${rid}_type`)?.addEventListener("change", (ev) => updatePatch({ type: ev.target.value }));
     e(`${rid}_name`)?.addEventListener("change", (ev) => updatePatch({ name: ev.target.value }));
     const entityInput = e(`${rid}_entity`);
-    entityInput?.addEventListener("focus", () => queueInstanceSuggestions(entityInput, item));
-    entityInput?.addEventListener("input", () => queueInstanceSuggestions(entityInput, item));
+    const suggestSelect = e(`${rid}_suggest`);
+    entityInput?.addEventListener("focus", () => queueInstanceSuggestions(entityInput, item, suggestSelect));
+    entityInput?.addEventListener("input", () => queueInstanceSuggestions(entityInput, item, suggestSelect));
     entityInput?.addEventListener("change", (ev) => updatePatch({ entity_id: ev.target.value }));
+    suggestSelect?.addEventListener("change", (ev) => {
+      const picked = String(ev.target.value || "").trim();
+      if (!picked) return;
+      if (entityInput) entityInput.value = picked;
+      updatePatch({ entity_id: picked });
+    });
     e(`${rid}_role`)?.addEventListener("change", (ev) => updatePatch({ role: ev.target.value }));
     e(`${rid}_page`)?.addEventListener("change", (ev) => updatePatch({ page: ev.target.value }));
     e(`${rid}_enabled`)?.addEventListener("change", (ev) => updatePatch({ enabled: ev.target.checked }));
+    e(`${rid}_dup`)?.addEventListener("click", () => {
+      const copyId = `${item.type || "sensor"}_${Date.now()}`;
+      applyInstanceOp(
+        [
+          {
+            op: "add",
+            item: {
+              id: copyId,
+              type: item.type || "sensor",
+              name: `${item.name || "Element"} Copy`,
+              entity_id: item.entity_id || "",
+              role: item.role || "",
+              enabled: asBool(item.enabled, true),
+              page: item.page || "home",
+            },
+          },
+        ],
+        "Duplicated typed element"
+      ).catch((err) => setStatus(`Duplicate failed: ${err.message}`, true));
+    });
     e(`${rid}_up`)?.addEventListener("click", () => {
       if (idx <= 0) return;
       applyInstanceOp([{ op: "reorder", from_index: idx, to_index: idx - 1 }], "Moved typed element").catch((err) =>
@@ -1148,12 +1368,34 @@ function renderEntityInstances() {
       counts[t] = (counts[t] || 0) + 1;
     });
     const summary = Object.keys(counts).sort().map((k) => `${k}:${counts[k]}`).join(" | ");
-    meta.textContent = `Typed instances: ${rows.length}${summary ? ` | ${summary}` : ""}`;
+    const scope = effectiveInstanceDeviceScope();
+    meta.textContent = `Typed instances: ${rows.length}${summary ? ` | ${summary}` : ""} | Scope: ${scope || "all entities"}`;
+  }
+  if (validationNode) {
+    const enabledRows = rows.filter((row) => asBool(row.enabled, true));
+    const duplicateCheck = {};
+    const duplicates = [];
+    enabledRows.forEach((row) => {
+      const entityId = String(row.entity_id || "").trim().toLowerCase();
+      if (!entityId) return;
+      if (duplicateCheck[entityId]) duplicates.push(entityId);
+      duplicateCheck[entityId] = true;
+    });
+    const missingEntityCount = enabledRows.filter((row) => !String(row.entity_id || "").trim()).length;
+    const lines = [];
+    lines.push(`Enabled elements: ${enabledRows.length}`);
+    lines.push(`Missing entity IDs: ${missingEntityCount}`);
+    lines.push(`Duplicate mapped entities: ${duplicates.length}`);
+    validationNode.textContent = lines.join(" | ");
+    validationNode.classList.remove("status-ok", "status-warn", "status-error");
+    if (missingEntityCount > 0 || duplicates.length > 0) validationNode.classList.add("status-warn");
+    else validationNode.classList.add("status-ok");
   }
 }
 
 async function addEntityInstance() {
   const typeId = (e("instance_type_select")?.value || "light").trim();
+  const pageValue = (e("instance_page_select")?.value || "").trim();
   const item = {
     id: `${typeId}_${Date.now()}`,
     type: typeId,
@@ -1161,9 +1403,35 @@ async function addEntityInstance() {
     entity_id: e("instance_entity_input")?.value?.trim() || "",
     role: e("instance_role_input")?.value?.trim() || "",
     enabled: true,
-    page: typeId === "weather" ? "weather" : typeId === "climate" ? "climate" : typeId === "camera" ? "cameras" : typeId === "light" ? "lights" : "home",
+    page:
+      pageValue ||
+      (typeId === "weather"
+        ? "weather"
+        : typeId === "climate"
+          ? "climate"
+          : typeId === "camera"
+            ? "cameras"
+            : typeId === "light"
+              ? "lights"
+              : "home"),
   };
   await applyInstanceOp([{ op: "add", item }], "Added typed element");
+  if (e("instance_name_input")) e("instance_name_input").value = "";
+  if (e("instance_entity_input")) e("instance_entity_input").value = "";
+  if (e("instance_role_input")) e("instance_role_input").value = "";
+  if (e("instance_entity_pick")) e("instance_entity_pick").innerHTML = `<option value="">Pick from ranked suggestions...</option>`;
+}
+
+async function refreshNewInstanceSuggestions() {
+  const input = e("instance_entity_input");
+  const pick = e("instance_entity_pick");
+  if (!input && !pick) return;
+  const item = {
+    id: "new_instance",
+    type: e("instance_type_select")?.value || "sensor",
+    role: e("instance_role_input")?.value || "",
+  };
+  await queueInstanceSuggestions(input, item, pick);
 }
 
 async function catalogAutodetect() {
@@ -1202,8 +1470,8 @@ function syncSlotsFromCollections(profile) {
   const enabledLights = profile.entity_collections.lights.filter((x) => asBool(x.enabled));
   const enabledCameras = profile.entity_collections.cameras.filter((x) => asBool(x.enabled));
   profile.slots = profile.slots || {};
-  const lightCap = clampInt(profile.slot_runtime?.light_slot_cap || 24, 8, 24);
-  const cameraCap = clampInt(profile.slot_runtime?.camera_slot_cap || 8, 2, 8);
+  const lightCap = clampInt(profile.slot_runtime?.light_slot_cap || 24, 8, 48);
+  const cameraCap = clampInt(profile.slot_runtime?.camera_slot_cap || 8, 2, 16);
   profile.slots.light_slot_count = Math.max(1, Math.min(lightCap, enabledLights.length || 1));
   profile.slots.camera_slot_count = Math.max(0, Math.min(cameraCap, enabledCameras.length || 0));
   profile.slots.lights = [];
@@ -1284,10 +1552,11 @@ async function queueEntitySuggestions(inputNode, collectionName, item) {
       const payload = {
         key: item.role || item.id || "",
         q: inputNode.value || "",
-        limit: 10,
+        limit: 30,
         collection: collectionName,
         role: item.role || "",
         domain_hint: collectionDomainHint(collectionName),
+        device_slug: effectiveInstanceDeviceScope(),
         exclude_assigned: true,
         active_device_slug: getDeviceSlug(),
         workspace: state.workspace?.workspace_name || "default",
@@ -1797,9 +2066,83 @@ async function resetLayoutPage() {
   setStatus(`Layout page '${page}' reset`);
 }
 
+function generateLayoutDefaultsFromFeatures() {
+  ensureLayoutPages();
+  const defaults = deepClone(state.contracts?.layout_defaults || {});
+  const p = currentProfile();
+  if (!p) return;
+  const pageToFeature = {
+    lights: "lights",
+    weather: "weather",
+    climate: "climate",
+    reader: "reader",
+    cameras: "cameras",
+  };
+  const enabledFeaturePages = Object.entries(pageToFeature)
+    .filter(([, feature]) => asBool(p.features?.[feature], false))
+    .map(([page]) => page);
+  state.workspace.layout_pages = state.workspace.layout_pages || {};
+  Object.keys(defaults).forEach((pageId) => {
+    if (pageId === "home" || pageId === "settings" || pageId === "theme" || enabledFeaturePages.includes(pageId)) {
+      state.workspace.layout_pages[pageId] = deepClone(defaults[pageId]);
+    }
+  });
+  renderLayoutSections();
+  const node = e("layout_preview_meta");
+  if (node) node.textContent = `Generated defaults for pages: home, settings, theme${enabledFeaturePages.length ? `, ${enabledFeaturePages.join(", ")}` : ""}`;
+  setStatus("Generated sensible layout defaults from enabled features");
+}
+
+function renderDeployPreflight(validation = null, caps = null) {
+  const body = e("deploy_preflight_body");
+  const meta = e("deploy_preflight_meta");
+  if (!body) return;
+  const p = currentProfile();
+  const fw = caps || state.firmwareStatus?.capabilities || {};
+  const val = validation || null;
+  const checks = [
+    {
+      name: "Device selected",
+      ok: !!getDeviceSlug(),
+      detail: getDeviceSlug() || "No active device.",
+    },
+    {
+      name: "Typed elements configured",
+      ok: Array.isArray(p?.entity_instances) && p.entity_instances.filter((x) => asBool(x.enabled, true)).length > 0,
+      detail: `${Array.isArray(p?.entity_instances) ? p.entity_instances.length : 0} total elements`,
+    },
+    {
+      name: "Validation",
+      ok: val ? asBool(val.ok, false) : null,
+      detail: val ? `${(val.errors || []).length} errors, ${(val.warnings || []).length} warnings` : "Run Validate Workspace",
+    },
+    {
+      name: "Firmware method",
+      ok: asBool(fw?.has_any_automatic_method, false),
+      detail: fw?.recommended_method || "manual_fallback",
+    },
+  ];
+  body.innerHTML = "";
+  checks.forEach((row) => {
+    const tr = document.createElement("tr");
+    const statusText = row.ok === null ? "pending" : row.ok ? "ok" : "fail";
+    tr.innerHTML = `<td>${safeText(row.name)}</td><td>${safeText(statusText)}</td><td>${safeText(row.detail || "")}</td>`;
+    tr.className = row.ok === null ? "status-warn" : row.ok ? "status-ok" : "status-error";
+    body.appendChild(tr);
+  });
+  if (meta) {
+    const failed = checks.filter((x) => x.ok === false).length;
+    if (!failed) meta.textContent = "Preflight ready. You can run Backup + Deploy Firmware.";
+    else meta.textContent = `Preflight has ${failed} blocking item(s). Resolve failures before deploy.`;
+    meta.classList.remove("status-ok", "status-warn", "status-error");
+    meta.classList.add(failed ? "status-error" : "status-ok");
+  }
+}
+
 function renderFieldGroup(containerId, fields, sourceObjName) {
   const p = currentProfile();
   const host = e(containerId);
+  if (!host || !p) return;
   host.innerHTML = "";
   fields.forEach(([key, label]) => {
     const value = p[sourceObjName]?.[key] ?? "";
@@ -1848,6 +2191,25 @@ function renderThemePalettes() {
     opt.textContent = "No palettes";
     select.appendChild(opt);
   }
+}
+
+function renderThemeQuickActions() {
+  const host = e("theme_quick_actions");
+  if (!host) return;
+  host.innerHTML = "";
+  const palettes = Array.isArray(state.themePalettes) ? state.themePalettes : [];
+  if (!palettes.length) return;
+  palettes.slice(0, 6).forEach((palette) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn-soft";
+    btn.textContent = palette?.name || palette?.id || "Palette";
+    btn.addEventListener("click", () => {
+      if (e("theme_palette_select")) e("theme_palette_select").value = palette.id || "";
+      previewTheme().catch((err) => setStatus(`Theme preview failed: ${err.message}`, true));
+    });
+    host.appendChild(btn);
+  });
 }
 
 function selectedPaletteTokens() {
@@ -1940,6 +2302,17 @@ async function applyTheme() {
   setStatus("Theme applied to active device profile");
 }
 
+async function resetThemeSafe() {
+  const body = profilePayload();
+  body.palette_id = e("theme_palette_select")?.value || "ocean_dark";
+  const data = await apiPost("api/theme/reset_safe", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  renderThemePreviewCard(data.tokens || currentThemeTokensForPreview(), "Theme reset to safe defaults.");
+  setStatus("Theme reset to safe defaults");
+}
+
 function syncProfileToForm() {
   const p = currentProfile();
   if (!p) return;
@@ -1950,14 +2323,17 @@ function syncProfileToForm() {
   ensureEntityInstances(p);
   applyProfileBasicsToForm();
   renderInstanceTypeOptions();
+  renderInstanceDeviceScopeOptions();
+  if (e("instance_page_select") && !e("instance_page_select").value) e("instance_page_select").value = "home";
   renderEntityInstances();
   renderFeatureToggles();
   renderUiToggles();
 
-  e("ha_base_url").value = p.settings.ha_base_url || "";
-  e("camera_refresh_interval_s").value = p.settings.camera_refresh_interval_s || "60";
-  e("camera_snapshot_dir").value = p.settings.camera_snapshot_dir || "/config/www/tdeck";
-  e("camera_snapshot_enable").checked = asBool(p.settings.camera_snapshot_enable);
+  if (e("ha_base_url")) e("ha_base_url").value = p.settings.ha_base_url || "";
+  if (e("camera_refresh_interval_s")) e("camera_refresh_interval_s").value = p.settings.camera_refresh_interval_s || "60";
+  if (e("camera_snapshot_dir")) e("camera_snapshot_dir").value = p.settings.camera_snapshot_dir || "/config/www/tdeck";
+  if (e("camera_snapshot_enable")) e("camera_snapshot_enable").checked = asBool(p.settings.camera_snapshot_enable);
+  if (e("onboarding_preset_select")) e("onboarding_preset_select").value = p.settings?.onboarding_preset || "blank";
 
   renderCollections();
   state.cameraAutodetect = p.camera_autodetect || state.workspace?.camera_autodetect || {};
@@ -1968,6 +2344,7 @@ function syncProfileToForm() {
   renderFieldGroup("theme_fields", THEME_FIELDS, "theme");
   renderTemplateDomains();
   renderThemePalettes();
+  renderThemeQuickActions();
 
   const activePalette = p.theme_studio?.active_palette || (state.themePalettes?.[0]?.id || "ocean_dark");
   if (e("theme_palette_select")) e("theme_palette_select").value = activePalette;
@@ -1982,6 +2359,8 @@ function syncProfileToForm() {
   }
   renderLayoutSections();
   syncUpdateDefaultsFromProfile();
+  renderDeployPreflight();
+  refreshNewInstanceSuggestions().catch(() => {});
   refreshFirmwareStatus().catch((err) => {
     const node = e("firmware_update_result");
     if (node) node.textContent = `Firmware status error: ${err.message}`;
@@ -1996,26 +2375,27 @@ function updateProfileFromTopFields() {
   p.device.name = e("device_name").value.trim() || "lilygo-tdeck-plus";
   p.device.friendly_name = e("device_friendly_name").value.trim() || "LilyGO T-Deck Plus";
   p.device.git_ref = e("git_ref").value.trim() || "stable";
-  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git";
+  const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/owner/repository.git";
   p.device.git_url = e("git_url").value.trim() || defaultGitUrl;
   p.settings.app_release_channel = "stable";
   p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0");
+  p.settings.onboarding_preset = e("onboarding_preset_select")?.value?.trim() || p.settings.onboarding_preset || "blank";
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
   if (e("cameras_max")) p.entity_collections.limits.cameras_max = Number(e("cameras_max").value || "8");
-  if (e("light_slot_cap")) p.slot_runtime.light_slot_cap = clampInt(e("light_slot_cap").value || "24", 8, 24);
-  if (e("camera_slot_cap")) p.slot_runtime.camera_slot_cap = clampInt(e("camera_slot_cap").value || "8", 2, 8);
-  if (e("light_page_size")) p.slot_runtime.light_page_size = clampInt(e("light_page_size").value || "6", 4, 6);
-  if (e("camera_page_size")) p.slot_runtime.camera_page_size = clampInt(e("camera_page_size").value || "4", 2, 4);
+  if (e("light_slot_cap")) p.slot_runtime.light_slot_cap = clampInt(e("light_slot_cap").value || "24", 8, 48);
+  if (e("camera_slot_cap")) p.slot_runtime.camera_slot_cap = clampInt(e("camera_slot_cap").value || "8", 2, 16);
+  if (e("light_page_size")) p.slot_runtime.light_page_size = clampInt(e("light_page_size").value || "6", 4, 8);
+  if (e("camera_page_size")) p.slot_runtime.camera_page_size = clampInt(e("camera_page_size").value || "4", 2, 6);
   if (e("additional_collection_max")) {
     const collection = currentAdditionalCollection();
     const meta = COLLECTION_META[collection] || { limitKey: `${collection}_max`, defaultMax: 24 };
     p.entity_collections.limits[meta.limitKey] = Number(e("additional_collection_max").value || String(meta.defaultMax));
   }
-  p.settings.ha_base_url = e("ha_base_url").value.trim();
-  p.settings.camera_refresh_interval_s = e("camera_refresh_interval_s").value.trim();
-  p.settings.camera_snapshot_dir = e("camera_snapshot_dir").value.trim();
-  p.settings.camera_snapshot_enable = e("camera_snapshot_enable").checked;
+  if (e("ha_base_url")) p.settings.ha_base_url = e("ha_base_url").value.trim();
+  if (e("camera_refresh_interval_s")) p.settings.camera_refresh_interval_s = e("camera_refresh_interval_s").value.trim();
+  if (e("camera_snapshot_dir")) p.settings.camera_snapshot_dir = e("camera_snapshot_dir").value.trim();
+  if (e("camera_snapshot_enable")) p.settings.camera_snapshot_enable = e("camera_snapshot_enable").checked;
   if (e("ha_native_firmware_entity")) {
     p.settings.ha_native_firmware_entity = e("ha_native_firmware_entity").value.trim();
   }
@@ -2025,6 +2405,7 @@ function updateProfileFromTopFields() {
   state.workspace.deployment.git_ref = p.device.git_ref;
   state.workspace.deployment.git_url = p.device.git_url;
   state.workspace.deployment.app_release_version = p.settings.app_release_version;
+  applyFeaturePagePolicyInProfile(p);
   syncSlotsFromCollections(p);
   setCollectionDirty(true);
   renderSlotCapsSummary();
@@ -2073,94 +2454,79 @@ function removeDevice() {
 }
 
 function bindTopFieldEvents() {
-  ["workspace_name", "profile_name", "device_name", "device_friendly_name", "git_ref", "git_url", "app_release_version", "ha_base_url", "camera_refresh_interval_s", "camera_snapshot_dir", "ha_installed_version_entity", "ha_native_firmware_entity", "light_slot_cap", "camera_slot_cap", "light_page_size", "camera_page_size"]
+  ["workspace_name", "profile_name", "device_name", "device_friendly_name", "git_ref", "git_url", "app_release_version", "onboarding_preset_select", "ha_base_url", "camera_refresh_interval_s", "camera_snapshot_dir", "ha_installed_version_entity", "ha_native_firmware_entity", "light_slot_cap", "camera_slot_cap", "light_page_size", "camera_page_size"]
     .forEach((id) => {
       const node = e(id);
       if (node) node.addEventListener("input", updateProfileFromTopFields);
+      if (node && id === "onboarding_preset_select") node.addEventListener("change", updateProfileFromTopFields);
     });
 
-  e("camera_snapshot_enable").addEventListener("change", updateProfileFromTopFields);
+  e("camera_snapshot_enable")?.addEventListener("change", updateProfileFromTopFields);
 
-  e("device_select").addEventListener("change", (ev) => {
+  e("device_select")?.addEventListener("change", (ev) => {
     state.activeDeviceIndex = Number(ev.target.value || "0");
     state.workspace.active_device_index = state.activeDeviceIndex;
     syncProfileToForm();
   });
-  e("device_add_btn").addEventListener("click", addDevice);
-  e("device_clone_btn").addEventListener("click", cloneDevice);
-  e("device_remove_btn").addEventListener("click", removeDevice);
+  e("device_add_btn")?.addEventListener("click", addDevice);
+  e("device_clone_btn")?.addEventListener("click", cloneDevice);
+  e("device_remove_btn")?.addEventListener("click", removeDevice);
 
-  e("lights_max")?.addEventListener("input", () => {
-    updateProfileFromTopFields();
-    renderCollections();
-  });
-  e("cameras_max")?.addEventListener("input", () => {
-    updateProfileFromTopFields();
-    renderCollections();
-  });
-  e("lights_add_btn")?.addEventListener("click", () => addCollectionItem("lights"));
-  e("cameras_add_btn")?.addEventListener("click", () => addCollectionItem("cameras"));
-  e("lights_enable_all_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "enable_all", collection: "lights" }], "lights: all rows enabled").catch((err) =>
-      setStatus(`Bulk enable failed: ${err.message}`, true)
+  e("instance_enable_all_btn")?.addEventListener("click", () => {
+    applyInstanceOp([{ op: "enable_all" }], "Enabled all typed elements").catch((err) =>
+      setStatus(`Enable all failed: ${err.message}`, true)
     );
   });
-  e("lights_disable_all_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "disable_all", collection: "lights" }], "lights: all rows disabled").catch((err) =>
-      setStatus(`Bulk disable failed: ${err.message}`, true)
+  e("instance_disable_all_btn")?.addEventListener("click", () => {
+    applyInstanceOp([{ op: "disable_all" }], "Disabled all typed elements").catch((err) =>
+      setStatus(`Disable all failed: ${err.message}`, true)
     );
   });
-  e("lights_dedupe_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "dedupe", collection: "lights" }], "lights: dedupe complete").catch((err) =>
+  e("instance_dedupe_btn")?.addEventListener("click", () => {
+    applyInstanceOp([{ op: "dedupe" }], "Deduped typed elements").catch((err) =>
       setStatus(`Dedupe failed: ${err.message}`, true)
     );
   });
-  e("lights_remove_disabled_btn")?.addEventListener("click", async () => {
-    const p = currentProfile();
-    if (!p) return;
-    const rows = p.entity_collections?.lights || [];
-    const ops = [];
-    for (let i = rows.length - 1; i >= 0; i -= 1) {
-      if (!asBool(rows[i].enabled)) ops.push({ op: "remove", collection: "lights", index: i });
-    }
-    if (!ops.length) {
-      setStatus("lights: no disabled rows to remove");
-      return;
-    }
-    bulkApplyOps(ops, "lights: removed disabled rows").catch((err) =>
+  e("instance_remove_disabled_btn")?.addEventListener("click", () => {
+    applyInstanceOp([{ op: "remove_disabled" }], "Removed disabled typed elements").catch((err) =>
       setStatus(`Remove disabled failed: ${err.message}`, true)
     );
   });
-  e("cameras_enable_all_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "enable_all", collection: "cameras" }], "cameras: all rows enabled").catch((err) =>
-      setStatus(`Bulk enable failed: ${err.message}`, true)
-    );
-  });
-  e("cameras_disable_all_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "disable_all", collection: "cameras" }], "cameras: all rows disabled").catch((err) =>
-      setStatus(`Bulk disable failed: ${err.message}`, true)
-    );
-  });
-  e("cameras_dedupe_btn")?.addEventListener("click", () => {
-    bulkApplyOps([{ op: "dedupe", collection: "cameras" }], "cameras: dedupe complete").catch((err) =>
-      setStatus(`Dedupe failed: ${err.message}`, true)
-    );
-  });
-  e("cameras_remove_disabled_btn")?.addEventListener("click", () => {
-    const p = currentProfile();
-    if (!p) return;
-    const rows = p.entity_collections?.cameras || [];
-    const ops = [];
-    for (let i = rows.length - 1; i >= 0; i -= 1) {
-      if (!asBool(rows[i].enabled)) ops.push({ op: "remove", collection: "cameras", index: i });
+
+  e("instance_type_select")?.addEventListener("change", () => {
+    const typeId = e("instance_type_select")?.value || "sensor";
+    if (e("instance_page_select")) {
+      e("instance_page_select").value =
+        typeId === "weather"
+          ? "weather"
+          : typeId === "climate"
+            ? "climate"
+            : typeId === "camera"
+              ? "cameras"
+              : typeId === "light"
+                ? "lights"
+                : "home";
     }
-    if (!ops.length) {
-      setStatus("cameras: no disabled rows to remove");
-      return;
-    }
-    bulkApplyOps(ops, "cameras: removed disabled rows").catch((err) =>
-      setStatus(`Remove disabled failed: ${err.message}`, true)
-    );
+    refreshNewInstanceSuggestions().catch(() => {});
+  });
+  e("instance_role_input")?.addEventListener("input", () => {
+    refreshNewInstanceSuggestions().catch(() => {});
+  });
+  e("instance_entity_input")?.addEventListener("focus", () => {
+    refreshNewInstanceSuggestions().catch(() => {});
+  });
+  e("instance_entity_input")?.addEventListener("input", () => {
+    refreshNewInstanceSuggestions().catch(() => {});
+  });
+  e("instance_entity_pick")?.addEventListener("change", (ev) => {
+    const value = String(ev.target.value || "").trim();
+    if (!value) return;
+    if (e("instance_entity_input")) e("instance_entity_input").value = value;
+  });
+  e("instance_device_scope")?.addEventListener("change", () => {
+    state.instanceDeviceScope = (e("instance_device_scope")?.value || "active").trim();
+    refreshNewInstanceSuggestions().catch(() => {});
+    renderEntityInstances();
   });
   e("slot_caps_refresh_btn")?.addEventListener("click", () => {
     refreshSlotCaps().catch((err) => setStatus(`Slot caps refresh failed: ${err.message}`, true));
@@ -2184,6 +2550,46 @@ function bindTopFieldEvents() {
 function getDeviceSlug() {
   const p = currentProfile();
   return slugify(p?.device?.name || "lilygo-tdeck-plus");
+}
+
+function effectiveInstanceDeviceScope() {
+  const raw = (e("instance_device_scope")?.value || state.instanceDeviceScope || "active").trim();
+  if (!raw || raw === "all") return "";
+  if (raw === "active") return getDeviceSlug();
+  return slugify(raw);
+}
+
+function renderInstanceDeviceScopeOptions() {
+  const select = e("instance_device_scope");
+  if (!select) return;
+  const prev = (select.value || state.instanceDeviceScope || "active").trim();
+  const activeSlug = getDeviceSlug();
+  const options = [];
+  options.push({ value: "active", label: `Active Device (${activeSlug})` });
+  options.push({ value: "all", label: "All Entities" });
+  const seen = new Set(["active", "all"]);
+  if (activeSlug) {
+    seen.add(activeSlug);
+    options.push({ value: activeSlug, label: `Current Slug (${activeSlug})` });
+  }
+  const nodes = Array.isArray(state.onboardingNodes) ? state.onboardingNodes : [];
+  nodes.forEach((row) => {
+    const slug = slugify(row?.device_slug || "");
+    if (!slug || seen.has(slug)) return;
+    seen.add(slug);
+    const friendly = String(row?.friendly_name || slug);
+    options.push({ value: slug, label: `${friendly} (${slug})` });
+  });
+  select.innerHTML = "";
+  options.forEach((row) => {
+    const opt = document.createElement("option");
+    opt.value = row.value;
+    opt.textContent = row.label;
+    select.appendChild(opt);
+  });
+  const restored = options.some((x) => x.value === prev) ? prev : "active";
+  select.value = restored;
+  state.instanceDeviceScope = restored;
 }
 
 function syncUpdateDefaultsFromProfile() {
@@ -2440,6 +2846,7 @@ async function refreshFirmwareStatus() {
   if (buildBtn) buildBtn.disabled = !canBuild;
   if (installBtn) installBtn.disabled = !canInstall;
   if (manualBtn) manualBtn.disabled = false;
+  renderDeployPreflight(null, capabilities);
 }
 
 async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipConfirm = false) {
@@ -2735,6 +3142,7 @@ async function validateProfile() {
   }
   e("validation_out").textContent = lines.join("\n");
   setStatus(data.ok ? "Workspace validation passed" : "Workspace validation has errors", !data.ok);
+  renderDeployPreflight(data, state.firmwareStatus?.capabilities || null);
   return data;
 }
 
@@ -2768,6 +3176,7 @@ async function guidedDeploy() {
   await generate();
   await refreshBackups();
   await refreshFirmwareStatus();
+  renderDeployPreflight(validation, state.firmwareStatus?.capabilities || null);
   setStatus("Guided deploy completed");
 }
 
@@ -2789,6 +3198,7 @@ async function refreshThemePalettes() {
     state.themePalettes = Array.isArray(state.contracts?.theme_palettes) ? state.contracts.theme_palettes : [];
   }
   renderThemePalettes();
+  renderThemeQuickActions();
 }
 
 function bindProfileEvents() {
@@ -2808,13 +3218,16 @@ function bindProfileEvents() {
     ignoreDetectedCameras().catch((err) => setStatus(`Ignore cameras failed: ${err.message}`, true));
   });
   e("onboarding_scan_nodes_btn")?.addEventListener("click", () => {
-    refreshOnboardingNodes().catch((err) => setStatus(`Node scan failed: ${err.message}`, true));
+    refreshOnboardingNodes(true).catch((err) => setStatus(`Node scan failed: ${err.message}`, true));
   });
   e("onboarding_start_new_btn")?.addEventListener("click", () => {
     onboardingStartNew().catch((err) => setStatus(`Start New failed: ${err.message}`, true));
   });
   e("onboarding_import_btn")?.addEventListener("click", () => {
     onboardingImportExisting().catch((err) => setStatus(`Import failed: ${err.message}`, true));
+  });
+  e("onboarding_verify_btn")?.addEventListener("click", () => {
+    onboardingVerifyCandidate().catch((err) => setStatus(`Verify failed: ${err.message}`, true));
   });
   e("onboarding_migrate_btn")?.addEventListener("click", () => {
     onboardingMigrateManaged().catch((err) => setStatus(`Migrate failed: ${err.message}`, true));
@@ -2833,62 +3246,70 @@ function bindProfileEvents() {
   });
   e("instance_entity_input")?.addEventListener("focus", (ev) => {
     const typeId = e("instance_type_select")?.value || "sensor";
-    queueInstanceSuggestions(ev.target, { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` });
+    queueInstanceSuggestions(
+      ev.target,
+      { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` },
+      e("instance_entity_pick")
+    );
   });
   e("instance_entity_input")?.addEventListener("input", (ev) => {
     const typeId = e("instance_type_select")?.value || "sensor";
-    queueInstanceSuggestions(ev.target, { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` });
+    queueInstanceSuggestions(
+      ev.target,
+      { type: typeId, role: e("instance_role_input")?.value || "", id: `new_${typeId}` },
+      e("instance_entity_pick")
+    );
   });
   e("dashboard_refresh_btn")?.addEventListener("click", () => {
     refreshDashboardSummary().catch((err) => setStatus(`Dashboard refresh failed: ${err.message}`, true));
   });
 
-  e("profile_save_btn").addEventListener("click", saveProfile);
-  e("profile_load_btn").addEventListener("click", loadSelectedProfile);
-  e("profile_delete_btn").addEventListener("click", deleteSelectedProfile);
-  e("profile_rename_btn").addEventListener("click", renameSelectedProfile);
-  e("profile_validate_btn").addEventListener("click", validateProfile);
+  e("profile_save_btn")?.addEventListener("click", saveProfile);
+  e("profile_load_btn")?.addEventListener("click", loadSelectedProfile);
+  e("profile_delete_btn")?.addEventListener("click", deleteSelectedProfile);
+  e("profile_rename_btn")?.addEventListener("click", renameSelectedProfile);
+  e("profile_validate_btn")?.addEventListener("click", validateProfile);
 
-  e("generate_btn").addEventListener("click", generate);
-  e("apply_preview_btn").addEventListener("click", previewApply);
-  e("apply_commit_btn").addEventListener("click", commitApply);
-  e("backups_refresh_btn").addEventListener("click", refreshBackups);
-  e("backup_restore_btn").addEventListener("click", restoreBackup);
+  e("generate_btn")?.addEventListener("click", generate);
+  e("apply_preview_btn")?.addEventListener("click", previewApply);
+  e("apply_commit_btn")?.addEventListener("click", commitApply);
+  e("backups_refresh_btn")?.addEventListener("click", refreshBackups);
+  e("backup_restore_btn")?.addEventListener("click", restoreBackup);
 
-  e("update_refresh_btn").addEventListener("click", refreshLatestRelease);
-  e("update_generate_package_btn").addEventListener("click", generateHaUpdatePackage);
+  e("update_refresh_btn")?.addEventListener("click", refreshLatestRelease);
+  e("update_generate_package_btn")?.addEventListener("click", generateHaUpdatePackage);
 
-  e("refresh_health_btn").addEventListener("click", refreshHealth);
-  e("refresh_cache_btn").addEventListener("click", refreshDiscoveryCache);
-  e("discovery_cancel_btn").addEventListener("click", cancelDiscoveryJob);
-  e("fw_status_refresh_btn").addEventListener("click", () => {
+  e("refresh_health_btn")?.addEventListener("click", refreshHealth);
+  e("refresh_cache_btn")?.addEventListener("click", refreshDiscoveryCache);
+  e("discovery_cancel_btn")?.addEventListener("click", cancelDiscoveryJob);
+  e("fw_status_refresh_btn")?.addEventListener("click", () => {
     refreshFirmwareStatus().catch((err) => setStatus(`Firmware status error: ${err.message}`, true));
   });
-  e("fw_workflow_auto_btn").addEventListener("click", () => {
+  e("fw_workflow_auto_btn")?.addEventListener("click", () => {
     triggerFirmwareWorkflow("auto", true).catch((err) => {
-      e("firmware_update_result").textContent = `Update failed: ${err.message}`;
+      if (e("firmware_update_result")) e("firmware_update_result").textContent = `Update failed: ${err.message}`;
       setStatus(`Firmware update failed: ${err.message}`, true);
     });
   });
-  e("fw_workflow_build_btn").addEventListener("click", () => {
+  e("fw_workflow_build_btn")?.addEventListener("click", () => {
     triggerFirmwareWorkflow("build_install", true).catch((err) => {
-      e("firmware_update_result").textContent = `Update failed: ${err.message}`;
+      if (e("firmware_update_result")) e("firmware_update_result").textContent = `Update failed: ${err.message}`;
       setStatus(`Firmware update failed: ${err.message}`, true);
     });
   });
-  e("fw_workflow_install_btn").addEventListener("click", () => {
+  e("fw_workflow_install_btn")?.addEventListener("click", () => {
     triggerFirmwareWorkflow("install_only", false).catch((err) => {
-      e("firmware_update_result").textContent = `Update failed: ${err.message}`;
+      if (e("firmware_update_result")) e("firmware_update_result").textContent = `Update failed: ${err.message}`;
       setStatus(`Firmware update failed: ${err.message}`, true);
     });
   });
-  e("fw_manual_steps_btn").addEventListener("click", () => {
+  e("fw_manual_steps_btn")?.addEventListener("click", () => {
     triggerFirmwareWorkflow("manual_fallback", false).catch((err) => {
-      e("firmware_update_result").textContent = `Manual flow failed: ${err.message}`;
+      if (e("firmware_update_result")) e("firmware_update_result").textContent = `Manual flow failed: ${err.message}`;
       setStatus(`Manual flow failed: ${err.message}`, true);
     });
   });
-  e("refresh_runtime_btn").addEventListener("click", () => {
+  e("refresh_runtime_btn")?.addEventListener("click", () => {
     refreshRuntimeDiagnostics().catch((err) => setStatus(`Runtime diagnostics error: ${err.message}`, true));
   });
   e("retry_startup_btn")?.addEventListener("click", () => {
@@ -2929,9 +3350,13 @@ function bindProfileEvents() {
   e("theme_apply_btn")?.addEventListener("click", () => {
     applyTheme().catch((err) => setStatus(`Theme apply failed: ${err.message}`, true));
   });
+  e("theme_reset_safe_btn")?.addEventListener("click", () => {
+    resetThemeSafe().catch((err) => setStatus(`Theme reset failed: ${err.message}`, true));
+  });
 
   e("layout_page_select")?.addEventListener("change", renderLayoutSections);
   e("layout_add_section_btn")?.addEventListener("click", addLayoutSection);
+  e("layout_generate_defaults_btn")?.addEventListener("click", generateLayoutDefaultsFromFeatures);
   e("layout_validate_btn")?.addEventListener("click", () => {
     validateLayout().catch((err) => setStatus(`Layout validate failed: ${err.message}`, true));
   });

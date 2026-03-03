@@ -20,7 +20,8 @@ Public ESPHome + LVGL firmware and Home Assistant Admin Center for building and 
 1. Install `T-Deck Admin Center` from this repository in Home Assistant Add-ons.
 2. Open Web UI and use `Guided Mode`.
 3. Step 1 (`Device`): click `Start New T-Deck`.
-4. Step 3 (`Entities`): add typed elements (`Light`, `Switch`, `Climate`, `Weather`, `Camera`, `Cover`, `Lock`, `Fan`, `Media Player`, `Sensor`).
+4. Step 3 (`Entities`): add typed elements (`Light`, `Switch`, `Climate`, `Weather`, `Camera`, `Cover`, `Lock`, `Fan`, `Media Player`, `Sensor`) using inline suggestions.
+5. In Step 3, set `Device Scope` to `Active Device` for cleaner dropdown results from your selected node.
 5. Step 6 (`Deploy`): run guided deploy.
 
 Guided deploy uses a safe transaction:
@@ -37,6 +38,11 @@ Guided deploy uses a safe transaction:
 2. Select a discovered node.
 3. Click `Import Existing Node`.
 4. Click `Migrate to Managed Files` when ready.
+
+If detection misses your node, use manual fallback fields in Step 1:
+
+- `Manual Device Slug`, or
+- `Manual Entity ID` (for example `update.<slug>_firmware`)
 
 This migrates to managed files without mutating unrelated ESPHome YAML.
 

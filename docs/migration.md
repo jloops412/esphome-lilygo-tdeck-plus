@@ -2,7 +2,7 @@
 
 ## Target baseline
 
-- Admin Center `0.25.0`
+- Admin Center `0.25.1`
 - Schema `5.0`
 - App release default `v0.25.0`
 
@@ -26,7 +26,7 @@ Compatibility behavior:
 
 ## Recommended migration path
 
-1. Update add-on to `0.25.0`.
+1. Update add-on to `0.25.1`.
 2. Load existing workspace/profile.
 3. Open Guided Step 3 and review typed instances.
 4. Validate profile.
@@ -46,6 +46,8 @@ Compatibility behavior:
 2. Import selected node.
 3. Migrate to managed files.
 4. Validate + deploy.
+
+If auto-detection misses your node, use manual fallback in Step 1 with device slug or firmware update entity ID.
 
 ## Rollback
 

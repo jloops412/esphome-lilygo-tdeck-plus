@@ -4,7 +4,7 @@ Home Assistant add-on (Ingress) for T-Deck provisioning, typed entity mapping, t
 
 ## Baseline
 
-- Add-on version: `0.25.0`
+- Add-on version: `0.25.1`
 - Workspace/profile schema: `5.0`
 - Canonical model: typed `entity_instances`
 
@@ -27,7 +27,9 @@ Home Assistant add-on (Ingress) for T-Deck provisioning, typed entity mapping, t
   - `GET /api/diagnostics/runtime`
   - `GET /api/dashboard/summary`
 - Onboarding:
+  - `GET /api/onboarding/candidates`
   - `GET /api/onboarding/esphome/nodes`
+  - `POST /api/onboarding/verify_candidate`
   - `POST /api/onboarding/start_new`
   - `POST /api/onboarding/import_existing`
   - `POST /api/onboarding/migrate_to_managed`

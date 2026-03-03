@@ -269,6 +269,23 @@ td input {
   gap: 6px;
 }
 
+.status-ok {
+  color: #8ce7bf;
+}
+
+.status-warn {
+  color: #ffd18c;
+}
+
+.status-error {
+  color: #ffb4c0;
+}
+
+.compact-select {
+  width: 100%;
+  margin-top: 6px;
+}
+
 .pager {
   margin-top: 10px;
   display: flex;

@@ -4,7 +4,7 @@
 
 ## Version baseline
 
-- Add-on: `0.25.0`
+- Add-on: `0.25.1`
 - Workspace/profile schema: `5.0`
 - Default firmware release channel: `stable`
 
@@ -25,9 +25,21 @@
 ### Import Existing ESPHome Node
 
 1. Click `Scan Existing Nodes`.
-2. Select a detected node.
+2. Select a detected node (confidence + signals are shown).
 3. Click `Import Existing Node`.
 4. Optionally click `Migrate to Managed Files`.
+5. If no candidates are found, use manual fallback fields:
+   - `Manual Device Slug`
+   - `Manual Entity ID` (example: `update.<slug>_firmware`)
+
+## Guided Step 3 usability
+
+1. Use `Device Scope` to constrain entity suggestions:
+   - `Active Device` (recommended)
+   - specific detected device slug
+   - `All Entities`
+2. Inline smart combobox suggestions are ranked and keyboard-friendly.
+3. Bulk actions (`Enable All`, `Disable All`, `Dedupe`, `Remove Disabled`) are available without leaving Step 3.
 
 ## Canonical data model
 
@@ -86,7 +98,9 @@ No writes are made outside the managed root.
 ## API groups
 
 - Onboarding:
+  - `GET /api/onboarding/candidates`
   - `GET /api/onboarding/esphome/nodes`
+  - `POST /api/onboarding/verify_candidate`
   - `POST /api/onboarding/start_new`
   - `POST /api/onboarding/import_existing`
   - `POST /api/onboarding/migrate_to_managed`

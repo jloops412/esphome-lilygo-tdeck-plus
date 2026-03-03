@@ -106,20 +106,45 @@
             <label>Node Name <input id="device_name" value="lilygo-tdeck-plus" /></label>
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
-            <label>Git URL <input id="git_url" value="https://github.com/jloops412/esphome-lilygo-tdeck-plus.git" /></label>
+            <label>Git URL <input id="git_url" placeholder="https://github.com/owner/repository.git" /></label>
             <label>App Release Version <input id="app_release_version" value="v0.25.0" /></label>
+            <label>Onboarding Preset
+              <select id="onboarding_preset_select">
+                <option value="blank" selected>Blank (safe start)</option>
+                <option value="controller">Controller</option>
+                <option value="weather_climate">Weather + Climate</option>
+                <option value="security">Security + Cameras</option>
+                <option value="media">Reader + Media</option>
+              </select>
+            </label>
+            <div class="mono compact">
+Start New is safest for a clean reflash. Import Existing scans Home Assistant and migrates your current node to managed files.
+            </div>
             <div class="actions">
               <button id="onboarding_start_new_btn">Start New T-Deck</button>
               <button id="onboarding_scan_nodes_btn" class="btn-soft">Scan Existing Nodes</button>
             </div>
-            <label>Detected ESPHome Nodes
-              <select id="onboarding_nodes_select"></select>
-            </label>
             <div class="actions">
               <button id="onboarding_import_btn" class="btn-soft">Import Existing Node</button>
               <button id="onboarding_migrate_btn" class="btn-soft">Migrate to Managed Files</button>
             </div>
+            <label>Manual Device Slug (fallback) <input id="onboarding_manual_slug" placeholder="lilygo_tdeck_plus" /></label>
+            <label>Manual Entity ID (fallback) <input id="onboarding_manual_entity" placeholder="update.lilygo_tdeck_plus_firmware" /></label>
+            <div class="actions">
+              <button id="onboarding_verify_btn" class="btn-soft">Verify Candidate</button>
+            </div>
             <div id="onboarding_status_lbl" class="mono compact">Use Start New for clean flash, or Import Existing to migrate an existing ESPHome node.</div>
+            <div id="onboarding_verify_meta" class="mono compact">Verification not run yet.</div>
+          </div>
+          <div class="card">
+            <h3>Detected Existing Nodes</h3>
+            <div id="onboarding_candidates_meta" class="mono compact">Run Scan Existing Nodes.</div>
+            <table>
+              <thead>
+                <tr><th>Node</th><th>Confidence</th><th>Signals</th><th>Use</th></tr>
+              </thead>
+              <tbody id="onboarding_candidates_body"></tbody>
+            </table>
           </div>
           <div class="card">
             <h3>System Health</h3>
@@ -141,10 +166,12 @@
         <div class="grid2">
           <div class="card">
             <h3>Feature Toggles</h3>
+            <div class="mono compact">Features control which pages/widgets are available on device. Invalid combinations are auto-corrected.</div>
             <div id="feature_toggles" class="check-grid"></div>
           </div>
           <div class="card">
             <h3>Page Visibility</h3>
+            <div id="feature_policy_meta" class="mono compact">Feature/page policy loading...</div>
             <div id="ui_toggles" class="check-grid"></div>
           </div>
         </div>
@@ -152,115 +179,59 @@
 
       <div class="guided-panel" id="guided-step-2">
         <div class="card">
-          <h3>Typed Element Manager (Canonical)</h3>
+          <h3>Typed Element Manager</h3>
+          <div class="mono compact">
+Add the entities you want on-device. This is the canonical model used for generated firmware mappings.
+          </div>
           <div class="grid2 compact-grid">
             <label>Type
               <select id="instance_type_select"></select>
             </label>
+            <label>Device Scope
+              <select id="instance_device_scope">
+                <option value="active" selected>Active Device (Recommended)</option>
+                <option value="all">All Entities</option>
+              </select>
+            </label>
             <label>Name <input id="instance_name_input" placeholder="Living Room Light" /></label>
             <label>Entity <input id="instance_entity_input" class="entity-combo-input" placeholder="light.living_room" /></label>
             <label>Role (optional) <input id="instance_role_input" placeholder="entity_wx_temp_sensor" /></label>
+            <label>Page
+              <select id="instance_page_select">
+                <option value="home">Home</option>
+                <option value="lights">Lights</option>
+                <option value="weather">Weather</option>
+                <option value="climate">Climate</option>
+                <option value="reader">Reader</option>
+                <option value="cameras">Cameras</option>
+                <option value="settings">Settings</option>
+              </select>
+            </label>
+            <label>Quick Suggestions
+              <select id="instance_entity_pick">
+                <option value="">Pick from ranked suggestions...</option>
+              </select>
+            </label>
           </div>
           <div class="actions">
-            <button id="instance_add_btn" class="btn-soft">Add Element</button>
+            <button id="instance_add_btn">Add Element</button>
             <button id="instance_autodetect_btn" class="btn-soft">Auto-Detect by Type</button>
             <button id="instance_accept_detected_btn" class="btn-soft">Accept Detected</button>
             <button id="instance_ignore_detected_btn" class="btn-warn">Ignore Detected</button>
+            <button id="instance_enable_all_btn" class="btn-soft">Enable All</button>
+            <button id="instance_disable_all_btn" class="btn-soft">Disable All</button>
+            <button id="instance_dedupe_btn" class="btn-soft">Dedupe</button>
+            <button id="instance_remove_disabled_btn" class="btn-warn">Remove Disabled</button>
           </div>
           <div id="catalog_detected_meta" class="mono compact">No typed autodetect run yet.</div>
           <div id="entity_instances_meta" class="mono compact">No instances loaded.</div>
+          <div id="entity_instances_validation" class="mono compact">Validation pending...</div>
           <table>
             <thead>
-              <tr><th>Type</th><th>Name</th><th>Entity</th><th>Role</th><th>Page</th><th>On</th><th>Actions</th></tr>
+              <tr><th>Type</th><th>Name</th><th>Entity + Picker</th><th>Role</th><th>Page</th><th>On</th><th>Actions</th></tr>
             </thead>
             <tbody id="entity_instances_body"></tbody>
           </table>
-        </div>
-        <div class="grid2">
-          <div class="card">
-            <h3>Legacy Role Collections (Lights Compatibility)</h3>
-            <label>Collection Max <input id="lights_max" type="number" min="1" max="64" value="24" /></label>
-            <div class="grid2 compact-grid">
-              <label>FW Slot Cap <input id="light_slot_cap" type="number" min="8" max="24" value="24" /></label>
-              <label>Page Size <input id="light_page_size" type="number" min="4" max="6" value="6" /></label>
-            </div>
-            <div class="actions">
-              <button id="lights_add_btn" class="btn-soft">Add Light</button>
-              <button id="lights_enable_all_btn" class="btn-soft">Bulk Enable</button>
-              <button id="lights_disable_all_btn" class="btn-soft">Bulk Disable</button>
-              <button id="lights_remove_disabled_btn" class="btn-warn">Remove Disabled</button>
-              <button id="lights_dedupe_btn" class="btn-soft">Dedupe</button>
-            </div>
-            <table>
-              <thead>
-                <tr><th>Name</th><th>Entity</th><th>On</th><th>Row Actions</th></tr>
-              </thead>
-              <tbody id="lights_collection_body"></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <h3>Legacy Role Collections (Cameras Compatibility)</h3>
-            <label>Collection Max <input id="cameras_max" type="number" min="0" max="24" value="8" /></label>
-            <div class="grid2 compact-grid">
-              <label>FW Slot Cap <input id="camera_slot_cap" type="number" min="2" max="8" value="8" /></label>
-              <label>Page Size <input id="camera_page_size" type="number" min="2" max="4" value="4" /></label>
-            </div>
-            <label>HA Base URL <input id="ha_base_url" /></label>
-            <label>Refresh Interval Seconds <input id="camera_refresh_interval_s" /></label>
-            <label class="checkbox-row"><input type="checkbox" id="camera_snapshot_enable" /> Snapshot enabled</label>
-            <label>Snapshot Directory <input id="camera_snapshot_dir" /></label>
-            <div class="actions">
-              <button id="cameras_add_btn" class="btn-soft">Add Camera</button>
-              <button id="cameras_enable_all_btn" class="btn-soft">Bulk Enable</button>
-              <button id="cameras_disable_all_btn" class="btn-soft">Bulk Disable</button>
-              <button id="cameras_remove_disabled_btn" class="btn-warn">Remove Disabled</button>
-              <button id="cameras_dedupe_btn" class="btn-soft">Dedupe</button>
-            </div>
-            <table>
-              <thead>
-                <tr><th>Name</th><th>Entity</th><th>On</th><th>Row Actions</th></tr>
-              </thead>
-              <tbody id="cameras_collection_body"></tbody>
-            </table>
-          </div>
-        </div>
-        <div class="grid2">
-          <div class="card">
-            <h3>Legacy Role Collections (Weather, Climate, Reader, System)</h3>
-            <label>Collection
-              <select id="additional_collection_select">
-                <option value="weather_metrics">Weather Metrics</option>
-                <option value="climate_controls">Climate Controls</option>
-                <option value="reader_feeds">Reader Feeds</option>
-                <option value="system_entities">System Entities</option>
-              </select>
-            </label>
-            <label>Collection Max <input id="additional_collection_max" type="number" min="0" max="64" value="32" /></label>
-            <div class="actions">
-              <button id="additional_collection_add_btn" class="btn-soft">Add Row</button>
-            </div>
-            <div id="additional_collection_meta" class="meta-line">No collection selected.</div>
-            <table>
-              <thead>
-                <tr><th>Name</th><th>Entity</th><th>Role</th><th>On</th><th>Actions</th></tr>
-              </thead>
-              <tbody id="additional_collection_body"></tbody>
-            </table>
-          </div>
-          <div class="card">
-            <h3>Collection Health</h3>
-            <div id="collections_summary" class="mono compact">Collection summary loading...</div>
-            <div id="slot_caps_summary" class="mono compact">Slot caps loading...</div>
-            <div class="actions">
-              <button id="slot_caps_refresh_btn" class="btn-soft">Refresh Caps</button>
-              <button id="slot_caps_fit_btn" class="btn-soft">Auto-Fit to Enabled Rows</button>
-            </div>
-            <div class="mono compact">
-Use the <code>Role</code> field for substitution keys (for example <code>entity_wx_temp_sensor</code>,
-<code>entity_sensi_climate</code>, <code>entity_feed_bbc</code>, <code>entity_ha_unit_system</code>).
-Enabled rows with matching roles are applied into generated substitutions automatically.
-            </div>
-          </div>
         </div>
         <div class="grid2">
           <div class="card">
@@ -279,11 +250,10 @@ Enabled rows with matching roles are applied into generated substitutions automa
           <div class="card">
             <h3>Mapping Guidance</h3>
             <div class="mono compact">
-Typed elements above are now the canonical model for new builds.
-
-Use legacy role collections only for transition compatibility with existing slot-driven firmware mappings.
-
-When done, validate and deploy in Step 6.
+1. Add typed entities and assign page + role.
+2. Use top suggestions to map quickly from Home Assistant.
+3. Resolve any inline validation messages.
+4. Continue to Theme, Layout, then Deploy.
             </div>
           </div>
         </div>
@@ -293,6 +263,8 @@ When done, validate and deploy in Step 6.
         <div class="grid2">
           <div class="card">
             <h3>Theme Studio</h3>
+            <div class="mono compact">Use Quick Themes for fast setup, then adjust individual tokens if needed.</div>
+            <div id="theme_quick_actions" class="actions"></div>
             <label>Palette
               <select id="theme_palette_select"></select>
             </label>
@@ -313,6 +285,7 @@ When done, validate and deploy in Step 6.
             <div class="actions">
               <button id="theme_preview_btn" class="btn-soft">Preview</button>
               <button id="theme_apply_btn">Apply Theme</button>
+              <button id="theme_reset_safe_btn" class="btn-soft">Reset to Safe Defaults</button>
             </div>
             <div id="theme_preview_meta" class="mono compact">Preview not run yet.</div>
             <div id="theme_preview_card" class="theme-preview-card">
@@ -333,6 +306,7 @@ When done, validate and deploy in Step 6.
         <div class="grid2">
           <div class="card">
             <h3>Layout Builder (Grid + Sections)</h3>
+            <div class="mono compact">Build sections by page. Save is blocked if overlap/clipping validation fails.</div>
             <label>Page
               <select id="layout_page_select">
                 <option value="home">Home</option>
@@ -347,6 +321,7 @@ When done, validate and deploy in Step 6.
             </label>
             <div class="actions">
               <button id="layout_add_section_btn" class="btn-soft">Add Section</button>
+              <button id="layout_generate_defaults_btn" class="btn-soft">Generate Sensible Defaults</button>
               <button id="layout_validate_btn" class="btn-soft">Validate Layout</button>
               <button id="layout_save_btn">Save Layout</button>
               <button id="layout_reset_page_btn" class="btn-warn">Reset Page</button>
@@ -358,6 +333,7 @@ When done, validate and deploy in Step 6.
               <tbody id="layout_sections_body"></tbody>
             </table>
             <div id="layout_validation_meta" class="mono compact"></div>
+            <div id="layout_preview_meta" class="mono compact">Preview pending.</div>
           </div>
           <div class="card">
             <h3>Explorer (Quick Map)</h3>
@@ -425,13 +401,20 @@ When done, validate and deploy in Step 6.
           </div>
           <div class="card">
             <h3>One-Click Safe Deploy</h3>
+            <div id="deploy_preflight_meta" class="mono compact">Preflight not run yet.</div>
+            <table>
+              <thead>
+                <tr><th>Check</th><th>Status</th><th>Details</th></tr>
+              </thead>
+              <tbody id="deploy_preflight_body"></tbody>
+            </table>
             <div class="actions">
               <button id="profile_validate_btn" class="btn-soft">Validate Workspace</button>
               <button id="apply_preview_btn" class="btn-soft">Preview Apply</button>
               <button id="apply_commit_btn">Apply to Managed Files</button>
               <button id="guided_deploy_btn">Validate + Apply + Auto Deploy</button>
             </div>
-            <textarea id="validation_out" rows="12" spellcheck="false"></textarea>
+            <textarea id="validation_out" rows="10" spellcheck="false"></textarea>
             <textarea id="apply_preview_install_diff" rows="10" spellcheck="false"></textarea>
             <textarea id="apply_preview_overrides_diff" rows="10" spellcheck="false"></textarea>
             <textarea id="apply_preview_generated_diff" rows="10" spellcheck="false"></textarea>
@@ -476,7 +459,7 @@ When done, validate and deploy in Step 6.
         <h2>Mapping Wizard (Advanced)</h2>
         <div class="grid2">
           <div class="card">
-            <h3>Legacy Theme Tokens</h3>
+            <h3>Theme Tokens (Advanced)</h3>
             <div id="theme_fields" class="field-grid"></div>
           </div>
           <div class="card">

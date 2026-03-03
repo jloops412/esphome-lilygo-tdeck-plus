@@ -2,17 +2,41 @@
 
 ## Current
 
-- Add-on manifest version: `0.25.0`
+- Add-on manifest version: `0.25.1`
 - Default app release version: `v0.25.0`
 - Workspace/profile schema: `5.0`
+
+## v0.25.1 Guided UX + Onboarding Recovery
+
+### Onboarding reliability
+
+1. Added hybrid candidate enrichment from HA device registry for ESPHome nodes.
+2. Added manual candidate fallback path for `verify_candidate` and `import_existing`.
+3. Added stronger candidate diagnostics and confidence reporting.
+
+### Guided Step 3 usability
+
+1. Added device-scoped entity suggestion workflow in typed element manager.
+2. Added scope selector (`active`, `all`, detected node slug) for inline combobox suggestions.
+3. Increased suggestion depth and ranking visibility in dropdown labels.
+
+### Runtime constraints and limits
+
+1. Expanded slot-runtime cap limits for generated compatibility paths:
+   - lights cap max `48`, page size max `8`
+   - cameras cap max `16`, page size max `6`
+
+### Public hygiene
+
+1. Removed non-public wording from user-facing docs.
+2. Kept only unavoidable repository URL references required by add-on/install metadata.
 
 ## v0.25.0 Public-Safe Reboot
 
 ### Public hygiene
 
-1. Removed legacy private install content from tracked branch.
-2. Removed private profile wording from public docs.
-3. Kept only unavoidable repository URL references required by add-on/install metadata.
+1. Removed legacy install profile content from tracked branch.
+2. Kept only unavoidable repository URL references required by add-on/install metadata.
 
 ### Admin Center platform upgrades
 

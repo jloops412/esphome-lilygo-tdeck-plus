@@ -2,3 +2,5 @@
 esphome/install/*-private.yaml
 esphome/install/*-local.yaml
 esphome/private/
+__pycache__/
+*.pyc
