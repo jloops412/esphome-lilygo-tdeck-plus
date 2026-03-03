@@ -101,17 +101,7 @@ Behavior:
 3. Install YAML and overrides YAML generation endpoints.
 4. v1 is generate/export only (no automatic overwrite in `/config/esphome`).
 
-## Docs updated in this pass
-
-- `README.md`
-- `docs/admin-center.md`
-- `docs/cameras.md`
-- `docs/architecture.md`
-- `docs/migration.md`
-- `docs/release.md`
-- this handoff file
-
-## Follow-up fix (post-pass): HA add-on repository/build errors
+## Follow-up fix (post-pass): HA add-on repository/build compatibility
 
 Files:
 
@@ -130,10 +120,59 @@ Changes:
    - bumped add-on version to `0.20.1`
 2. Build compatibility updates:
    - moved to HA `*-base:3.20` images
-   - Dockerfile now installs `python3` + `py3-pip` explicitly
+   - Dockerfile now installs `python3` + `py3-flask` + `py3-requests` explicitly
 3. Added explicit README recovery steps for:
-   - “not a valid add-on repository”
+   - "not a valid add-on repository"
    - unknown add-on image build error
+
+## Follow-up fix (current): add-on build failure `/run.sh` missing
+
+Files:
+
+- `tdeck_admin_center/Dockerfile`
+- `tdeck_admin_center/config.yaml`
+- `README.md`
+- `docs/admin-center.md`
+- `docs/release.md`
+- this handoff file
+
+Changes:
+
+1. Root cause fixed:
+   - Dockerfile previously copied only `rootfs/`, so `/run.sh` was absent at `chmod`.
+2. Dockerfile hotfix:
+   - `COPY run.sh /run.sh`
+   - `RUN sed -i 's/\r$//' /run.sh && chmod a+x /run.sh`
+   - default `ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20`
+3. Add-on version bumped:
+   - `tdeck_admin_center/config.yaml` -> `version: "0.20.2"`
+4. Docs now use one canonical cache-refresh recovery sequence and call out `0.20.2`.
+
+## Mission continuation priority queue (after add-on install verified)
+
+1. Reliability:
+   - re-verify climate `+/-` deterministic path
+   - re-verify thermostat ack/resync integrity
+   - re-verify auto-screensaver idle behavior with input-noise suppression
+2. UX:
+   - remove any residual overlap/clipping across all pages
+   - keep consistent modern LVGL icon/style hierarchy
+3. Camera module:
+   - keep public default inert (`camera_slot_count: "0"`)
+   - keep personal profile enabled and verify snapshot refresh/diagnostics
+4. Admin Center v1 polish:
+   - improve discovery filters and mapping presets
+   - keep generate/export only (non-destructive)
+
+## Docs updated in this pass
+
+- `README.md`
+- `docs/admin-center.md`
+- `docs/cameras.md`
+- `docs/architecture.md`
+- `docs/migration.md`
+- `docs/release.md`
+- this handoff file
 
 ## Known constraints
 
@@ -143,11 +182,6 @@ Changes:
 
 ## Next recommended steps
 
-1. Compile in HA ESPHome add-on against this commit.
-2. Validate on-device:
-   - strict ALT shortcuts
-   - home header layout
-   - theme swatch page behavior
-   - camera diagnostics lines
-3. Tag and pin:
-   - `v0.20.0-admin-addon-theme-swatch-camera-pass`
+1. Reinstall `T-Deck Admin Center` from HA custom repository and verify version `0.20.2`.
+2. Validate add-on ingress and API endpoints.
+3. Continue mission queue with reliability checks first, then UX and camera/admin polish.

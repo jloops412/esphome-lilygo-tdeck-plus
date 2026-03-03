@@ -114,8 +114,10 @@ If HA says the repo is not valid or add-on build fails:
 1. Remove the repo from Add-on Store repositories.
 2. Restart Supervisor (`Settings -> System -> Restart Supervisor`).
 3. Re-add: `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Confirm add-on appears as `T-Deck Admin Center`.
+4. Confirm add-on appears as `T-Deck Admin Center` (`0.20.2`).
 5. Install again, then open `Settings -> Add-ons -> T-Deck Admin Center -> Open Web UI`.
+
+If build logs show `chmod: /run.sh: No such file or directory`, clear the repo cache with the same sequence above and retry install.
 
 Companion static generator (repo):
 

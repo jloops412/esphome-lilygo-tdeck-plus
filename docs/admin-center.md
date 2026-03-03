@@ -45,8 +45,13 @@ Use this recovery sequence:
 2. Restart Supervisor.
 3. Re-add repository URL:
    - `https://github.com/jloops412/esphome-lilygo-tdeck-plus`
-4. Install `T-Deck Admin Center` again.
-5. Open logs from the add-on page if build fails again and capture the first Python/Docker error block.
+4. Confirm add-on version is `0.20.2`.
+5. Install `T-Deck Admin Center` again.
+6. Open logs from the add-on page if build fails again and capture the first Python/Docker error block.
+
+Known fixed root cause in `0.20.2`:
+
+- Dockerfile now copies `run.sh` into container root and normalizes line endings before chmod.
 
 ## Static generator companion
 

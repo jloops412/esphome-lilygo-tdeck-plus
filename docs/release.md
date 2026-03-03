@@ -28,6 +28,11 @@
   - removed `ports`/`i386` for cleaner ingress-only compatibility
   - `tdeck_admin_center/build.yaml` now uses HA `*-base:3.20`
   - `tdeck_admin_center/Dockerfile` now installs Python runtime on base image
+- HA add-on hotfix (`0.20.2`):
+  - fixed root cause of install failure: `/run.sh` missing in container
+  - `tdeck_admin_center/Dockerfile` now copies `run.sh` explicitly
+  - `tdeck_admin_center/Dockerfile` normalizes CRLF before chmod (`sed -i 's/\r$//'`)
+  - `ARG BUILD_FROM` now has default value to avoid invalid-default warning
 - docs and README refreshed for public install/admin/camera behavior
 
 ## Tagging process
