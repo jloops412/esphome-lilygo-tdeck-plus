@@ -1,6 +1,6 @@
 substitutions:
   app_release_channel: "stable"
-  app_release_version: "v0.25.0"
+  app_release_version: "v0.25.2"
   generated_light_slot_cap: "24"
   generated_camera_slot_cap: "8"
   generated_light_page_size: "6"
@@ -169,4 +169,3 @@ substitutions:
   theme_border_width: "2"
   theme_radius: "10"
   theme_icon_mode: "0"
-

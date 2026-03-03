@@ -4,7 +4,7 @@
 
 ## Version baseline
 
-- Add-on: `0.25.1`
+- Add-on: `0.25.2`
 - Workspace/profile schema: `5.0`
 - Default firmware release channel: `stable`
 
@@ -31,6 +31,11 @@
 5. If no candidates are found, use manual fallback fields:
    - `Manual Device Slug`
    - `Manual Entity ID` (example: `update.<slug>_firmware`)
+   - `Host/IP` (example: `tdeck.local` or `192.168.1.50`)
+6. Use probe actions before import when needed:
+   - `Probe Entity`
+   - `Probe Host`
+   - `Provisioning Modes`
 
 ## Guided Step 3 usability
 
@@ -86,6 +91,13 @@ Firmware workflow selection order:
 2. Native update entity
 3. Manual fallback instructions
 
+Guided Step 6 now runs:
+
+1. `POST /api/deploy/preflight`
+2. Optional `POST /api/deploy/remediate`
+3. `POST /api/deploy/run` (token-gated for guided mode)
+4. `GET /api/deploy/last_run` for deterministic stage/result diagnostics
+
 ## Managed file boundaries
 
 Admin Center writes only under:
@@ -100,7 +112,10 @@ No writes are made outside the managed root.
 - Onboarding:
   - `GET /api/onboarding/candidates`
   - `GET /api/onboarding/esphome/nodes`
+  - `GET /api/onboarding/provisioning_modes`
   - `POST /api/onboarding/verify_candidate`
+  - `POST /api/onboarding/probe_entity`
+  - `POST /api/onboarding/probe_host`
   - `POST /api/onboarding/start_new`
   - `POST /api/onboarding/import_existing`
   - `POST /api/onboarding/migrate_to_managed`
@@ -122,6 +137,9 @@ No writes are made outside the managed root.
   - `POST /api/layout/pages/save`
   - `POST /api/layout/pages/reset`
 - Deploy/workflow:
+  - `POST /api/deploy/preflight`
+  - `POST /api/deploy/remediate`
+  - `GET /api/deploy/last_run`
   - `POST /api/deploy/run`
   - `GET /api/firmware/status`
   - `GET /api/firmware/capabilities`

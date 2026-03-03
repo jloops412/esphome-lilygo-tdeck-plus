@@ -2,35 +2,65 @@
 
 ## Pass summary
 
-This pass delivered onboarding reliability and guided UX improvements on top of the typed HA element model.
+This pass delivered the `v0.25.2` stabilization unblock focused on Step 1 onboarding reliability and Step 6 deploy reliability.
 
 ### Completed
 
-1. Expanded onboarding candidate detection with HA device-registry ESPHome fallback.
-2. Added manual fallback candidate generation for verify/import when detection misses legacy nodes.
-3. Added Guided Step 3 device-scope selector for typed entity suggestions.
-4. Extended suggestion payloads with device scope and stronger ranking labels.
-5. Expanded compatibility slot-runtime limits (lights/cameras) for larger managed installs.
-6. Removed remaining non-public wording from public docs.
-7. Version baseline aligned to add-on `0.25.1` and app `v0.25.0`.
+1. Bumped add-on/runtime/install defaults to `0.25.2` / `v0.25.2`.
+2. Added grouped onboarding candidate source reporting in `GET /api/onboarding/candidates`.
+3. Added manual recovery probes:
+   - `POST /api/onboarding/probe_entity`
+   - `POST /api/onboarding/probe_host`
+4. Added provisioning capability endpoint:
+   - `GET /api/onboarding/provisioning_modes`
+5. Added guided deploy safety and remediation endpoints:
+   - `POST /api/deploy/preflight`
+   - `POST /api/deploy/remediate`
+   - `GET /api/deploy/last_run`
+6. Added guided preflight token enforcement in `POST /api/deploy/run`.
+7. Added required binding inference/reporting and generated bridge debug output:
+   - `generated/bindings.report.yaml`
+8. Added richer firmware workflow diagnostics model (`attempt_matrix`, selected service refs, fallback reason, next steps).
+9. Updated guided frontend for probe controls, preflight/remediation actions, and last-run visibility.
+10. Removed legacy non-public install directory from the public branch.
 
 ## Files changed in this pass
 
+- `README.md`
+- `docs/admin-center.md`
+- `docs/migration.md`
+- `docs/release.md`
+- `docs/handoff-context.md`
+- `docs/entities-template.md`
+- `tdeck_admin_center/README.md`
+- `tdeck_admin_center/Dockerfile`
+- `tdeck_admin_center/config.yaml`
 - `tdeck_admin_center/rootfs/app/main.py`
 - `tdeck_admin_center/rootfs/app/static/app.js`
 - `tdeck_admin_center/rootfs/app/static/index.html`
-- `docs/release.md`
-- `docs/handoff-context.md`
+- `esphome/install/entity-overrides.template.yaml`
+- `esphome/install/lilygo-tdeck-plus-install-lvgl-template.yaml`
+- `esphome/install/lilygo-tdeck-plus-install-lvgl.yaml`
+- `esphome/install/lilygo-tdeck-plus-install.yaml`
+- `esphome/packages/ha_entities.yaml`
+- removed: legacy non-public install directory
 
-## Known transition constraints
+## Validation performed
 
-1. Firmware UI is still compatibility-slot based internally; typed model is canonical in Admin Center and normalized into generated substitutions.
-2. Typed generated metadata artifacts are stored/managed but intentionally excluded from package include compile path.
-3. Legacy collection paths remain for transition support while Guided Step 3 uses typed instances.
+1. `python -m py_compile tdeck_admin_center/rootfs/app/main.py` passed.
+2. `python tdeck_admin_center/tools/check_js_syntax.py tdeck_admin_center/rootfs/app/static/app.js` passed.
+3. Flask test-client smoke requests passed for:
+   - `/api/health`
+   - `/api/onboarding/candidates`
+   - `/api/onboarding/provisioning_modes`
+   - `/api/onboarding/probe_entity`
+   - `/api/onboarding/probe_host`
+   - `/api/deploy/preflight`
+   - `/api/deploy/last_run`
 
-## Recommended next implementation gates
+## Known constraints / next pass priorities
 
-1. Firmware modularization into typed component includes (replace slot-primary runtime logic).
-2. Page builder V2 with typed widget placement as the compile-time authority.
-3. End-to-end compile validation from generated managed files in CI.
-4. Expanded autodetect ranking and conflict remediation UX for very large HA instances.
+1. Firmware runtime still includes transition slot-era compatibility paths; typed model is canonical on Admin Center side.
+2. Continue Step 3/4/5 usability hardening (typed mapping templates, guided theme/layout defaults).
+3. Continue legacy import scoring improvements for unusual ESPHome naming patterns.
+4. Add deeper end-to-end install checks for app-first first-flash USB fallback guidance.

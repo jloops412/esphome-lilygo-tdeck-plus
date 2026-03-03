@@ -25,8 +25,8 @@ ADDON_GITHUB_REPO_URL = (
     os.getenv("ADDON_GITHUB_REPO_URL", "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git")
     or "https://github.com/jloops412/esphome-lilygo-tdeck-plus.git"
 )
-ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.25.1")) or "0.25.1"
-DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.25.0") or "v0.25.0"
+ADDON_VERSION = os.getenv("ADDON_VERSION", os.getenv("BUILD_VERSION", "0.25.2")) or "0.25.2"
+DEFAULT_APP_RELEASE_VERSION = os.getenv("APP_RELEASE_VERSION", "v0.25.2") or "v0.25.2"
 
 CACHE_TTL_SECONDS = 15
 RELEASE_CACHE_TTL_SECONDS = 900
@@ -225,6 +225,9 @@ _SERVICE_CACHE: Dict[str, Any] = {
 }
 _APPLY_LOCKS: Dict[str, threading.Lock] = {}
 _RUNTIME_STATE_LOCK = threading.Lock()
+_DEPLOY_PREFLIGHT_LOCK = threading.Lock()
+_DEPLOY_PREFLIGHT_TOKENS: Dict[str, Dict[str, Any]] = {}
+DEPLOY_PREFLIGHT_TTL_SECONDS = 900
 
 
 def _load_addon_options() -> Dict[str, Any]:
@@ -259,6 +262,7 @@ def _runtime_state_defaults() -> Dict[str, Any]:
         "addon_updated_since_last_run": False,
         "last_prompted_device_slug": "",
         "last_firmware_action": {},
+        "last_deploy_run": {},
     }
 
 
@@ -567,7 +571,24 @@ def _runtime_state_snapshot() -> Dict[str, Any]:
             "addon_updated_since_last_run": _as_bool(_RUNTIME_STATE.get("addon_updated_since_last_run"), False),
             "last_prompted_device_slug": _as_str(_RUNTIME_STATE.get("last_prompted_device_slug"), ""),
             "last_firmware_action": _RUNTIME_STATE.get("last_firmware_action", {}),
+            "last_deploy_run": _RUNTIME_STATE.get("last_deploy_run", {}),
         }
+
+
+def _save_last_deploy_run(result: Dict[str, Any]) -> None:
+    with _RUNTIME_STATE_LOCK:
+        _RUNTIME_STATE["last_deploy_run"] = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "ok": _as_bool(result.get("ok"), False),
+            "device_slug": _as_str(result.get("device_slug"), ""),
+            "error": _as_str(result.get("error"), ""),
+            "validation_ok": _as_bool(result.get("validation", {}).get("ok"), False),
+            "apply_backup_id": _as_str(result.get("apply", {}).get("backup", {}).get("id"), ""),
+            "firmware_method": _as_str(result.get("firmware", {}).get("selected_method"), ""),
+            "firmware_ok": _as_bool(result.get("firmware", {}).get("ok"), False),
+            "pipeline": result.get("pipeline", {}),
+        }
+        _save_runtime_state(_RUNTIME_STATE)
 
 
 def _release_cache_age_ms() -> int:
@@ -795,6 +816,153 @@ def _required_by_feature() -> Dict[str, List[str]]:
     }
 
 
+def _required_binding_templates() -> Dict[str, Dict[str, Any]]:
+    return {
+        "entity_wx_main": {"type": "weather", "tokens": ["weather", "forecast"], "domains": ["weather"]},
+        "entity_wx_temp_sensor": {"type": "sensor", "tokens": ["temp", "temperature", "outdoor"], "domains": ["sensor"]},
+        "entity_sensi_climate": {"type": "climate", "tokens": ["climate", "thermostat", "hvac"], "domains": ["climate"]},
+        "entity_sensi_temperature_sensor": {"type": "sensor", "tokens": ["temp", "temperature", "indoor"], "domains": ["sensor"]},
+        "entity_feed_bbc": {"type": "sensor", "tokens": ["bbc", "news"], "domains": ["event", "sensor"]},
+        "entity_feed_dc": {"type": "sensor", "tokens": ["dc", "news"], "domains": ["event", "sensor"]},
+        "entity_feed_loudoun": {"type": "sensor", "tokens": ["loudoun", "news"], "domains": ["event", "sensor"]},
+    }
+
+
+def _best_instance_match(
+    profile: Dict[str, Any],
+    type_id: str,
+    tokens: List[str] | None = None,
+    domains: List[str] | None = None,
+) -> Tuple[str, str]:
+    p = _normalize_profile(profile)
+    instances = p.get("entity_instances", []) if isinstance(p.get("entity_instances"), list) else []
+    token_list = [t.lower() for t in (tokens or []) if _as_str(t, "")]
+    domain_list = [d.lower() for d in (domains or []) if _as_str(d, "")]
+    scored: List[Tuple[int, str, str]] = []
+    for idx, inst in enumerate(instances):
+        if not isinstance(inst, dict):
+            continue
+        if not _as_bool(inst.get("enabled"), True):
+            continue
+        entity_id = _as_str(inst.get("entity_id"), "").strip().lower()
+        if not entity_id:
+            continue
+        inst_type = _as_str(inst.get("type"), "").strip().lower()
+        domain = entity_id.split(".", 1)[0] if "." in entity_id else ""
+        name = _as_str(inst.get("name"), "").strip()
+        blob = f"{entity_id} {name}".lower()
+        score = 0
+        reason_bits: List[str] = []
+        if inst_type == type_id:
+            score += 80
+            reason_bits.append(f"type={type_id}")
+        elif type_id == "sensor" and domain in {"sensor", "binary_sensor"}:
+            score += 60
+            reason_bits.append(f"domain={domain}")
+        if domain_list and domain in domain_list:
+            score += 30
+            reason_bits.append("domain_hint")
+        for t in token_list:
+            if t and t in blob:
+                score += 12
+                reason_bits.append(f"token:{t}")
+        score += max(0, 10 - idx)
+        if score <= 0:
+            continue
+        scored.append((score, entity_id, ",".join(sorted(set(reason_bits)))))
+    scored.sort(key=lambda x: (-x[0], x[1]))
+    if not scored:
+        return "", ""
+    top = scored[0]
+    return top[1], top[2]
+
+
+def _infer_required_binding_values(profile: Dict[str, Any], substitutions: Dict[str, str] | None = None) -> Dict[str, Dict[str, str]]:
+    p = _normalize_profile(profile)
+    subs = substitutions if isinstance(substitutions, dict) else _profile_to_substitutions(p)
+    out: Dict[str, Dict[str, str]] = {}
+    features = p.get("features", {}) if isinstance(p.get("features"), dict) else {}
+    collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
+    lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
+    cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+    enabled_lights = [x for x in lights if isinstance(x, dict) and _as_bool(x.get("enabled"), True)]
+    enabled_cameras = [x for x in cameras if isinstance(x, dict) and _as_bool(x.get("enabled"), True)]
+
+    if _as_bool(features.get("lights"), False):
+        if enabled_lights:
+            out["light_slot_1_entity"] = {
+                "value": _as_str(enabled_lights[0].get("entity_id"), ""),
+                "reason": "first_enabled_light_collection_row",
+            }
+            out["light_slot_count"] = {
+                "value": str(len(enabled_lights)),
+                "reason": "enabled_light_collection_count",
+            }
+        else:
+            ent, why = _best_instance_match(p, "light", tokens=["light"], domains=["light"])
+            if ent:
+                out["light_slot_1_entity"] = {"value": ent, "reason": why or "typed_instance_match"}
+                out["light_slot_count"] = {"value": "1", "reason": "typed_instance_match"}
+
+    if _as_bool(features.get("cameras"), False):
+        if enabled_cameras:
+            out["camera_slot_1_entity"] = {
+                "value": _as_str(enabled_cameras[0].get("entity_id"), ""),
+                "reason": "first_enabled_camera_collection_row",
+            }
+            out["camera_slot_count"] = {
+                "value": str(len(enabled_cameras)),
+                "reason": "enabled_camera_collection_count",
+            }
+        else:
+            ent, why = _best_instance_match(p, "camera", tokens=["camera", "door", "outdoor"], domains=["camera"])
+            if ent:
+                out["camera_slot_1_entity"] = {"value": ent, "reason": why or "typed_instance_match"}
+                out["camera_slot_count"] = {"value": "1", "reason": "typed_instance_match"}
+
+    templates = _required_binding_templates()
+    for key, template in templates.items():
+        ent, why = _best_instance_match(
+            p,
+            _as_str(template.get("type"), "sensor"),
+            tokens=template.get("tokens") if isinstance(template.get("tokens"), list) else [],
+            domains=template.get("domains") if isinstance(template.get("domains"), list) else [],
+        )
+        if ent:
+            out[key] = {"value": ent, "reason": why or "typed_instance_match"}
+
+    if _as_bool(features.get("cameras"), False) and _is_placeholder(subs.get("ha_base_url", "")):
+        out["ha_base_url"] = {"value": _default_substitutions().get("ha_base_url", "http://homeassistant.local:8123"), "reason": "default_ha_base_url"}
+
+    return out
+
+
+def _required_bindings_snapshot(profile: Dict[str, Any], substitutions: Dict[str, str] | None = None) -> List[Dict[str, Any]]:
+    p = _normalize_profile(profile)
+    subs = substitutions if isinstance(substitutions, dict) else _profile_to_substitutions(p)
+    suggestions = _infer_required_binding_values(p, subs)
+    features = p.get("features", {}) if isinstance(p.get("features"), dict) else {}
+    rows: List[Dict[str, Any]] = []
+    for feature, keys in _required_by_feature().items():
+        if not _as_bool(features.get(feature), False):
+            continue
+        for key in keys:
+            value = _as_str(subs.get(key), "")
+            placeholder = _is_placeholder(value)
+            suggestion = suggestions.get(key, {})
+            rows.append(
+                {
+                    "feature": feature,
+                    "key": key,
+                    "value": value,
+                    "resolved": not placeholder,
+                    "placeholder": placeholder,
+                    "suggested_value": _as_str(suggestion.get("value"), ""),
+                    "suggestion_reason": _as_str(suggestion.get("reason"), ""),
+                }
+            )
+    return rows
+
 def _default_feature_flags(preset: str = "blank") -> Dict[str, bool]:
     resolved = _as_str(preset, "blank").strip().lower()
     base = ONBOARDING_PRESETS.get(resolved) or ONBOARDING_PRESETS["blank"]
@@ -831,6 +999,7 @@ def _contracts() -> Dict[str, Any]:
         "workspace_schema_version": WORKSPACE_SCHEMA_VERSION,
         "canonical_model": "entity_instances",
         "required_by_feature": _required_by_feature(),
+        "required_binding_templates": _required_binding_templates(),
         "domain_hints": DOMAIN_HINTS,
         "type_registry": _default_type_registry(),
         "core_type_ids": CORE_TYPE_IDS,
@@ -884,6 +1053,12 @@ def _contracts() -> Dict[str, Any]:
             "generated/entities.instances.yaml",
             "generated/layout.pages.yaml",
             "generated/theme.tokens.yaml",
+            "generated/bindings.report.yaml",
+        ],
+        "deploy_preflight_actions": [
+            "auto_resolve_required_mappings",
+            "auto_disable_unmapped_features",
+            "auto_fit_slot_caps",
         ],
         "defaults": defaults,
     }
@@ -2494,6 +2669,7 @@ def _profile_to_substitutions(profile: Dict[str, Any], overrides: Dict[str, Any]
 def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
     p = _normalize_profile(profile)
     substitutions = _profile_to_substitutions(p)
+    required_bindings = _required_bindings_snapshot(p, substitutions)
     errors: List[str] = []
     warnings: List[str] = []
     collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
@@ -2619,6 +2795,12 @@ def _validate_profile(profile: Dict[str, Any]) -> Dict[str, Any]:
         "ok": len(errors) == 0,
         "errors": errors,
         "warnings": warnings,
+        "required_bindings": required_bindings,
+        "required_bindings_summary": {
+            "total": len(required_bindings),
+            "resolved": len([x for x in required_bindings if _as_bool(x.get("resolved"), False)]),
+            "unresolved": len([x for x in required_bindings if not _as_bool(x.get("resolved"), False)]),
+        },
         "profile": p,
         "substitutions": substitutions,
     }
@@ -2864,6 +3046,7 @@ def _managed_paths(device_slug: str) -> Dict[str, Path]:
         "generated_entities_instances": g / "entities.instances.yaml",
         "generated_layout_pages": g / "layout.pages.yaml",
         "generated_theme_tokens": g / "theme.tokens.yaml",
+        "generated_bindings_report": g / "bindings.report.yaml",
         "generated_entities": g / "entities.generated.yaml",
         "generated_theme": g / "theme.generated.yaml",
         "generated_layout": g / "layout.generated.yaml",
@@ -2884,6 +3067,57 @@ def _backup_root_for(device_slug: str) -> Path:
 def _sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
+
+def _profile_signature(profile: Dict[str, Any]) -> str:
+    try:
+        normalized = _normalize_profile(profile)
+    except Exception:
+        normalized = profile if isinstance(profile, dict) else {}
+    blob = json.dumps(normalized, sort_keys=True, separators=(",", ":"))
+    return _sha256_text(blob)
+
+
+def _cleanup_preflight_tokens(now_ts: float | None = None) -> None:
+    ts = now_ts if now_ts is not None else _now()
+    stale: List[str] = []
+    for token, row in _DEPLOY_PREFLIGHT_TOKENS.items():
+        expires_at = float(row.get("expires_at", 0.0) or 0.0)
+        if expires_at <= 0 or expires_at <= ts:
+            stale.append(token)
+    for token in stale:
+        _DEPLOY_PREFLIGHT_TOKENS.pop(token, None)
+
+
+def _issue_preflight_token(device_slug: str, profile_signature: str) -> str:
+    safe_slug = _slugify(device_slug, "tdeck")
+    nonce = f"{safe_slug}:{profile_signature}:{_now()}:{os.urandom(8).hex()}"
+    token = hashlib.sha256(nonce.encode("utf-8")).hexdigest()
+    with _DEPLOY_PREFLIGHT_LOCK:
+        _cleanup_preflight_tokens(_now())
+        _DEPLOY_PREFLIGHT_TOKENS[token] = {
+            "device_slug": safe_slug,
+            "profile_signature": profile_signature,
+            "issued_at": _now(),
+            "expires_at": _now() + DEPLOY_PREFLIGHT_TTL_SECONDS,
+        }
+    return token
+
+
+def _verify_preflight_token(token: str, device_slug: str, profile_signature: str) -> Tuple[bool, str]:
+    raw = _as_str(token, "").strip()
+    if not raw:
+        return False, "missing_preflight_token"
+    safe_slug = _slugify(device_slug, "tdeck")
+    with _DEPLOY_PREFLIGHT_LOCK:
+        _cleanup_preflight_tokens(_now())
+        row = _DEPLOY_PREFLIGHT_TOKENS.get(raw)
+        if not isinstance(row, dict):
+            return False, "invalid_or_expired_preflight_token"
+        if _slugify(row.get("device_slug"), "tdeck") != safe_slug:
+            return False, "preflight_token_device_mismatch"
+        if _as_str(row.get("profile_signature"), "") != _as_str(profile_signature, ""):
+            return False, "preflight_token_profile_changed"
+    return True, ""
 
 def _sha256_file(path: Path) -> str:
     if not path.exists():
@@ -3011,6 +3245,40 @@ def _build_generated_theme_tokens_yaml(profile: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _build_generated_bindings_report_yaml(profile: Dict[str, Any]) -> str:
+    p = _normalize_profile(profile)
+    subs = _profile_to_substitutions(p)
+    required = _required_bindings_snapshot(p, subs)
+    features = p.get("features", {}) if isinstance(p.get("features"), dict) else {}
+    lines: List[str] = [
+        "# Auto-generated by T-Deck Admin Center. Do not hand-edit.",
+        "bindings_report:",
+        f"  generated_at_epoch: {_q(str(int(_now())))}",
+        f"  schema_version: {_q(PROFILE_SCHEMA_VERSION)}",
+        f"  device_slug: {_q(_managed_device_slug(p))}",
+        "  enabled_features:",
+    ]
+    enabled_features = [k for k in sorted(features.keys()) if _as_bool(features.get(k), False)]
+    if enabled_features:
+        for key in enabled_features:
+            lines.append(f"    - {_q(key)}")
+    else:
+        lines.append(f"    - {_q('none')}")
+    lines.append("  required_bindings:")
+    for row in required:
+        lines.extend(
+            [
+                f"    - feature: {_q(_as_str(row.get('feature'), ''))}",
+                f"      key: {_q(_as_str(row.get('key'), ''))}",
+                f"      resolved: {_bool_str(row.get('resolved'))}",
+                f"      value: {_q(_as_str(row.get('value'), ''))}",
+                f"      suggested_value: {_q(_as_str(row.get('suggested_value'), ''))}",
+                f"      suggestion_reason: {_q(_as_str(row.get('suggestion_reason'), ''))}",
+            ]
+        )
+    return "\n".join(lines)
+
+
 def _build_generated_entities_yaml(profile: Dict[str, Any]) -> str:
     p = _normalize_profile(profile)
     collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
@@ -3122,6 +3390,7 @@ def _preview_managed_apply(
     generated_entities_instances_new = _build_generated_entities_instances_yaml(profile)
     generated_layout_pages_new = _build_generated_layout_pages_yaml(profile, workspace)
     generated_theme_tokens_new = _build_generated_theme_tokens_yaml(profile)
+    generated_bindings_report_new = _build_generated_bindings_report_yaml(profile)
     generated_entities_new = _build_generated_entities_yaml(profile)
     generated_theme_new = _build_generated_theme_yaml(profile)
     generated_layout_new = _build_generated_layout_yaml(profile, workspace)
@@ -3136,6 +3405,7 @@ def _preview_managed_apply(
     generated_entities_instances_cur = _read_text(paths["generated_entities_instances"])
     generated_layout_pages_cur = _read_text(paths["generated_layout_pages"])
     generated_theme_tokens_cur = _read_text(paths["generated_theme_tokens"])
+    generated_bindings_report_cur = _read_text(paths["generated_bindings_report"])
     generated_entities_cur = _read_text(paths["generated_entities"])
     generated_theme_cur = _read_text(paths["generated_theme"])
     generated_layout_cur = _read_text(paths["generated_layout"])
@@ -3150,6 +3420,7 @@ def _preview_managed_apply(
     generated_entities_instances_changed = generated_entities_instances_cur != generated_entities_instances_new
     generated_layout_pages_changed = generated_layout_pages_cur != generated_layout_pages_new
     generated_theme_tokens_changed = generated_theme_tokens_cur != generated_theme_tokens_new
+    generated_bindings_report_changed = generated_bindings_report_cur != generated_bindings_report_new
     generated_entities_changed = generated_entities_cur != generated_entities_new
     generated_theme_changed = generated_theme_cur != generated_theme_new
     generated_layout_changed = generated_layout_cur != generated_layout_new
@@ -3208,6 +3479,14 @@ def _preview_managed_apply(
                 "checksum_new": _sha256_text(generated_theme_tokens_new),
                 "diff": _unified_diff(generated_theme_tokens_cur, generated_theme_tokens_new, f"{paths['generated_theme_tokens']} (current)", f"{paths['generated_theme_tokens']} (new)") if generated_theme_tokens_changed else "",
                 "content_new": generated_theme_tokens_new,
+            },
+            "bindings_report": {
+                "path": str(paths["generated_bindings_report"]),
+                "changed": generated_bindings_report_changed,
+                "checksum_current": _sha256_text(generated_bindings_report_cur) if generated_bindings_report_cur else "",
+                "checksum_new": _sha256_text(generated_bindings_report_new),
+                "diff": _unified_diff(generated_bindings_report_cur, generated_bindings_report_new, f"{paths['generated_bindings_report']} (current)", f"{paths['generated_bindings_report']} (new)") if generated_bindings_report_changed else "",
+                "content_new": generated_bindings_report_new,
             },
             "entities": {
                 "path": str(paths["generated_entities"]),
@@ -3298,6 +3577,7 @@ def _commit_managed_preview(
     generated_entities_instances_raw = _as_str(preview.get("generated", {}).get("entities_instances", {}).get("path", ""))
     generated_layout_pages_raw = _as_str(preview.get("generated", {}).get("layout_pages", {}).get("path", ""))
     generated_theme_tokens_raw = _as_str(preview.get("generated", {}).get("theme_tokens", {}).get("path", ""))
+    generated_bindings_report_raw = _as_str(preview.get("generated", {}).get("bindings_report", {}).get("path", ""))
     generated_entities_raw = _as_str(preview.get("generated", {}).get("entities", {}).get("path", ""))
     generated_theme_raw = _as_str(preview.get("generated", {}).get("theme", {}).get("path", ""))
     generated_layout_raw = _as_str(preview.get("generated", {}).get("layout", {}).get("path", ""))
@@ -3310,6 +3590,7 @@ def _commit_managed_preview(
     generated_entities_instances_path = Path(generated_entities_instances_raw) if generated_entities_instances_raw else None
     generated_layout_pages_path = Path(generated_layout_pages_raw) if generated_layout_pages_raw else None
     generated_theme_tokens_path = Path(generated_theme_tokens_raw) if generated_theme_tokens_raw else None
+    generated_bindings_report_path = Path(generated_bindings_report_raw) if generated_bindings_report_raw else None
     generated_entities_path = Path(generated_entities_raw) if generated_entities_raw else None
     generated_theme_path = Path(generated_theme_raw) if generated_theme_raw else None
     generated_layout_path = Path(generated_layout_raw) if generated_layout_raw else None
@@ -3328,6 +3609,7 @@ def _commit_managed_preview(
         (generated_entities_instances_path, _as_str(preview.get("generated", {}).get("entities_instances", {}).get("content_new"), "")),
         (generated_layout_pages_path, _as_str(preview.get("generated", {}).get("layout_pages", {}).get("content_new"), "")),
         (generated_theme_tokens_path, _as_str(preview.get("generated", {}).get("theme_tokens", {}).get("content_new"), "")),
+        (generated_bindings_report_path, _as_str(preview.get("generated", {}).get("bindings_report", {}).get("content_new"), "")),
         (generated_entities_path, _as_str(preview.get("generated", {}).get("entities", {}).get("content_new"), "")),
         (generated_theme_path, _as_str(preview.get("generated", {}).get("theme", {}).get("content_new"), "")),
         (generated_layout_path, _as_str(preview.get("generated", {}).get("layout", {}).get("content_new"), "")),
@@ -3352,6 +3634,7 @@ def _commit_managed_preview(
             "generated_entities_instances": str(generated_entities_instances_path) if generated_entities_instances_path else "",
             "generated_layout_pages": str(generated_layout_pages_path) if generated_layout_pages_path else "",
             "generated_theme_tokens": str(generated_theme_tokens_path) if generated_theme_tokens_path else "",
+            "generated_bindings_report": str(generated_bindings_report_path) if generated_bindings_report_path else "",
             "generated_entities": str(generated_entities_path) if generated_entities_path else "",
             "generated_theme": str(generated_theme_path) if generated_theme_path else "",
             "generated_layout": str(generated_layout_path) if generated_layout_path else "",
@@ -3367,6 +3650,7 @@ def _commit_managed_preview(
             "generated_entities_instances": _sha256_file(generated_entities_instances_path),
             "generated_layout_pages": _sha256_file(generated_layout_pages_path),
             "generated_theme_tokens": _sha256_file(generated_theme_tokens_path),
+            "generated_bindings_report": _sha256_file(generated_bindings_report_path),
             "generated_entities": _sha256_file(generated_entities_path),
             "generated_theme": _sha256_file(generated_theme_path),
             "generated_layout": _sha256_file(generated_layout_path),
@@ -3383,6 +3667,7 @@ def _commit_managed_preview(
             "generated_entities_instances": _as_bool(preview.get("generated", {}).get("entities_instances", {}).get("changed"), False),
             "generated_layout_pages": _as_bool(preview.get("generated", {}).get("layout_pages", {}).get("changed"), False),
             "generated_theme_tokens": _as_bool(preview.get("generated", {}).get("theme_tokens", {}).get("changed"), False),
+            "generated_bindings_report": _as_bool(preview.get("generated", {}).get("bindings_report", {}).get("changed"), False),
             "generated_entities": _as_bool(preview.get("generated", {}).get("entities", {}).get("changed"), False),
             "generated_theme": _as_bool(preview.get("generated", {}).get("theme", {}).get("changed"), False),
             "generated_layout": _as_bool(preview.get("generated", {}).get("layout", {}).get("changed"), False),
@@ -3423,6 +3708,7 @@ def _backup_files(
     generated_entities_instances_file = paths["generated_entities_instances"]
     generated_layout_pages_file = paths["generated_layout_pages"]
     generated_theme_tokens_file = paths["generated_theme_tokens"]
+    generated_bindings_report_file = paths["generated_bindings_report"]
     generated_entities_file = paths["generated_entities"]
     generated_theme_file = paths["generated_theme"]
     generated_layout_file = paths["generated_layout"]
@@ -3442,6 +3728,8 @@ def _backup_files(
         shutil.copy2(generated_layout_pages_file, snapshot / "layout.pages.yaml")
     if generated_theme_tokens_file.exists():
         shutil.copy2(generated_theme_tokens_file, snapshot / "theme.tokens.yaml")
+    if generated_bindings_report_file.exists():
+        shutil.copy2(generated_bindings_report_file, snapshot / "bindings.report.yaml")
     if generated_entities_file.exists():
         shutil.copy2(generated_entities_file, snapshot / "entities.generated.yaml")
     if generated_theme_file.exists():
@@ -3472,6 +3760,7 @@ def _backup_files(
             "generated_entities_instances_before": preview.get("generated", {}).get("entities_instances", {}).get("checksum_current", ""),
             "generated_layout_pages_before": preview.get("generated", {}).get("layout_pages", {}).get("checksum_current", ""),
             "generated_theme_tokens_before": preview.get("generated", {}).get("theme_tokens", {}).get("checksum_current", ""),
+            "generated_bindings_report_before": preview.get("generated", {}).get("bindings_report", {}).get("checksum_current", ""),
             "generated_entities_before": preview.get("generated", {}).get("entities", {}).get("checksum_current", ""),
             "generated_theme_before": preview.get("generated", {}).get("theme", {}).get("checksum_current", ""),
             "generated_layout_before": preview.get("generated", {}).get("layout", {}).get("checksum_current", ""),
@@ -3482,6 +3771,7 @@ def _backup_files(
             "generated_entities_instances_after": preview.get("generated", {}).get("entities_instances", {}).get("checksum_new", ""),
             "generated_layout_pages_after": preview.get("generated", {}).get("layout_pages", {}).get("checksum_new", ""),
             "generated_theme_tokens_after": preview.get("generated", {}).get("theme_tokens", {}).get("checksum_new", ""),
+            "generated_bindings_report_after": preview.get("generated", {}).get("bindings_report", {}).get("checksum_new", ""),
             "generated_page_home_before": preview.get("generated", {}).get("page_home", {}).get("checksum_current", ""),
             "generated_page_lights_before": preview.get("generated", {}).get("page_lights", {}).get("checksum_current", ""),
             "generated_page_weather_before": preview.get("generated", {}).get("page_weather", {}).get("checksum_current", ""),
@@ -3498,6 +3788,7 @@ def _backup_files(
             "generated_entities_instances": str(generated_entities_instances_file),
             "generated_layout_pages": str(generated_layout_pages_file),
             "generated_theme_tokens": str(generated_theme_tokens_file),
+            "generated_bindings_report": str(generated_bindings_report_file),
             "generated_entities": str(generated_entities_file),
             "generated_theme": str(generated_theme_file),
             "generated_layout": str(generated_layout_file),
@@ -3572,6 +3863,7 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     generated_entities_instances_src = target / "entities.instances.yaml"
     generated_layout_pages_src = target / "layout.pages.yaml"
     generated_theme_tokens_src = target / "theme.tokens.yaml"
+    generated_bindings_report_src = target / "bindings.report.yaml"
     generated_entities_src = target / "entities.generated.yaml"
     generated_theme_src = target / "theme.generated.yaml"
     generated_layout_src = target / "layout.generated.yaml"
@@ -3589,6 +3881,7 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
         "generated_entities_instances": False,
         "generated_layout_pages": False,
         "generated_theme_tokens": False,
+        "generated_bindings_report": False,
         "generated_entities": False,
         "generated_theme": False,
         "generated_layout": False,
@@ -3615,6 +3908,9 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
     if generated_theme_tokens_src.exists():
         shutil.copy2(generated_theme_tokens_src, paths["generated_theme_tokens"])
         restored["generated_theme_tokens"] = True
+    if generated_bindings_report_src.exists():
+        shutil.copy2(generated_bindings_report_src, paths["generated_bindings_report"])
+        restored["generated_bindings_report"] = True
     if generated_entities_src.exists():
         shutil.copy2(generated_entities_src, paths["generated_entities"])
         restored["generated_entities"] = True
@@ -3647,6 +3943,7 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
             "generated_entities_instances": str(paths["generated_entities_instances"]),
             "generated_layout_pages": str(paths["generated_layout_pages"]),
             "generated_theme_tokens": str(paths["generated_theme_tokens"]),
+            "generated_bindings_report": str(paths["generated_bindings_report"]),
             "generated_entities": str(paths["generated_entities"]),
             "generated_theme": str(paths["generated_theme"]),
             "generated_layout": str(paths["generated_layout"]),
@@ -3662,6 +3959,7 @@ def _restore_backup(device_slug: str, backup_id: str) -> Dict[str, Any]:
             "generated_entities_instances": _sha256_file(paths["generated_entities_instances"]),
             "generated_layout_pages": _sha256_file(paths["generated_layout_pages"]),
             "generated_theme_tokens": _sha256_file(paths["generated_theme_tokens"]),
+            "generated_bindings_report": _sha256_file(paths["generated_bindings_report"]),
             "generated_entities": _sha256_file(paths["generated_entities"]),
             "generated_theme": _sha256_file(paths["generated_theme"]),
             "generated_layout": _sha256_file(paths["generated_layout"]),
@@ -3744,7 +4042,7 @@ def _build_install_yaml(
                 "  # Typed generated artifacts are managed for Admin Center and backups,",
                 "  # but not injected into ESPHome packages because they are not compile-schema keys.",
                 "  # See generated/types.registry.yaml, generated/entities.instances.yaml,",
-                "  # generated/layout.pages.yaml, generated/theme.tokens.yaml.",
+                "  # generated/layout.pages.yaml, generated/theme.tokens.yaml, generated/bindings.report.yaml.",
                 "  generated_entities: !include generated/entities.generated.yaml",
                 "  generated_theme: !include generated/theme.generated.yaml",
                 "  generated_layout: !include generated/layout.generated.yaml",
@@ -3957,6 +4255,15 @@ def _resolve_firmware_capabilities(
             "manual_fallback": True,
         },
         "has_any_automatic_method": bool(esphome_install_available or native_available),
+        "ota_supported": bool(esphome_install_available or native_available),
+        "usb_required": not bool(esphome_install_available or native_available),
+        "expected_usb_flow_steps": [
+            "Connect T-Deck Plus via USB.",
+            "Install once over serial from managed install YAML.",
+            "Switch to OTA updates from Admin Center.",
+        ]
+        if not bool(esphome_install_available or native_available)
+        else [],
     }
 
 
@@ -4027,6 +4334,11 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
         target_version=target_version,
     )
     selected_method = _choose_firmware_method(mode, capabilities)
+    selected_service_refs = {
+        "compile": _as_str(capabilities.get("esphome_compile_service"), ""),
+        "install": _as_str(capabilities.get("esphome_install_service"), ""),
+        "native_update": "update.install",
+    }
     actions_attempted: List[Dict[str, Any]] = []
 
     lock = _get_apply_lock(device_slug)
@@ -4043,6 +4355,7 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
     backup: Dict[str, Any] | None = None
     status_code = 200
     summary = ""
+    manual_fallback_reason = ""
     manual_next_steps: List[str] = []
     try:
         preview = None
@@ -4097,6 +4410,7 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
                 if not compile_attempt.get("ok"):
                     if mode == "build_install":
                         selected_method = "manual_fallback"
+                        manual_fallback_reason = "compile_service_failed"
                     summary = "Compile service failed"
 
             if selected_method == "esphome_service" and install_service:
@@ -4126,6 +4440,7 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
                         selected_method = "native_update_entity"
                     else:
                         selected_method = "manual_fallback"
+                        manual_fallback_reason = "install_service_failed"
                         summary = "ESPHome install service unavailable"
 
         if selected_method == "native_update_entity":
@@ -4152,6 +4467,7 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
                 )
                 summary = str(err)
                 selected_method = "manual_fallback"
+                manual_fallback_reason = "native_update_service_failed"
                 status_code = 502
 
         if selected_method == "manual_fallback":
@@ -4166,6 +4482,8 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
             actions_attempted.append({"step": "manual_fallback", "status": "required"})
             if not summary:
                 summary = "Automatic firmware workflow not available"
+            if not manual_fallback_reason:
+                manual_fallback_reason = "automatic_methods_unavailable"
 
         status = _firmware_status_for(
             device_slug=device_slug,
@@ -4174,6 +4492,7 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
             app_version_entity=app_version_entity,
             capabilities=capabilities,
             selected_method=selected_method,
+            legacy_imported=_as_str(settings.get("installed_version_status"), "").strip().lower() == "legacy_unknown",
         )
         ok = selected_method != "manual_fallback" or mode == "manual_fallback"
         if selected_method == "manual_fallback" and mode in {"auto", "build_install", "install_only"}:
@@ -4208,10 +4527,24 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
             "app_version_entity": app_version_entity,
             "capabilities": capabilities,
             "actions_attempted": actions_attempted,
+            "attempt_matrix": actions_attempted,
+            "selected_service_refs": selected_service_refs,
             "backup": backup or {},
             "status": status,
             "summary": summary,
             "manual_next_steps": manual_next_steps,
+            "manual_fallback_reason": manual_fallback_reason,
+            "next_steps": manual_next_steps,
+            "first_flash_path": {
+                "usb_required": not _as_bool(capabilities.get("has_any_automatic_method"), False),
+                "expected_usb_flow_steps": [
+                    "Connect T-Deck Plus over USB.",
+                    "Run ESPHome install over serial for the managed install YAML.",
+                    "Return to Admin Center for OTA updates.",
+                ]
+                if not _as_bool(capabilities.get("has_any_automatic_method"), False)
+                else [],
+            },
         }, status_code
     except Exception as err:
         with _RUNTIME_STATE_LOCK:
@@ -4239,7 +4572,11 @@ def _execute_firmware_workflow(payload: Dict[str, Any]) -> Tuple[Dict[str, Any],
             "app_version_entity": app_version_entity,
             "backup": backup or {},
             "actions_attempted": actions_attempted,
+            "attempt_matrix": actions_attempted,
+            "selected_service_refs": selected_service_refs,
             "capabilities": capabilities,
+            "manual_fallback_reason": "workflow_exception",
+            "next_steps": [],
         }, 502
     finally:
         lock.release()
@@ -4252,6 +4589,7 @@ def _firmware_status_for(
     app_version_entity: str,
     capabilities: Dict[str, Any] | None = None,
     selected_method: str = "",
+    legacy_imported: bool = False,
 ) -> Dict[str, Any]:
     safe_slug = _slugify(device_slug, "tdeck")
     target = _as_str(target_version, DEFAULT_APP_RELEASE_VERSION).strip()
@@ -4287,7 +4625,7 @@ def _firmware_status_for(
 
     status_text = "firmware_up_to_date"
     if not installed_known:
-        status_text = "unknown_legacy"
+        status_text = "unknown_legacy_imported" if legacy_imported else "unknown_legacy"
     elif firmware_pending:
         status_text = "firmware_pending"
     if method == "manual_fallback":
@@ -4748,6 +5086,8 @@ def api_profile_validate() -> Any:
             "errors": all_errors,
             "warnings": all_warnings,
             "profile": result["profile"],
+            "required_bindings": result.get("required_bindings", []),
+            "required_bindings_summary": result.get("required_bindings_summary", {}),
             "workspace": workspace,
             "active_device_index": active_idx,
             "per_device": per_device,
@@ -4816,6 +5156,46 @@ def _confidence_label(score: int) -> str:
     return "low"
 
 
+def _candidate_source_groups(node: Dict[str, Any]) -> List[str]:
+    reasons = node.get("reasons", []) if isinstance(node.get("reasons"), list) else []
+    sources: List[str] = []
+    if any(str(x).startswith("device_registry:") or str(x).startswith("integration:esphome") for x in reasons):
+        sources.append("device_registry_esphome")
+    if _as_str(node.get("native_update_entity"), "") or any(str(x) == "native_firmware_entity" for x in reasons):
+        sources.append("update_entity_pattern")
+    if _as_str(node.get("app_version_entity"), "") or any(str(x) == "app_version_entity" for x in reasons):
+        sources.append("app_version_sensor_pattern")
+    if node.get("matched_entities") and isinstance(node.get("matched_entities"), list):
+        sources.append("entity_registry_linked")
+    if not sources:
+        sources.append("heuristic")
+    return sorted(set(sources))
+
+
+def _group_candidates_by_source(nodes: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    groups: Dict[str, List[Dict[str, Any]]] = {
+        "device_registry_esphome": [],
+        "update_entity_pattern": [],
+        "app_version_sensor_pattern": [],
+        "entity_registry_linked": [],
+        "heuristic": [],
+    }
+    for row in nodes:
+        if not isinstance(row, dict):
+            continue
+        for source in _candidate_source_groups(row):
+            groups.setdefault(source, [])
+            groups[source].append(
+                {
+                    "device_slug": _as_str(row.get("device_slug"), ""),
+                    "friendly_name": _as_str(row.get("friendly_name"), ""),
+                    "confidence": _as_str(row.get("confidence"), "low"),
+                    "confidence_score": _as_int(row.get("confidence_score"), 0, 0, None),
+                }
+            )
+    return groups
+
+
 def _manual_candidate_from_input(device_slug: str, entity_id: str) -> Dict[str, Any]:
     slug = _slugify(device_slug, "")
     ent = _as_str(entity_id, "").strip().lower()
@@ -4856,6 +5236,7 @@ def _manual_candidate_from_input(device_slug: str, entity_id: str) -> Dict[str, 
         "confidence": "medium",
         "reasons": reasons,
         "matched_entities": matched,
+        "source_groups": ["heuristic"],
     }
 
 
@@ -5074,6 +5455,7 @@ def _detect_esphome_nodes(force_refresh: bool = False) -> List[Dict[str, Any]]:
         node["reasons"] = sorted(set([_as_str(x, "") for x in reasons if _as_str(x, "")]))
         matched = node.get("matched_entities", []) if isinstance(node.get("matched_entities"), list) else []
         node["matched_entities"] = sorted(set([_as_str(x, "") for x in matched if _as_str(x, "")]))[:16]
+        node["source_groups"] = _candidate_source_groups(node)
         if not _as_str(node.get("friendly_name"), ""):
             node["friendly_name"] = f"T-Deck Candidate ({slug})"
         out.append(node)
@@ -5087,12 +5469,21 @@ def api_onboarding_candidates() -> Any:
     try:
         force = _as_bool(request.args.get("refresh"), False)
         nodes = _detect_esphome_nodes(force_refresh=force)
+        grouped = _group_candidates_by_source(nodes)
         cache = _discovery_cache_snapshot()
         return jsonify(
             {
                 "ok": True,
                 "nodes": nodes,
                 "count": len(nodes),
+                "grouped": grouped,
+                "groups_order": [
+                    "device_registry_esphome",
+                    "update_entity_pattern",
+                    "app_version_sensor_pattern",
+                    "entity_registry_linked",
+                    "heuristic",
+                ],
                 "discovery": {
                     "cache_age_ms": cache.get("cache_age_ms", 0),
                     "last_error": _as_str(cache.get("last_error"), ""),
@@ -5103,13 +5494,177 @@ def api_onboarding_candidates() -> Any:
             }
         )
     except Exception as err:
-        return jsonify({"ok": False, "error": str(err), "nodes": [], "count": 0}), 500
+        return jsonify({"ok": False, "error": str(err), "nodes": [], "count": 0, "grouped": {}}), 500
 
 
 @app.get("/api/onboarding/esphome/nodes")
 def api_onboarding_esphome_nodes() -> Any:
     # Backward-compatible alias.
     return api_onboarding_candidates()
+
+
+def _provisioning_modes_for(
+    device_slug: str,
+    settings: Dict[str, Any] | None = None,
+    native_firmware_entity: str = "",
+    app_version_entity: str = "",
+    target_version: str = "",
+) -> Dict[str, Any]:
+    safe_slug = _slugify(device_slug, "lilygo-tdeck-plus")
+    settings = settings if isinstance(settings, dict) else {}
+    caps = _resolve_firmware_capabilities(
+        device_slug=safe_slug,
+        settings=settings,
+        native_firmware_entity=native_firmware_entity,
+        app_version_entity=app_version_entity,
+        target_version=target_version or _as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION),
+    )
+    ota_supported = _as_bool(caps.get("has_any_automatic_method"), False)
+    usb_required = not ota_supported
+    return {
+        "device_slug": safe_slug,
+        "ota_supported": ota_supported,
+        "esphome_services_available": _as_bool(caps.get("esphome_install_available"), False),
+        "native_update_available": _as_bool(caps.get("native_update_available"), False),
+        "usb_required": usb_required,
+        "recommended_method": _as_str(caps.get("recommended_method"), "manual_fallback"),
+        "capabilities": caps,
+        "expected_usb_flow_steps": [
+            "Connect T-Deck Plus to host via USB.",
+            "Open ESPHome dashboard and select the managed install YAML path.",
+            "Run install over serial once, then return to OTA updates from Admin Center.",
+        ]
+        if usb_required
+        else [],
+    }
+
+
+def _onboarding_import_recommendation(candidate: Dict[str, Any]) -> Dict[str, Any]:
+    slug = _slugify(candidate.get("device_slug"), "lilygo-tdeck-plus")
+    return {
+        "workspace_name": f"imported_{slug}",
+        "device_slug": slug,
+        "friendly_name": _as_str(candidate.get("friendly_name"), f"T-Deck ({slug})"),
+        "native_firmware_entity": _as_str(candidate.get("native_update_entity"), f"update.{slug}_firmware"),
+        "app_version_entity": _as_str(candidate.get("app_version_entity"), f"sensor.{slug}_app_version"),
+    }
+
+
+@app.post("/api/onboarding/probe_entity")
+def api_onboarding_probe_entity() -> Any:
+    payload = request.get_json(silent=True) or {}
+    entity_id = _as_str(payload.get("entity_id"), "").strip().lower()
+    if not entity_id or "." not in entity_id:
+        return jsonify({"ok": False, "error": "entity_id is required"}), 400
+    force = _as_bool(payload.get("refresh"), False)
+    nodes = _detect_esphome_nodes(force_refresh=force)
+    selected: Dict[str, Any] | None = None
+    for row in nodes:
+        if not isinstance(row, dict):
+            continue
+        matched = row.get("matched_entities", []) if isinstance(row.get("matched_entities"), list) else []
+        matched_lower = [str(x).lower() for x in matched]
+        if entity_id in matched_lower:
+            selected = row
+            break
+        if entity_id == _as_str(row.get("native_update_entity"), "").lower():
+            selected = row
+            break
+        if entity_id == _as_str(row.get("app_version_entity"), "").lower():
+            selected = row
+            break
+    if selected is None:
+        selected = _manual_candidate_from_input("", entity_id)
+    selected["source_groups"] = _candidate_source_groups(selected)
+    modes = _provisioning_modes_for(
+        _as_str(selected.get("device_slug"), ""),
+        settings={},
+        native_firmware_entity=_as_str(selected.get("native_update_entity"), ""),
+        app_version_entity=_as_str(selected.get("app_version_entity"), ""),
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "entity_id": entity_id,
+            "candidate": selected,
+            "confidence": {
+                "label": _as_str(selected.get("confidence"), "low"),
+                "score": _as_int(selected.get("confidence_score"), 0, 0, None),
+                "reasons": selected.get("reasons", []),
+            },
+            "recommended_import": _onboarding_import_recommendation(selected),
+            "provisioning_modes": modes,
+        }
+    )
+
+
+@app.post("/api/onboarding/probe_host")
+def api_onboarding_probe_host() -> Any:
+    payload = request.get_json(silent=True) or {}
+    host = _as_str(payload.get("host"), "").strip()
+    node_name = _as_str(payload.get("node_name"), "").strip()
+    hint = host or node_name
+    if not hint:
+        return jsonify({"ok": False, "error": "host or node_name is required"}), 400
+    hint_slug = _slugify(hint.split(".", 1)[0], "")
+    nodes = _detect_esphome_nodes(force_refresh=_as_bool(payload.get("refresh"), False))
+    selected: Dict[str, Any] | None = None
+    for row in nodes:
+        slug = _slugify(row.get("device_slug"), "")
+        blob = f"{_as_str(row.get('device_slug'), '')} {_as_str(row.get('friendly_name'), '')}".lower()
+        if hint_slug and (hint_slug == slug or hint_slug in blob.replace("-", "_")):
+            selected = row
+            break
+    if selected is None:
+        # fallback to a manual candidate so Guided flow can proceed deterministically.
+        selected = _manual_candidate_from_input(hint_slug or "lilygo-tdeck-plus", "")
+        selected.setdefault("reasons", [])
+        reasons = selected.get("reasons", []) if isinstance(selected.get("reasons"), list) else []
+        if "host_probe_manual" not in reasons:
+            reasons.append("host_probe_manual")
+        selected["reasons"] = reasons
+    selected["source_groups"] = _candidate_source_groups(selected)
+    modes = _provisioning_modes_for(
+        _as_str(selected.get("device_slug"), ""),
+        settings={},
+        native_firmware_entity=_as_str(selected.get("native_update_entity"), ""),
+        app_version_entity=_as_str(selected.get("app_version_entity"), ""),
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "probe": {"host": host, "node_name": node_name, "hint_slug": hint_slug},
+            "candidate": selected,
+            "migration_feasible": True,
+            "recommended_import": _onboarding_import_recommendation(selected),
+            "provisioning_modes": modes,
+        }
+    )
+
+
+@app.get("/api/onboarding/provisioning_modes")
+def api_onboarding_provisioning_modes() -> Any:
+    workspace_name = _safe_profile_name(request.args.get("workspace"), "default")
+    ws = _load_workspace_or_default(workspace_name)
+    profile, idx = _workspace_active_profile(ws, ws.get("active_device_index", 0), _as_str(request.args.get("device_slug"), ""))
+    settings = profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {}
+    slug = _as_str(request.args.get("device_slug"), _managed_device_slug(profile)).strip() or _managed_device_slug(profile)
+    modes = _provisioning_modes_for(
+        slug,
+        settings=settings,
+        native_firmware_entity=_as_str(request.args.get("native_firmware_entity"), _as_str(settings.get("ha_native_firmware_entity"), "")),
+        app_version_entity=_as_str(request.args.get("app_version_entity"), _as_str(settings.get("ha_app_version_entity"), "")),
+        target_version=_as_str(request.args.get("target_version"), _as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION)),
+    )
+    return jsonify(
+        {
+            "ok": True,
+            "workspace_name": ws.get("workspace_name", workspace_name),
+            "active_device_index": idx,
+            "device_slug": slug,
+            **modes,
+        }
+    )
 
 
 @app.post("/api/onboarding/verify_candidate")
@@ -5146,12 +5701,21 @@ def api_onboarding_verify_candidate() -> Any:
         hints.append("legacy node likely; firmware version sensor not detected")
     if "manual_fallback" in (selected.get("reasons") if isinstance(selected.get("reasons"), list) else []):
         hints.append("manual fallback used; candidate was created from input slug/entity")
+    selected["source_groups"] = _candidate_source_groups(selected)
+    modes = _provisioning_modes_for(
+        _as_str(selected.get("device_slug"), ""),
+        settings={},
+        native_firmware_entity=_as_str(selected.get("native_update_entity"), ""),
+        app_version_entity=_as_str(selected.get("app_version_entity"), ""),
+    )
     return jsonify(
         {
             "ok": True,
             "candidate": selected,
             "matched_entities_sample": matched_entities[:16],
             "hints": hints,
+            "recommended_import": _onboarding_import_recommendation(selected),
+            "provisioning_modes": modes,
         }
     )
 
@@ -5174,6 +5738,13 @@ def api_onboarding_start_new() -> Any:
     ws = _workspace_with_profile(ws, profile, idx)
     ws, saved = _maybe_persist_workspace({"persist": _as_bool(payload.get("persist"), True), "name": ws["workspace_name"]}, ws)
     paths = _managed_paths(_managed_device_slug(profile))
+    modes = _provisioning_modes_for(
+        _managed_device_slug(profile),
+        settings=profile.get("settings", {}),
+        native_firmware_entity=_as_str(profile.get("settings", {}).get("ha_native_firmware_entity"), ""),
+        app_version_entity=_as_str(profile.get("settings", {}).get("ha_app_version_entity"), ""),
+        target_version=_as_str(profile.get("settings", {}).get("app_release_version"), DEFAULT_APP_RELEASE_VERSION),
+    )
     return jsonify(
         {
             "ok": True,
@@ -5183,6 +5754,7 @@ def api_onboarding_start_new() -> Any:
             "saved_workspace": saved,
             "preset": preset,
             "managed_paths": {k: str(v) for k, v in paths.items()},
+            "provisioning_modes": modes,
             "message": "Start New T-Deck workspace initialized with deploy-safe defaults.",
         }
     )
@@ -5288,6 +5860,13 @@ def api_onboarding_import_existing() -> Any:
     ws["workspace_name"] = _safe_profile_name(payload.get("workspace_name"), "imported")
     ws = _workspace_with_profile(ws, profile, idx)
     ws, saved = _maybe_persist_workspace({"persist": _as_bool(payload.get("persist"), True), "name": ws["workspace_name"]}, ws)
+    modes = _provisioning_modes_for(
+        slug,
+        settings=profile.get("settings", {}),
+        native_firmware_entity=_as_str(profile.get("settings", {}).get("ha_native_firmware_entity"), ""),
+        app_version_entity=_as_str(profile.get("settings", {}).get("ha_app_version_entity"), ""),
+        target_version=_as_str(profile.get("settings", {}).get("app_release_version"), DEFAULT_APP_RELEASE_VERSION),
+    )
     return jsonify(
         {
             "ok": True,
@@ -5296,6 +5875,7 @@ def api_onboarding_import_existing() -> Any:
             "active_device_index": idx,
             "saved_workspace": saved,
             "imported_node": selected,
+            "provisioning_modes": modes,
             "message": (
                 "Existing ESPHome node imported into managed workspace. "
                 "Firmware version may appear as legacy_unknown until upgraded."
@@ -6611,6 +7191,7 @@ def api_firmware_status() -> Any:
     app_ver_override = _as_str(request.args.get("app_version_entity"), "").strip()
     compile_override = _as_str(request.args.get("ha_esphome_compile_service"), "").strip()
     install_override = _as_str(request.args.get("ha_esphome_install_service"), "").strip()
+    legacy_imported = _as_bool(request.args.get("legacy_imported"), False)
     settings = {
         "ha_esphome_compile_service": compile_override,
         "ha_esphome_install_service": install_override,
@@ -6630,6 +7211,7 @@ def api_firmware_status() -> Any:
         app_version_entity=app_ver_override or default_app_ver,
         capabilities=caps,
         selected_method=_as_str(caps.get("recommended_method"), ""),
+        legacy_imported=legacy_imported,
     )
     return jsonify({"ok": True, **status})
 
@@ -6698,6 +7280,7 @@ def api_meta_contracts() -> Any:
                     "generated/entities.instances.yaml",
                     "generated/layout.pages.yaml",
                     "generated/theme.tokens.yaml",
+                    "generated/bindings.report.yaml",
                     "generated/entities.generated.yaml",
                     "generated/theme.generated.yaml",
                     "generated/layout.generated.yaml",
@@ -6728,6 +7311,7 @@ def api_generate_install() -> Any:
             "entities_instances": _build_generated_entities_instances_yaml(profile),
             "layout_pages": _build_generated_layout_pages_yaml(profile, workspace),
             "theme_tokens": _build_generated_theme_tokens_yaml(profile),
+            "bindings_report": _build_generated_bindings_report_yaml(profile),
             "entities": _build_generated_entities_yaml(profile),
             "theme": _build_generated_theme_yaml(profile),
             "layout": _build_generated_layout_yaml(profile, workspace),
@@ -6865,6 +7449,243 @@ def api_apply_commit() -> Any:
         lock.release()
 
 
+def _managed_write_check(device_slug: str) -> Dict[str, Any]:
+    paths = _managed_paths(device_slug)
+    probe = paths["install"].parent / ".write_probe"
+    try:
+        probe.parent.mkdir(parents=True, exist_ok=True)
+        probe.write_text(str(int(_now())), encoding="utf-8")
+        probe.unlink(missing_ok=True)
+        return {"ok": True, "path": str(paths["install"].parent)}
+    except Exception as err:
+        return {"ok": False, "path": str(paths["install"].parent), "error": str(err)}
+
+
+def _deploy_preflight_result(
+    workspace: Dict[str, Any],
+    profile: Dict[str, Any],
+    payload: Dict[str, Any],
+) -> Dict[str, Any]:
+    validation = _validate_profile(profile)
+    device_slug = _managed_device_slug(profile)
+    settings = profile.get("settings", {}) if isinstance(profile.get("settings"), dict) else {}
+    caps = _resolve_firmware_capabilities(
+        device_slug=device_slug,
+        settings=settings,
+        native_firmware_entity=_as_str(settings.get("ha_native_firmware_entity"), ""),
+        app_version_entity=_as_str(settings.get("ha_app_version_entity"), ""),
+        target_version=_as_str(settings.get("app_release_version"), DEFAULT_APP_RELEASE_VERSION),
+    )
+    write_check = _managed_write_check(device_slug)
+    required_bindings = validation.get("required_bindings", []) if isinstance(validation.get("required_bindings"), list) else []
+    unresolved_required = [x for x in required_bindings if not _as_bool(x.get("resolved"), False)]
+    checks = [
+        {
+            "id": "device_selected",
+            "name": "Device selected",
+            "status": "pass" if bool(device_slug) else "fail",
+            "detail": device_slug or "No active device slug.",
+        },
+        {
+            "id": "required_bindings",
+            "name": "Required bindings",
+            "status": "pass" if not unresolved_required else "fail",
+            "detail": f"{len(required_bindings) - len(unresolved_required)}/{len(required_bindings)} resolved",
+        },
+        {
+            "id": "validation",
+            "name": "Workspace validation",
+            "status": "pass" if _as_bool(validation.get("ok"), False) else "fail",
+            "detail": f"errors={len(validation.get('errors', []))} warnings={len(validation.get('warnings', []))}",
+        },
+        {
+            "id": "managed_write",
+            "name": "Managed paths writable",
+            "status": "pass" if _as_bool(write_check.get("ok"), False) else "fail",
+            "detail": _as_str(write_check.get("path"), "") if _as_bool(write_check.get("ok"), False) else _as_str(write_check.get("error"), "write check failed"),
+        },
+        {
+            "id": "firmware_method",
+            "name": "Firmware method available",
+            "status": "pass" if _as_bool(caps.get("has_any_automatic_method"), False) else "warn",
+            "detail": _as_str(caps.get("recommended_method"), "manual_fallback"),
+        },
+    ]
+    remediation_actions: List[Dict[str, Any]] = []
+    if unresolved_required:
+        remediation_actions.append(
+            {
+                "id": "auto_resolve_required_mappings",
+                "label": "Resolve Required Mappings",
+                "detail": "Use typed entity inference to fill unresolved required bindings.",
+            }
+        )
+        remediation_actions.append(
+            {
+                "id": "auto_disable_unmapped_features",
+                "label": "Disable Unmapped Features",
+                "detail": "Disable features with unresolved required bindings.",
+            }
+        )
+    slot_runtime = _normalize_slot_runtime(profile.get("slot_runtime"))
+    collections = profile.get("entity_collections", {}) if isinstance(profile.get("entity_collections"), dict) else {}
+    enabled_lights = len([x for x in (collections.get("lights", []) if isinstance(collections.get("lights"), list) else []) if isinstance(x, dict) and _as_bool(x.get("enabled"), True)])
+    enabled_cameras = len([x for x in (collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []) if isinstance(x, dict) and _as_bool(x.get("enabled"), True)])
+    if enabled_lights > _as_int(slot_runtime.get("light_slot_cap"), SLOT_RUNTIME_LIMITS["lights"]["default_cap"], SLOT_RUNTIME_LIMITS["lights"]["min_cap"], SLOT_RUNTIME_LIMITS["lights"]["max_cap"]) or enabled_cameras > _as_int(slot_runtime.get("camera_slot_cap"), SLOT_RUNTIME_LIMITS["cameras"]["default_cap"], SLOT_RUNTIME_LIMITS["cameras"]["min_cap"], SLOT_RUNTIME_LIMITS["cameras"]["max_cap"]):
+        remediation_actions.append(
+            {
+                "id": "auto_fit_slot_caps",
+                "label": "Auto-Fit Slot Caps",
+                "detail": "Increase runtime caps to fit enabled rows within allowed maximums.",
+            }
+        )
+    blocking = [x for x in checks if _as_str(x.get("status"), "") == "fail"]
+    ok = len(blocking) == 0
+    profile_sig = _profile_signature(profile)
+    token = _issue_preflight_token(device_slug, profile_sig) if ok else ""
+    return {
+        "ok": ok,
+        "device_slug": device_slug,
+        "checks": checks,
+        "validation": {
+            "ok": _as_bool(validation.get("ok"), False),
+            "errors": validation.get("errors", []),
+            "warnings": validation.get("warnings", []),
+            "required_bindings": required_bindings,
+            "required_bindings_summary": validation.get("required_bindings_summary", {}),
+        },
+        "remediation_actions": remediation_actions,
+        "firmware_capabilities": caps,
+        "preflight_token": token,
+        "preflight_token_expires_in_s": DEPLOY_PREFLIGHT_TTL_SECONDS if token else 0,
+        "profile_signature": profile_sig,
+    }
+
+
+def _deploy_remediate_apply(profile: Dict[str, Any], actions: List[str]) -> Dict[str, Any]:
+    applied: List[str] = []
+    notes: List[str] = []
+    p = _normalize_profile(profile)
+    requested = [a for a in actions if _as_str(a, "")]
+    if not requested:
+        requested = ["auto_resolve_required_mappings", "auto_fit_slot_caps", "auto_disable_unmapped_features"]
+    requested = list(dict.fromkeys(requested))
+
+    if "auto_resolve_required_mappings" in requested:
+        subs = _profile_to_substitutions(p)
+        suggestions = _infer_required_binding_values(p, subs)
+        p.setdefault("entities", {})
+        fill_count = 0
+        for row in _required_bindings_snapshot(p, subs):
+            if _as_bool(row.get("resolved"), False):
+                continue
+            key = _as_str(row.get("key"), "")
+            suggested = suggestions.get(key, {})
+            value = _as_str(suggested.get("value"), "").strip()
+            if not value:
+                continue
+            p["entities"][key] = value
+            fill_count += 1
+        if fill_count:
+            applied.append("auto_resolve_required_mappings")
+            notes.append(f"filled_required_bindings={fill_count}")
+
+    if "auto_fit_slot_caps" in requested:
+        collections = p.get("entity_collections", {}) if isinstance(p.get("entity_collections"), dict) else {}
+        lights = collections.get("lights", []) if isinstance(collections.get("lights"), list) else []
+        cameras = collections.get("cameras", []) if isinstance(collections.get("cameras"), list) else []
+        enabled_lights = len([x for x in lights if isinstance(x, dict) and _as_bool(x.get("enabled"), True)])
+        enabled_cameras = len([x for x in cameras if isinstance(x, dict) and _as_bool(x.get("enabled"), True)])
+        slot_runtime = _normalize_slot_runtime(p.get("slot_runtime"))
+        changed = False
+        if enabled_lights > _as_int(slot_runtime.get("light_slot_cap"), SLOT_RUNTIME_LIMITS["lights"]["default_cap"], SLOT_RUNTIME_LIMITS["lights"]["min_cap"], SLOT_RUNTIME_LIMITS["lights"]["max_cap"]) and enabled_lights <= SLOT_RUNTIME_LIMITS["lights"]["max_cap"]:
+            slot_runtime["light_slot_cap"] = enabled_lights
+            changed = True
+        if enabled_cameras > _as_int(slot_runtime.get("camera_slot_cap"), SLOT_RUNTIME_LIMITS["cameras"]["default_cap"], SLOT_RUNTIME_LIMITS["cameras"]["min_cap"], SLOT_RUNTIME_LIMITS["cameras"]["max_cap"]) and enabled_cameras <= SLOT_RUNTIME_LIMITS["cameras"]["max_cap"]:
+            slot_runtime["camera_slot_cap"] = enabled_cameras
+            changed = True
+        if changed:
+            p["slot_runtime"] = _normalize_slot_runtime(slot_runtime)
+            applied.append("auto_fit_slot_caps")
+            notes.append("slot_runtime_caps_adjusted")
+
+    _sync_slots_from_collections(p)
+    if "auto_disable_unmapped_features" in requested:
+        unresolved = [x for x in _required_bindings_snapshot(p) if not _as_bool(x.get("resolved"), False)]
+        if unresolved:
+            features = p.get("features", {}) if isinstance(p.get("features"), dict) else {}
+            disabled: List[str] = []
+            for row in unresolved:
+                feature = _as_str(row.get("feature"), "")
+                if feature and _as_bool(features.get(feature), False):
+                    features[feature] = False
+                    disabled.append(feature)
+            if disabled:
+                p["features"] = features
+                _apply_feature_page_policy(p)
+                applied.append("auto_disable_unmapped_features")
+                notes.append("disabled_features=" + ",".join(sorted(set(disabled))))
+
+    incoming_instances = isinstance(p.get("entity_instances"), list) and len(p.get("entity_instances", [])) > 0
+    _normalize_entity_instances(p, incoming_has_instances=incoming_instances)
+    _sync_slots_from_collections(p)
+    return {"profile": p, "applied": applied, "notes": notes}
+
+
+@app.post("/api/deploy/preflight")
+def api_deploy_preflight() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    result = _deploy_preflight_result(workspace, profile, payload)
+    return jsonify(
+        {
+            "ok": _as_bool(result.get("ok"), False),
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            **result,
+        }
+    )
+
+
+@app.post("/api/deploy/remediate")
+def api_deploy_remediate() -> Any:
+    payload = request.get_json(silent=True) or {}
+    workspace, profile, idx = _workspace_or_profile_from_payload(payload)
+    actions_raw = payload.get("actions")
+    actions = [str(x) for x in actions_raw] if isinstance(actions_raw, list) else []
+    remediate = _deploy_remediate_apply(profile, actions)
+    profile = remediate["profile"] if isinstance(remediate.get("profile"), dict) else profile
+    workspace = _workspace_with_profile(workspace, profile, idx)
+    workspace, saved = _maybe_persist_workspace(payload, workspace)
+    preflight = _deploy_preflight_result(workspace, profile, payload)
+    return jsonify(
+        {
+            "ok": True,
+            "workspace": workspace,
+            "profile": profile,
+            "active_device_index": idx,
+            "saved_workspace": saved,
+            "remediation": {
+                "applied": remediate.get("applied", []),
+                "notes": remediate.get("notes", []),
+            },
+            "preflight": preflight,
+        }
+    )
+
+
+@app.get("/api/deploy/last_run")
+def api_deploy_last_run() -> Any:
+    runtime = _runtime_state_snapshot()
+    return jsonify(
+        {
+            "ok": True,
+            "last_run": runtime.get("last_deploy_run", {}),
+        }
+    )
+
+
 @app.post("/api/deploy/run")
 def api_deploy_run() -> Any:
     payload = request.get_json(silent=True) or {}
@@ -6874,6 +7695,9 @@ def api_deploy_run() -> Any:
     git_url = _as_str(payload.get("git_url"), _as_str(deployment.get("git_url"), _as_str(profile.get("device", {}).get("git_url"), ADDON_GITHUB_REPO_URL)))
     require_confirm = _as_bool(payload.get("require_confirm"), True)
     confirmed = _as_bool(payload.get("confirmed"), False)
+    guided_mode = _as_bool(payload.get("guided_mode"), False)
+    require_preflight_token = _as_bool(payload.get("require_preflight_token"), guided_mode)
+    preflight_token = _as_str(payload.get("preflight_token"), "").strip()
     run_firmware = _as_bool(payload.get("run_firmware"), True)
     firmware_mode = _as_str(payload.get("firmware_mode"), "auto").strip().lower() or "auto"
     if firmware_mode not in {"auto", "build_install", "install_only", "manual_fallback"}:
@@ -6881,16 +7705,38 @@ def api_deploy_run() -> Any:
 
     validation = _validate_profile(profile)
     if not validation.get("ok"):
-        return jsonify({"ok": False, "error": "validation_failed", "validation": validation}), 400
+        result = {"ok": False, "error": "validation_failed", "validation": validation}
+        _save_last_deploy_run(result)
+        return jsonify(result), 400
+
+    profile_sig = _profile_signature(profile)
+    device_slug_for_token = _managed_device_slug(profile)
+    if require_preflight_token:
+        valid_token, token_err = _verify_preflight_token(preflight_token, device_slug_for_token, profile_sig)
+        if not valid_token:
+            result = {
+                "ok": False,
+                "error": token_err,
+                "needs_preflight": True,
+                "validation": validation,
+                "device_slug": device_slug_for_token,
+            }
+            _save_last_deploy_run(result)
+            return jsonify(result), 412
+
     preview = _preview_managed_apply(workspace, profile, git_ref or ADDON_GITHUB_REF, git_url or ADDON_GITHUB_REPO_URL)
     if require_confirm and not confirmed:
+        result = {
+            "ok": False,
+            "error": "confirmation_required",
+            "needs_confirmation": True,
+            "preview": preview,
+            "validation": validation,
+        }
+        _save_last_deploy_run(result)
         return jsonify(
             {
-                "ok": False,
-                "error": "confirmation_required",
-                "needs_confirmation": True,
-                "preview": preview,
-                "validation": validation,
+                **result
             }
         ), 412
 
@@ -6925,23 +7771,28 @@ def api_deploy_run() -> Any:
         firmware_result, firmware_status_code = _execute_firmware_workflow(fw_payload)
     ok = committed is not None and _as_bool(firmware_result.get("ok"), True if not run_firmware else False)
     status_code = 200 if ok else (firmware_status_code if run_firmware else 500)
-    return jsonify(
-        {
-            "ok": ok,
-            "device_slug": device_slug,
-            "validation": validation,
-            "preview": preview,
-            "apply": committed,
-            "firmware": firmware_result,
-            "pipeline": {
-                "validate": True,
-                "preview": True,
-                "backup": True,
-                "write_managed_files": True,
-                "firmware_workflow": run_firmware,
-            },
-        }
-    ), status_code
+    result = {
+        "ok": ok,
+        "device_slug": device_slug,
+        "validation": validation,
+        "preview": preview,
+        "apply": committed,
+        "firmware": firmware_result,
+        "pipeline": {
+            "validate": True,
+            "preview": True,
+            "backup": True,
+            "write_managed_files": True,
+            "firmware_workflow": run_firmware,
+        },
+        "preflight": {
+            "required": require_preflight_token,
+            "token_used": bool(preflight_token),
+            "token_valid": True if not require_preflight_token else True,
+        },
+    }
+    _save_last_deploy_run(result)
+    return jsonify(result), status_code
 
 
 @app.get("/api/backups/list")

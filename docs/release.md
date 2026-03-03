@@ -2,9 +2,51 @@
 
 ## Current
 
-- Add-on manifest version: `0.25.1`
-- Default app release version: `v0.25.0`
+- Add-on manifest version: `0.25.2`
+- Default app release version: `v0.25.2`
 - Workspace/profile schema: `5.0`
+
+## v0.25.2 Onboarding + Deploy Hard Unblock
+
+### Onboarding reliability
+
+1. Upgraded `GET /api/onboarding/candidates` to return grouped candidates by source:
+   - `device_registry_esphome`
+   - `update_entity_pattern`
+   - `app_version_sensor_pattern`
+   - `entity_registry_linked`
+2. Added manual probe endpoints for missed legacy nodes:
+   - `POST /api/onboarding/probe_entity`
+   - `POST /api/onboarding/probe_host`
+3. Added provisioning capability endpoint:
+   - `GET /api/onboarding/provisioning_modes`
+4. Added richer import/verify payloads with recommended import profile and provisioning modes.
+
+### Guided deploy reliability
+
+1. Added preflight endpoint:
+   - `POST /api/deploy/preflight`
+2. Added safe auto-remediation endpoint:
+   - `POST /api/deploy/remediate`
+3. Added deploy run diagnostics endpoint:
+   - `GET /api/deploy/last_run`
+4. Added guided preflight token gating in `POST /api/deploy/run` to prevent unsafe launch from invalid state.
+
+### Validation and mapping bridges
+
+1. Added required-binding inference/reporting for typed instances.
+2. Added generated debug artifact:
+   - `generated/bindings.report.yaml`
+3. Added richer firmware workflow result model fields:
+   - `selected_service_refs`
+   - `attempt_matrix`
+   - `manual_fallback_reason`
+   - `next_steps`
+
+### Metadata/version alignment
+
+1. Updated add-on and Docker build metadata to `0.25.2`.
+2. Updated install template defaults to `app_release_version: v0.25.2`.
 
 ## v0.25.1 Guided UX + Onboarding Recovery
 

@@ -107,7 +107,7 @@
             <label>Friendly Name <input id="device_friendly_name" value="LilyGO T-Deck Plus" /></label>
             <label>Git Ref <input id="git_ref" value="stable" /></label>
             <label>Git URL <input id="git_url" placeholder="https://github.com/owner/repository.git" /></label>
-            <label>App Release Version <input id="app_release_version" value="v0.25.0" /></label>
+            <label>App Release Version <input id="app_release_version" value="v0.25.2" /></label>
             <label>Onboarding Preset
               <select id="onboarding_preset_select">
                 <option value="blank" selected>Blank (safe start)</option>
@@ -133,8 +133,17 @@ Start New is safest for a clean reflash. Import Existing scans Home Assistant an
             <div class="actions">
               <button id="onboarding_verify_btn" class="btn-soft">Verify Candidate</button>
             </div>
+            <label>Probe Entity ID <input id="onboarding_probe_entity" placeholder="sensor.lilygo_tdeck_plus_app_version" /></label>
+            <label>Probe Host/IP or Node Name <input id="onboarding_probe_host" placeholder="192.168.1.50 or lilygo-tdeck-plus" /></label>
+            <div class="actions">
+              <button id="onboarding_probe_entity_btn" class="btn-soft">Probe Entity</button>
+              <button id="onboarding_probe_host_btn" class="btn-soft">Probe Host</button>
+              <button id="onboarding_modes_refresh_btn" class="btn-soft">Refresh Provisioning Modes</button>
+            </div>
             <div id="onboarding_status_lbl" class="mono compact">Use Start New for clean flash, or Import Existing to migrate an existing ESPHome node.</div>
             <div id="onboarding_verify_meta" class="mono compact">Verification not run yet.</div>
+            <div id="onboarding_probe_meta" class="mono compact">Probe not run yet.</div>
+            <div id="onboarding_modes_meta" class="mono compact">Provisioning modes pending.</div>
           </div>
           <div class="card">
             <h3>Detected Existing Nodes</h3>
@@ -409,11 +418,15 @@ Add the entities you want on-device. This is the canonical model used for genera
               <tbody id="deploy_preflight_body"></tbody>
             </table>
             <div class="actions">
+              <button id="deploy_preflight_btn" class="btn-soft">Run Preflight</button>
+              <button id="deploy_remediate_btn" class="btn-soft">Auto-Remediate</button>
               <button id="profile_validate_btn" class="btn-soft">Validate Workspace</button>
               <button id="apply_preview_btn" class="btn-soft">Preview Apply</button>
               <button id="apply_commit_btn">Apply to Managed Files</button>
               <button id="guided_deploy_btn">Validate + Apply + Auto Deploy</button>
+              <button id="deploy_last_run_btn" class="btn-soft">Last Deploy Run</button>
             </div>
+            <div id="deploy_last_run_meta" class="mono compact">No deploy run recorded yet.</div>
             <textarea id="validation_out" rows="10" spellcheck="false"></textarea>
             <textarea id="apply_preview_install_diff" rows="10" spellcheck="false"></textarea>
             <textarea id="apply_preview_overrides_diff" rows="10" spellcheck="false"></textarea>

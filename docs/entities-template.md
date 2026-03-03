@@ -13,7 +13,7 @@ Use `esphome/install/entity-overrides.template.yaml` as the baseline for local s
 ```yaml
 substitutions:
   app_release_channel: "stable"
-  app_release_version: "v0.25.0"
+  app_release_version: "v0.25.2"
 
   # Weather
   entity_wx_main: "weather.replace_me"

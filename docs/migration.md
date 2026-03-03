@@ -2,9 +2,9 @@
 
 ## Target baseline
 
-- Admin Center `0.25.1`
+- Admin Center `0.25.2`
 - Schema `5.0`
-- App release default `v0.25.0`
+- App release default `v0.25.2`
 
 ## What changed
 
@@ -26,12 +26,13 @@ Compatibility behavior:
 
 ## Recommended migration path
 
-1. Update add-on to `0.25.1`.
+1. Update add-on to `0.25.2`.
 2. Load existing workspace/profile.
 3. Open Guided Step 3 and review typed instances.
-4. Validate profile.
-5. Run deploy with preview + backup.
-6. Confirm on-device behavior.
+4. Run Guided Step 6 `Preflight`.
+5. Use `Auto-Remediate` if preflight suggests supported fixes.
+6. Run deploy with preview + backup.
+7. Confirm on-device behavior.
 
 ## Reflash from scratch path
 
@@ -48,6 +49,7 @@ Compatibility behavior:
 4. Validate + deploy.
 
 If auto-detection misses your node, use manual fallback in Step 1 with device slug or firmware update entity ID.
+You can also use `Probe Entity` and `Probe Host` to bootstrap legacy imports.
 
 ## Rollback
 

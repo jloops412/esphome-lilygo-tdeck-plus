@@ -20,9 +20,13 @@ Public ESPHome + LVGL firmware and Home Assistant Admin Center for building and 
 1. Install `T-Deck Admin Center` from this repository in Home Assistant Add-ons.
 2. Open Web UI and use `Guided Mode`.
 3. Step 1 (`Device`): click `Start New T-Deck`.
-4. Step 3 (`Entities`): add typed elements (`Light`, `Switch`, `Climate`, `Weather`, `Camera`, `Cover`, `Lock`, `Fan`, `Media Player`, `Sensor`) using inline suggestions.
-5. In Step 3, set `Device Scope` to `Active Device` for cleaner dropdown results from your selected node.
-5. Step 6 (`Deploy`): run guided deploy.
+4. In Step 1, use `Provisioning Modes` to confirm install path:
+   - ESPHome build+install (preferred)
+   - native update entity
+   - manual USB fallback
+5. Step 3 (`Entities`): add typed elements (`Light`, `Switch`, `Climate`, `Weather`, `Camera`, `Cover`, `Lock`, `Fan`, `Media Player`, `Sensor`) using inline suggestions.
+6. In Step 3, set `Device Scope` to `Active Device` for cleaner dropdown results from your selected node.
+7. Step 6 (`Deploy`): run `Preflight`, use `Auto-Remediate` if suggested, then run guided deploy.
 
 Guided deploy uses a safe transaction:
 
@@ -42,7 +46,8 @@ Guided deploy uses a safe transaction:
 If detection misses your node, use manual fallback fields in Step 1:
 
 - `Manual Device Slug`, or
-- `Manual Entity ID` (for example `update.<slug>_firmware`)
+- `Manual Entity ID` with `Probe Entity` (for example `update.<slug>_firmware`), or
+- `Host/IP` with `Probe Host`
 
 This migrates to managed files without mutating unrelated ESPHome YAML.
 
@@ -124,11 +129,20 @@ Camera UI is optional. Public default keeps cameras off until configured.
 2. Use paged explorer results.
 3. Run `Refresh Discovery Cache` and wait for stage completion.
 
+### Existing node not found in Step 1
+
+1. Use `Probe Entity` with a known entity (for example `update.<slug>_firmware`).
+2. If needed, use `Probe Host` with node host/IP or node name.
+3. Re-run `Scan Existing Nodes` and import the verified candidate.
+
 ### Deploy blocked
 
-1. Run profile validation.
-2. Resolve missing required mappings for enabled features.
-3. Re-run deploy.
+1. Run `Preflight` in Step 6.
+2. Use `Auto-Remediate` for supported fixes:
+   - required mapping inference
+   - feature auto-disable when required mappings are missing
+   - slot/runtime cap fit when within limits
+3. Re-run preflight and then deploy.
 
 ## Documentation
 

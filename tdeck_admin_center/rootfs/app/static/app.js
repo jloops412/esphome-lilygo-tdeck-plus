@@ -38,9 +38,12 @@ const state = {
   dashboardSummary: null,
   cameraAutodetect: null,
   onboardingNodes: [],
+  onboardingGroups: {},
   instanceDeviceScope: "active",
   catalogDetected: [],
   additionalCollection: "weather_metrics",
+  deployPreflight: null,
+  deployLastRun: null,
   startup: {
     startup_state: "booting",
     startup_error_text: "",
@@ -655,7 +658,7 @@ function renderDeviceSelector() {
 function applyProfileBasicsToForm() {
   const p = currentProfile();
   if (!p) return;
-  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.25.0";
+  const defaultVersion = state.contracts?.defaults?.app_release_version || "v0.25.2";
   e("workspace_name").value = state.workspace.workspace_name || "default";
   renderDeviceSelector();
   e("profile_name").value = p.profile_name || `device_${state.activeDeviceIndex + 1}`;
@@ -1056,9 +1059,10 @@ function renderOnboardingCandidates() {
     rows.forEach((row, idx) => {
       const rid = `onb_${idx}`;
       const reasons = Array.isArray(row.reasons) ? row.reasons.slice(0, 4).join(", ") : "";
+      const sourceGroups = Array.isArray(row.source_groups) ? row.source_groups.join(", ") : "";
       const tr = document.createElement("tr");
       tr.innerHTML = `
-        <td>${safeText(row.device_slug || "device")}<br/><small>${safeText(row.friendly_name || "Unknown")}</small></td>
+        <td>${safeText(row.device_slug || "device")}<br/><small>${safeText(row.friendly_name || "Unknown")}</small><br/><small>${safeText(sourceGroups || "heuristic")}</small></td>
         <td>${safeText(String(row.confidence || "low"))} (${safeText(String(row.confidence_score || 0))})</td>
         <td>${safeText(reasons || "n/a")}</td>
         <td class="row-actions">
@@ -1078,8 +1082,12 @@ function renderOnboardingCandidates() {
     });
   }
   if (meta) {
+    const grouped = state.onboardingGroups || {};
+    const groupCounts = Object.keys(grouped)
+      .map((k) => `${k}:${Array.isArray(grouped[k]) ? grouped[k].length : 0}`)
+      .join(" | ");
     meta.textContent = rows.length
-      ? `Detected ${rows.length} candidate node(s). Pick the highest confidence row first.`
+      ? `Detected ${rows.length} candidate node(s). Pick the highest confidence row first.\nSources: ${groupCounts || "n/a"}`
       : "No candidates detected yet.";
   }
 }
@@ -1087,6 +1095,7 @@ function renderOnboardingCandidates() {
 async function refreshOnboardingNodes(force = false) {
   const data = await apiGet(`api/onboarding/candidates${force ? "?refresh=1" : ""}`);
   state.onboardingNodes = Array.isArray(data.nodes) ? data.nodes : [];
+  state.onboardingGroups = data.grouped && typeof data.grouped === "object" ? data.grouped : {};
   renderOnboardingCandidates();
   renderInstanceDeviceScopeOptions();
   const out = e("onboarding_status_lbl");
@@ -1096,6 +1105,7 @@ async function refreshOnboardingNodes(force = false) {
       ? `Detected ${state.onboardingNodes.length} existing node candidate(s).`
       : `No candidates found. Discovery total=${discovery.last_total || 0} error=${discovery.last_error || "none"}`;
   }
+  await refreshProvisioningModes();
 }
 
 async function onboardingStartNew() {
@@ -1103,7 +1113,7 @@ async function onboardingStartNew() {
     workspace_name: e("workspace_name")?.value?.trim() || "default",
     device_name: e("device_name")?.value?.trim() || "lilygo-tdeck-plus",
     friendly_name: e("device_friendly_name")?.value?.trim() || "LilyGO T-Deck Plus",
-    app_release_version: e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0"),
+    app_release_version: e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.2"),
     preset: e("onboarding_preset_select")?.value?.trim() || "blank",
     persist: true,
   };
@@ -1114,6 +1124,16 @@ async function onboardingStartNew() {
   setStatus("Initialized new managed T-Deck workspace");
   const out = e("onboarding_status_lbl");
   if (out) out.textContent = data.message || "Start New completed.";
+  if (data.provisioning_modes) {
+    const modesOut = e("onboarding_modes_meta");
+    if (modesOut) {
+      modesOut.textContent =
+        `Provisioning Mode\n` +
+        `OTA Supported: ${data.provisioning_modes.ota_supported ? "yes" : "no"}\n` +
+        `USB Required: ${data.provisioning_modes.usb_required ? "yes" : "no"}\n` +
+        `Recommended: ${data.provisioning_modes.recommended_method || "--"}`;
+    }
+  }
 }
 
 async function onboardingImportExisting(slugOverride = "") {
@@ -1132,6 +1152,16 @@ async function onboardingImportExisting(slugOverride = "") {
   setStatus("Imported existing ESPHome node into managed workspace");
   const out = e("onboarding_status_lbl");
   if (out) out.textContent = data.message || "Import completed.";
+  if (data.provisioning_modes) {
+    const modesOut = e("onboarding_modes_meta");
+    if (modesOut) {
+      modesOut.textContent =
+        `Provisioning Mode\n` +
+        `OTA Supported: ${data.provisioning_modes.ota_supported ? "yes" : "no"}\n` +
+        `USB Required: ${data.provisioning_modes.usb_required ? "yes" : "no"}\n` +
+        `Recommended: ${data.provisioning_modes.recommended_method || "--"}`;
+    }
+  }
 }
 
 async function onboardingVerifyCandidate() {
@@ -1151,7 +1181,76 @@ async function onboardingVerifyCandidate() {
       `Hints: ${hints.join(" | ") || "none"}\n` +
       `Entities: ${sample.slice(0, 6).join(" | ") || "none"}`;
   }
+  const probe = e("onboarding_probe_meta");
+  if (probe) {
+    const modes = data.provisioning_modes || {};
+    probe.textContent =
+      `Provisioning: ota=${modes.ota_supported ? "yes" : "no"} usb_required=${modes.usb_required ? "yes" : "no"} method=${modes.recommended_method || "--"}\n` +
+      `Import: ${data.recommended_import?.device_slug || node.device_slug || "--"}`;
+  }
   setStatus(`Verified candidate ${node.device_slug || "--"}`);
+}
+
+async function onboardingProbeEntity() {
+  const entityId = e("onboarding_probe_entity")?.value?.trim() || e("onboarding_manual_entity")?.value?.trim() || "";
+  if (!entityId) {
+    setStatus("Enter an entity_id to probe first", true);
+    return;
+  }
+  const data = await apiPost("api/onboarding/probe_entity", { entity_id: entityId, refresh: true });
+  const candidate = data.candidate || {};
+  if (e("onboarding_manual_slug")) e("onboarding_manual_slug").value = candidate.device_slug || "";
+  if (e("onboarding_manual_entity")) e("onboarding_manual_entity").value = entityId;
+  const out = e("onboarding_probe_meta");
+  if (out) {
+    const modes = data.provisioning_modes || {};
+    out.textContent =
+      `Probe Entity: ${entityId}\n` +
+      `Candidate: ${candidate.device_slug || "--"} (${candidate.confidence || "low"} / ${candidate.confidence_score || 0})\n` +
+      `Provisioning: ota=${modes.ota_supported ? "yes" : "no"} usb_required=${modes.usb_required ? "yes" : "no"} method=${modes.recommended_method || "--"}\n` +
+      `Recommendation: import slug ${data.recommended_import?.device_slug || candidate.device_slug || "--"}`;
+  }
+  setStatus(`Entity probe matched ${candidate.device_slug || "--"}`);
+}
+
+async function onboardingProbeHost() {
+  const host = e("onboarding_probe_host")?.value?.trim() || "";
+  if (!host) {
+    setStatus("Enter host or node name to probe first", true);
+    return;
+  }
+  const data = await apiPost("api/onboarding/probe_host", { host, refresh: true });
+  const candidate = data.candidate || {};
+  if (e("onboarding_manual_slug")) e("onboarding_manual_slug").value = candidate.device_slug || "";
+  const out = e("onboarding_probe_meta");
+  if (out) {
+    const modes = data.provisioning_modes || {};
+    const usbSteps = Array.isArray(modes.expected_usb_flow_steps) ? modes.expected_usb_flow_steps.join(" | ") : "";
+    out.textContent =
+      `Probe Host: ${host}\n` +
+      `Candidate: ${candidate.device_slug || "--"} (${candidate.confidence || "low"} / ${candidate.confidence_score || 0})\n` +
+      `Provisioning: ota=${modes.ota_supported ? "yes" : "no"} usb_required=${modes.usb_required ? "yes" : "no"} method=${modes.recommended_method || "--"}\n` +
+      `${usbSteps ? `USB steps: ${usbSteps}` : ""}`;
+  }
+  setStatus(`Host probe matched ${candidate.device_slug || "--"}`);
+}
+
+async function refreshProvisioningModes() {
+  const slug = encodeURIComponent(getDeviceSlug() || e("onboarding_manual_slug")?.value?.trim() || "lilygo-tdeck-plus");
+  const ws = encodeURIComponent(state.workspace?.workspace_name || "default");
+  const data = await apiGet(`api/onboarding/provisioning_modes?workspace=${ws}&device_slug=${slug}`);
+  const out = e("onboarding_modes_meta");
+  if (out) {
+    const caps = data.capabilities || {};
+    out.textContent =
+      `Provisioning Mode\n` +
+      `OTA Supported: ${data.ota_supported ? "yes" : "no"}\n` +
+      `ESPHome Services: ${data.esphome_services_available ? "yes" : "no"}\n` +
+      `Native Update: ${data.native_update_available ? "yes" : "no"}\n` +
+      `USB Required: ${data.usb_required ? "yes" : "no"}\n` +
+      `Recommended: ${data.recommended_method || "--"}\n` +
+      `Service Error: ${caps.services_last_error || "--"}`;
+  }
 }
 
 async function onboardingMigrateManaged() {
@@ -2097,31 +2196,38 @@ function renderDeployPreflight(validation = null, caps = null) {
   const body = e("deploy_preflight_body");
   const meta = e("deploy_preflight_meta");
   if (!body) return;
+  const incomingChecks = Array.isArray(validation?.checks) ? validation.checks : null;
   const p = currentProfile();
-  const fw = caps || state.firmwareStatus?.capabilities || {};
-  const val = validation || null;
-  const checks = [
-    {
-      name: "Device selected",
-      ok: !!getDeviceSlug(),
-      detail: getDeviceSlug() || "No active device.",
-    },
-    {
-      name: "Typed elements configured",
-      ok: Array.isArray(p?.entity_instances) && p.entity_instances.filter((x) => asBool(x.enabled, true)).length > 0,
-      detail: `${Array.isArray(p?.entity_instances) ? p.entity_instances.length : 0} total elements`,
-    },
-    {
-      name: "Validation",
-      ok: val ? asBool(val.ok, false) : null,
-      detail: val ? `${(val.errors || []).length} errors, ${(val.warnings || []).length} warnings` : "Run Validate Workspace",
-    },
-    {
-      name: "Firmware method",
-      ok: asBool(fw?.has_any_automatic_method, false),
-      detail: fw?.recommended_method || "manual_fallback",
-    },
-  ];
+  const fw = caps || state.firmwareStatus?.capabilities || validation?.firmware_capabilities || {};
+  const val = incomingChecks ? (validation?.validation || null) : (validation || null);
+  const checks = incomingChecks
+    ? incomingChecks.map((row) => ({
+        name: row.name || row.id || "check",
+        ok: row.status === "pass" ? true : row.status === "warn" ? null : false,
+        detail: row.detail || "",
+      }))
+    : [
+        {
+          name: "Device selected",
+          ok: !!getDeviceSlug(),
+          detail: getDeviceSlug() || "No active device.",
+        },
+        {
+          name: "Typed elements configured",
+          ok: Array.isArray(p?.entity_instances) && p.entity_instances.filter((x) => asBool(x.enabled, true)).length > 0,
+          detail: `${Array.isArray(p?.entity_instances) ? p.entity_instances.length : 0} total elements`,
+        },
+        {
+          name: "Validation",
+          ok: val ? asBool(val.ok, false) : null,
+          detail: val ? `${(val.errors || []).length} errors, ${(val.warnings || []).length} warnings` : "Run Validate Workspace",
+        },
+        {
+          name: "Firmware method",
+          ok: asBool(fw?.has_any_automatic_method, false),
+          detail: fw?.recommended_method || "manual_fallback",
+        },
+      ];
   body.innerHTML = "";
   checks.forEach((row) => {
     const tr = document.createElement("tr");
@@ -2134,6 +2240,9 @@ function renderDeployPreflight(validation = null, caps = null) {
     const failed = checks.filter((x) => x.ok === false).length;
     if (!failed) meta.textContent = "Preflight ready. You can run Backup + Deploy Firmware.";
     else meta.textContent = `Preflight has ${failed} blocking item(s). Resolve failures before deploy.`;
+    if (validation?.preflight_token) {
+      meta.textContent += ` Token ready (${validation.preflight_token_expires_in_s || 0}s).`;
+    }
     meta.classList.remove("status-ok", "status-warn", "status-error");
     meta.classList.add(failed ? "status-error" : "status-ok");
   }
@@ -2360,6 +2469,14 @@ function syncProfileToForm() {
   renderLayoutSections();
   syncUpdateDefaultsFromProfile();
   renderDeployPreflight();
+  refreshProvisioningModes().catch((err) => {
+    const node = e("onboarding_modes_meta");
+    if (node) node.textContent = `Provisioning modes error: ${err.message}`;
+  });
+  refreshDeployLastRun().catch((err) => {
+    const node = e("deploy_last_run_meta");
+    if (node) node.textContent = `Last deploy run error: ${err.message}`;
+  });
   refreshNewInstanceSuggestions().catch(() => {});
   refreshFirmwareStatus().catch((err) => {
     const node = e("firmware_update_result");
@@ -2378,7 +2495,7 @@ function updateProfileFromTopFields() {
   const defaultGitUrl = state.contracts?.defaults?.git_url || state.contracts?.defaults?.repo_url || "https://github.com/owner/repository.git";
   p.device.git_url = e("git_url").value.trim() || defaultGitUrl;
   p.settings.app_release_channel = "stable";
-  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0");
+  p.settings.app_release_version = e("app_release_version").value.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.2");
   p.settings.onboarding_preset = e("onboarding_preset_select")?.value?.trim() || p.settings.onboarding_preset || "blank";
   ensureCollections(p);
   if (e("lights_max")) p.entity_collections.limits.lights_max = Number(e("lights_max").value || "24");
@@ -2777,6 +2894,7 @@ async function refreshRuntimeDiagnostics() {
     `Selected device: ${data.selected_device_slug || "--"}`,
     `Last action: ${data.runtime_state?.last_firmware_action?.status || "--"}`,
     `Last error: ${data.runtime_state?.last_firmware_action?.error || "--"}`,
+    `Last deploy: ${data.runtime_state?.last_deploy_run?.status || data.runtime_state?.last_deploy_run?.ok || "--"}`,
     `Discovery cache stale: ${data.discovery_cache?.stale ? "yes" : "no"}`,
     `Discovery rows: ${data.discovery_cache?.last_total || data.discovery_cache?.rows || 0}`,
   ];
@@ -2786,16 +2904,17 @@ async function refreshRuntimeDiagnostics() {
 function firmwareStatusQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.2"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
-  return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
+  const legacyImported = p?.settings?.installed_version_status === "legacy_unknown" ? "1" : "0";
+  return `api/firmware/status?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}&legacy_imported=${legacyImported}`;
 }
 
 function firmwareCapabilitiesQuery() {
   const p = currentProfile();
   const slug = getDeviceSlug();
-  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.0"));
+  const targetVersion = encodeURIComponent(p?.settings?.app_release_version || (state.contracts?.defaults?.app_release_version || "v0.25.2"));
   const nativeEntity = encodeURIComponent((p?.settings?.ha_native_firmware_entity || "").trim());
   const appVersionEntity = encodeURIComponent((p?.settings?.ha_app_version_entity || "").trim());
   return `api/firmware/capabilities?device_slug=${encodeURIComponent(slug)}&target_version=${targetVersion}&native_firmware_entity=${nativeEntity}&app_version_entity=${appVersionEntity}`;
@@ -2822,7 +2941,7 @@ async function refreshFirmwareStatus() {
   e("firmware_status_summary").textContent = lines.join("\n");
 
   const banner = e("firmware_pending_banner");
-  if (data.status_text === "unknown_legacy") {
+  if (data.status_text === "unknown_legacy" || data.status_text === "unknown_legacy_imported") {
     banner.textContent = "Firmware version is unknown (legacy install). Use Backup + Build/Install or Backup + Install to bring this device under managed updates.";
     banner.style.color = "#ffd38a";
   } else if (data.firmware_pending) {
@@ -2860,7 +2979,7 @@ async function triggerFirmwareWorkflow(mode = "auto", backupFirst = true, skipCo
   body.mode = mode;
   body.native_firmware_entity = e("ha_native_firmware_entity")?.value?.trim() || "";
   body.app_version_entity = e("ha_installed_version_entity")?.value?.trim() || "";
-  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.0");
+  body.target_version = e("app_release_version")?.value?.trim() || (state.contracts?.defaults?.app_release_version || "v0.25.2");
 
   const data = await apiPost("api/firmware/workflow", body);
   const attempted = Array.isArray(data.actions_attempted) ? data.actions_attempted : [];
@@ -2999,6 +3118,7 @@ async function previewApply() {
   e("apply_preview_install_diff").value = preview.install?.diff || "No install changes";
   e("apply_preview_overrides_diff").value = preview.overrides?.diff || "No overrides changes";
   const generatedDiff = [
+    preview.generated?.bindings_report?.diff || "No generated bindings report changes",
     preview.generated?.entities?.diff || "No generated entities changes",
     preview.generated?.theme?.diff || "No generated theme changes",
     preview.generated?.layout?.diff || "No generated layout changes",
@@ -3146,17 +3266,82 @@ async function validateProfile() {
   return data;
 }
 
+async function runDeployPreflight() {
+  const body = profilePayload();
+  body.guided_mode = true;
+  const data = await apiPost("api/deploy/preflight", body);
+  state.deployPreflight = data;
+  renderDeployPreflight(data, data.firmware_capabilities || state.firmwareStatus?.capabilities || null);
+  const required = data.validation?.required_bindings || [];
+  const unresolved = required.filter((x) => !asBool(x.resolved, false));
+  const lines = [
+    `Preflight OK: ${data.ok}`,
+    `Device: ${data.device_slug || "--"}`,
+    `Checks: ${(data.checks || []).length}`,
+    `Required bindings unresolved: ${unresolved.length}`,
+    ...(unresolved.slice(0, 12).map((x) => `- [${x.feature}] ${x.key} (suggested: ${x.suggested_value || "--"})`)),
+    `Validation errors: ${(data.validation?.errors || []).length}`,
+    ...(data.validation?.errors || []).map((x) => `- ${x}`),
+    `Validation warnings: ${(data.validation?.warnings || []).length}`,
+    ...(data.validation?.warnings || []).map((x) => `- ${x}`),
+  ];
+  e("validation_out").textContent = lines.join("\n");
+  setStatus(data.ok ? "Deploy preflight passed" : "Deploy preflight found blocking issues", !data.ok);
+  return data;
+}
+
+async function runDeployRemediate(actions = []) {
+  const body = profilePayload();
+  body.actions = Array.isArray(actions) && actions.length ? actions : undefined;
+  body.persist = true;
+  const data = await apiPost("api/deploy/remediate", body);
+  state.workspace = ensureWorkspace(data.workspace || state.workspace, state.contracts.defaults || {});
+  state.activeDeviceIndex = Number(data.active_device_index || state.workspace.active_device_index || 0);
+  syncProfileToForm();
+  const pre = data.preflight || {};
+  state.deployPreflight = pre;
+  renderDeployPreflight(pre, pre.firmware_capabilities || state.firmwareStatus?.capabilities || null);
+  const applied = Array.isArray(data.remediation?.applied) ? data.remediation.applied : [];
+  setStatus(applied.length ? `Applied remediation: ${applied.join(", ")}` : "No remediation actions were applied");
+  return data;
+}
+
+async function refreshDeployLastRun() {
+  const data = await apiGet("api/deploy/last_run");
+  state.deployLastRun = data.last_run || {};
+  const node = e("deploy_last_run_meta");
+  if (!node) return;
+  const row = state.deployLastRun || {};
+  node.textContent =
+    `Last Run: ${row.timestamp || "--"}\n` +
+    `Device: ${row.device_slug || "--"}\n` +
+    `Result: ${row.ok ? "ok" : "error"}\n` +
+    `Validation: ${row.validation_ok ? "ok" : "fail"}\n` +
+    `Firmware: ${row.firmware_method || "--"} (${row.firmware_ok ? "ok" : "n/a"})\n` +
+    `Error: ${row.error || "--"}`;
+}
+
 async function guidedDeploy() {
   setStatus("Running guided deploy pipeline...");
-  const validation = await validateProfile();
-  if (!validation.ok) {
-    setStatus("Guided deploy stopped: validation has errors", true);
+  let preflight = await runDeployPreflight();
+  if (!preflight.ok) {
+    const suggested = Array.isArray(preflight.remediation_actions) ? preflight.remediation_actions.map((x) => x.id).filter(Boolean) : [];
+    if (suggested.length) {
+      await runDeployRemediate(suggested);
+      preflight = await runDeployPreflight();
+    }
+  }
+  if (!preflight.ok || !preflight.preflight_token) {
+    setStatus("Guided deploy stopped: preflight still has blocking issues", true);
     setGuidedStep(5);
     return;
   }
   const body = profilePayload();
   body.require_confirm = false;
   body.confirmed = true;
+  body.guided_mode = true;
+  body.require_preflight_token = true;
+  body.preflight_token = preflight.preflight_token;
   body.run_firmware = true;
   body.firmware_mode = "auto";
   const data = await apiPost("api/deploy/run", body);
@@ -3164,9 +3349,11 @@ async function guidedDeploy() {
     const reason = data.error || data.firmware?.error || "deploy_failed";
     throw new Error(reason);
   }
-  e("apply_preview_install_diff").textContent = data.preview?.install?.diff || "No install diff.";
-  e("apply_preview_overrides_diff").textContent = data.preview?.overrides?.diff || "No overrides diff.";
-  e("apply_preview_generated_diff").textContent = [
+  e("apply_preview_install_diff").value = data.preview?.install?.diff || "No install diff.";
+  e("apply_preview_overrides_diff").value = data.preview?.overrides?.diff || "No overrides diff.";
+  e("apply_preview_generated_diff").value = [
+    data.preview?.generated?.bindings_report?.diff || "No generated bindings report diff.",
+    "",
     data.preview?.generated?.entities?.diff || "No generated entities diff.",
     "",
     data.preview?.generated?.theme?.diff || "No generated theme diff.",
@@ -3176,7 +3363,8 @@ async function guidedDeploy() {
   await generate();
   await refreshBackups();
   await refreshFirmwareStatus();
-  renderDeployPreflight(validation, state.firmwareStatus?.capabilities || null);
+  await refreshDeployLastRun();
+  renderDeployPreflight(preflight, state.firmwareStatus?.capabilities || null);
   setStatus("Guided deploy completed");
 }
 
@@ -3229,6 +3417,15 @@ function bindProfileEvents() {
   e("onboarding_verify_btn")?.addEventListener("click", () => {
     onboardingVerifyCandidate().catch((err) => setStatus(`Verify failed: ${err.message}`, true));
   });
+  e("onboarding_probe_entity_btn")?.addEventListener("click", () => {
+    onboardingProbeEntity().catch((err) => setStatus(`Probe entity failed: ${err.message}`, true));
+  });
+  e("onboarding_probe_host_btn")?.addEventListener("click", () => {
+    onboardingProbeHost().catch((err) => setStatus(`Probe host failed: ${err.message}`, true));
+  });
+  e("onboarding_modes_refresh_btn")?.addEventListener("click", () => {
+    refreshProvisioningModes().catch((err) => setStatus(`Provisioning mode refresh failed: ${err.message}`, true));
+  });
   e("onboarding_migrate_btn")?.addEventListener("click", () => {
     onboardingMigrateManaged().catch((err) => setStatus(`Migrate failed: ${err.message}`, true));
   });
@@ -3269,6 +3466,18 @@ function bindProfileEvents() {
   e("profile_delete_btn")?.addEventListener("click", deleteSelectedProfile);
   e("profile_rename_btn")?.addEventListener("click", renameSelectedProfile);
   e("profile_validate_btn")?.addEventListener("click", validateProfile);
+  e("deploy_preflight_btn")?.addEventListener("click", () => {
+    runDeployPreflight().catch((err) => setStatus(`Preflight failed: ${err.message}`, true));
+  });
+  e("deploy_remediate_btn")?.addEventListener("click", () => {
+    const actions = Array.isArray(state.deployPreflight?.remediation_actions)
+      ? state.deployPreflight.remediation_actions.map((x) => x.id).filter(Boolean)
+      : [];
+    runDeployRemediate(actions).catch((err) => setStatus(`Remediate failed: ${err.message}`, true));
+  });
+  e("deploy_last_run_btn")?.addEventListener("click", () => {
+    refreshDeployLastRun().catch((err) => setStatus(`Last deploy run failed: ${err.message}`, true));
+  });
 
   e("generate_btn")?.addEventListener("click", generate);
   e("apply_preview_btn")?.addEventListener("click", previewApply);
